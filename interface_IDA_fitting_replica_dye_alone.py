@@ -6,6 +6,8 @@ from scipy.stats import linregress, ttest_1samp, t
 from datetime import datetime
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
+from pltstyle import create_plots
 
 # Function to calculate the 95% prediction interval upper and lower bounds
 def prediction_interval(data, avg_value):
@@ -76,7 +78,6 @@ def split_replicas(data):
         return None
 
     return replicas
-
 # Perform linear fit for each replica and collect results
 def fit_replicas(replicas):
     slopes = []
@@ -154,25 +155,29 @@ def perform_fitting(base_dir, input_file_name, output_file_name):
     I0_upper_bound = round_to_sigfigs(I0_upper_bound)
     I0_stdev = round_to_sigfigs(I0_stdev)
 
-    plt.figure(figsize=(10, 7))
+
+    fig, ax = create_plots()
+    
+    def scientific_notation(val, pos=0):
+        return f'{val:.2e}'.replace('e', r'\cdot 10^{') + '}'
+    formatter = FuncFormatter(scientific_notation)
+
     for i, replica in enumerate(replicas):
         x_values = replica[:, 0]
         y_values = replica[:, 1]
         slope, intercept = fit_results[i]
-        plt.plot(x_values, y_values, 'o', label=f'Replica {i+1} Data')
+        ax.plot(x_values, y_values, 'o', label=f'Replica {i+1} Data')
         y_fit = slope * x_values + intercept
-        plt.plot(x_values, y_fit, '-', label=f'Fit {i+1}: y = {slope:.3e}x + {intercept:.3e}')
+        ax.plot(x_values, y_fit, '-', label=f'Fit {i+1}: $Y = {formatter(slope)}X + {formatter(intercept)}$')
 
     x_fit = np.linspace(0, max(np.array([replica[:, 0] for replica in replicas]).flatten()), 100)
     y_fit = avg_slope * x_fit + avg_intercept
-    plt.plot(x_fit, y_fit, '--', color='orange', linewidth=2, label=f'Average Fit: y = {avg_slope:.3e}x + {avg_intercept:.3e}')
-    plt.xlabel('Concentration')
-    plt.ylabel('Signal')
-    plt.title('Linear Fit of Signal vs. Concentration for Multiple Replicas')
+    ax.plot(x_fit, y_fit, '--', color='orange', linewidth=2, label=rf'Average Fit: $Y = {formatter(avg_slope)}X + {formatter(avg_intercept)}$')
+    ax.set_title('Linear Fit of Signal vs. Concentration for Multiple Replicas')
     plt.legend()
-    plt.grid(True)
     plt.show()
 
+    
     total_replicas = len(fit_results)
     retained_replicas_count = len(retained_indices)
     print(f"{retained_replicas_count} out of {total_replicas} replicas were retained.")
@@ -192,7 +197,7 @@ def perform_fitting(base_dir, input_file_name, output_file_name):
     print(f"Results saved to {output_file_path}")
 
 # Tkinter UI
-class FittingApp:
+class DyeAloneFittingApp:
     def __init__(self, root):
         self.root = root
         self.root.title("IDA Fitting Replica Dye Alone")
@@ -200,7 +205,11 @@ class FittingApp:
         self.base_dir = tk.StringVar()
         self.input_file_name = tk.StringVar()
         self.output_file_name = tk.StringVar()
-
+        
+        self.input_file_name.set("/Users/ahmadomira/Downloads/interface_test/merged_dye alone.txt")
+        self.output_file_name.set("test.txt")
+        self.base_dir.set(os.path.dirname(self.input_file_name.get()))
+        
         tk.Label(root, text="Input File Name:").grid(row=0, column=0, sticky=tk.W)
         tk.Entry(root, textvariable=self.input_file_name, width=50).grid(row=0, column=1)
         tk.Button(root, text="Browse", command=self.browse_input_file).grid(row=0, column=2)
@@ -216,6 +225,10 @@ class FittingApp:
             self.input_file_name.set(os.path.basename(file_path))
             self.base_dir.set(os.path.dirname(file_path))
 
+    def show_info(self, message):
+        info_label = tk.Label(self.root, text=message)
+        info_label.grid(row=3, column=0, columnspan=3, pady=10)
+            
     def run_fitting(self):
         base_dir = self.base_dir.get()
         input_file_name = self.input_file_name.get()
@@ -227,10 +240,12 @@ class FittingApp:
 
         try:
             perform_fitting(base_dir, input_file_name, output_file_name)
+            result_text = f"Results saved to {os.path.join(base_dir, output_file_name)}"
+            self.show_info(result_text)
         except Exception as e:
-            messagebox.showerror("Error", str(e))
-
+            self.show_info(f"Error: {str(e)}")
+            
 if __name__ == "__main__":
     root = tk.Tk()
-    app = FittingApp(root)
+    app = DyeAloneFittingApp(root)
     root.mainloop()
