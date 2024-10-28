@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 font_size = 11
 plt.rcParams.update({
-    'figure.figsize': (10, 7),
-    'figure.dpi': 150,
+    'figure.figsize': (8, 6),
+    'figure.dpi': 120,
     'figure.titlesize': font_size,
     'figure.titleweight': 'bold',
     'figure.autolayout': True,
