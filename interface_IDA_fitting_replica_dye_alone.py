@@ -120,6 +120,8 @@ def round_to_sigfigs(value, sigfigs=4):
 def perform_fitting(base_dir, input_file_name, output_file_name):
     file_path = os.path.join(base_dir, input_file_name)
     output_file_path = os.path.join(base_dir, output_file_name)
+    if not output_file_path.endswith(".txt"):
+        output_file_path += ".txt"
 
     data_lines = load_data(file_path)
     if data_lines is None or len(data_lines) == 0:
@@ -199,23 +201,14 @@ class FittingApp:
         self.input_file_name = tk.StringVar()
         self.output_file_name = tk.StringVar()
 
-        tk.Label(root, text="Base Directory:").grid(row=0, column=0, sticky=tk.W)
-        tk.Entry(root, textvariable=self.base_dir, width=50).grid(row=0, column=1)
-        tk.Button(root, text="Browse", command=self.browse_base_dir).grid(row=0, column=2)
+        tk.Label(root, text="Input File Name:").grid(row=0, column=0, sticky=tk.W)
+        tk.Entry(root, textvariable=self.input_file_name, width=50).grid(row=0, column=1)
+        tk.Button(root, text="Browse", command=self.browse_input_file).grid(row=0, column=2)
 
-        tk.Label(root, text="Input File Name:").grid(row=1, column=0, sticky=tk.W)
-        tk.Entry(root, textvariable=self.input_file_name, width=50).grid(row=1, column=1)
-        tk.Button(root, text="Browse", command=self.browse_input_file).grid(row=1, column=2)
+        tk.Label(root, text="Output File Name:").grid(row=1, column=0, sticky=tk.W)
+        tk.Entry(root, textvariable=self.output_file_name, width=50).grid(row=1, column=1)
 
-        tk.Label(root, text="Output File Name:").grid(row=2, column=0, sticky=tk.W)
-        tk.Entry(root, textvariable=self.output_file_name, width=50).grid(row=2, column=1)
-
-        tk.Button(root, text="Run Fitting", command=self.run_fitting).grid(row=3, column=1, pady=10)
-
-    def browse_base_dir(self):
-        directory = filedialog.askdirectory()
-        if directory:
-            self.base_dir.set(directory)
+        tk.Button(root, text="Run Fitting", command=self.run_fitting).grid(row=2, column=1, pady=10)
 
     def browse_input_file(self):
         file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
