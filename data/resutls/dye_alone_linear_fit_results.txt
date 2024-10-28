@@ -1,0 +1,15 @@
+Linear Fit Results
+Average Id	2.288e+08
+Id prediction interval (95%) at least 25% above and below average value: [1.694e+08, 2.883e+08]
+Id Stdev: 1.671e+07
+Average I0	1.517e+03
+I0 prediction interval (95%) at least 25% above and below average value: [1138, 1896]
+I0 Stdev: 41.58
+
+Retained Individual Fits:
+Replica 1	Id: 2.039e+08	I0: 1.552e+03
+Replica 2	Id: 2.351e+08	I0: 1.519e+03
+Replica 3	Id: 2.377e+08	I0: 1.538e+03
+Replica 4	Id: 2.387e+08	I0: 1.458e+03
+
+Date of Export: 2024-10-28 18:52:28
