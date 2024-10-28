@@ -1,6 +1,6 @@
 # Meta Data
 
-## DBA System Information
+## DBA System Information (host-to-dye)
 The concentration in the file is in Molar \
 $[D_0]$ = 151 µM \
 $[H_0]$ = 840 µM \
