@@ -5,13 +5,13 @@ from scipy.optimize import brentq, minimize
 import pandas as pd
 from datetime import datetime
 import os
-
 import matplotlib.pyplot as plt
 
 from pltstyle import create_plots
 
+
 # Function to run the fitting process
-def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, results_dir):
+def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
     try:
         # Load data from input file
         data_lines = load_data(file_path)
@@ -161,11 +161,76 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
                 ha='left', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
 
             if save_plots:
-                plot_file = os.path.join(results_dir, f"fit_plot_replica_{replica_index}.png")
+                plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")
                 fig.savefig(plot_file, bbox_inches='tight')
                 print(f"Plot saved to {plot_file}")
 
             figures.append(fig)  # Store the figure
+
+            # Save results to a file if save_results is True
+            if save_results:
+                replica_file = os.path.join(results_save_dir, f"fit_results_replica_{replica_index}.txt")
+                with open(replica_file, 'w') as f:
+                    # Input section
+                    f.write("Input:\n")
+                    f.write(f"g0 (M): {g0_in_M:.6e}\n")
+                    f.write(f"h0 (M): {h0_in_M:.6e}\n")
+                    f.write(f"Kd (M^-1): {Kd_in_M:.6e}\n")
+                    f.write(f"Id lower bound (signal/M): {Id_lower * 1e6:.3e}\n")
+                    f.write(f"Id upper bound (signal/M): {Id_upper * 1e6:.3e}\n")
+                    f.write(f"I0 lower bound: {I0_lower:.3e}\n")
+                    f.write(f"I0 upper bound: {I0_upper:.3e}\n")
+                
+                    # Output - Median parameters
+                    f.write("\nOutput:\nMedian parameters:\n")
+                    f.write(f"Kg (M^-1): {median_params[1] * 1e6:.2e}\n")
+                    f.write(f"I0: {median_params[0]:.2e}\n")
+                    f.write(f"Id (signal/M): {median_params[2] * 1e6:.2e}\n")
+                    f.write(f"Ihd (signal/M): {median_params[3] * 1e6:.2e}\n")
+                    f.write(f"RMSE: {rmse:.3f}\n")
+                    f.write(f"R²: {r_squared:.3f}\n")
+                
+                    # Acceptable Fit Parameters
+                    f.write("\nAcceptable Fit Parameters:\n")
+                    f.write("Kg (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
+                    for params, fit_rmse, fit_r2 in filtered_results:
+                        f.write(f"{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n")
+                
+                    # Calculate standard deviations for Kg, I0, Id, and Ihd if there are filtered results
+                    if filtered_results:
+                        Kg_values = [params[1] * 1e6 for params, _, _ in filtered_results]
+                        I0_values = [params[0] for params, _, _ in filtered_results]
+                        Id_values = [params[2] * 1e6 for params, _, _ in filtered_results]
+                        Ihd_values = [params[3] * 1e6 for params, _, _ in filtered_results]
+                
+                        Kg_std = np.std(Kg_values)
+                        I0_std = np.std(I0_values)
+                        Id_std = np.std(Id_values)
+                        Ihd_std = np.std(Ihd_values)
+                    else:
+                        Kg_std = I0_std = Id_std = Ihd_std = np.nan  # Assign NaN if no filtered results
+                
+                    # Standard Deviations section
+                    f.write("\nStandard Deviations:\n")
+                    f.write(f"Kg Std Dev (M^-1): {Kg_std:.2e}\n")  
+                    f.write(f"I0 Std Dev: {I0_std:.2e}\n")
+                    f.write(f"Id Std Dev (signal/M): {Id_std:.2e}\n")
+                    f.write(f"Ihd Std Dev (signal/M): {Ihd_std:.2e}\n")
+                    
+                    # Original Data section
+                    f.write("\nOriginal Data:\nConcentration do (M)\tSignal\n")
+                    for d0, signal in zip(d0_values / 1e6, Signal_observed):  
+                        f.write(f"{d0:.6e}\t{signal:.6e}\n")
+                    
+                    # Fitting Curve section
+                    f.write("\nFitting Curve:\n")
+                    f.write("Simulated Concentration (M)\tSimulated Signal\n")
+                    for x_sim, y_sim in zip(np.array(fitting_curve_x) / 1e6, fitting_curve_y):
+                        f.write(f"{x_sim:.6e}\t{y_sim:.6e}\n")
+                    
+                    # Date of Export
+                    f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    print(f"Results for Replica {replica_index} saved to {replica_file}")
 
         # Display all figures at once if display_plots is True
         if display_plots:
@@ -266,10 +331,13 @@ class GDAFittingApp:
         self.save_plots_var = tk.BooleanVar()
         self.results_dir_var = tk.StringVar()
         self.display_plots_var = tk.BooleanVar()
+        self.save_results_var = tk.BooleanVar()  # New variable for saving results
+        self.results_save_dir_var = tk.StringVar()  # New variable for results save directory
         
         # Set default values
         self.file_path_var.set('/Users/ahmadomira/Downloads/interface_test/GDA_system.txt')
         self.results_dir_var.set('/Users/ahmadomira/Downloads/interface_test/untitled folder')
+        self.results_save_dir_var.set('/Users/ahmadomira/Downloads/interface_test/untitled folder')
         self.Kd_var.set(1.68e7)  # Binding constant for h_d binding in M^-1
         self.h0_var.set(4.3e-6)  # Initial host concentration (M)
         self.g0_var.set(6e-6)    # Initial guest concentration (M)
@@ -286,25 +354,24 @@ class GDAFittingApp:
         tk.Label(self.root, text="Input File Path:").grid(row=0, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.file_path_entry = tk.Entry(self.root, textvariable=self.file_path_var, width=40, justify='left')
         self.file_path_entry.grid(row=0, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-        tk.Button(self.root, text="Browse", command=lambda: self.browse_file(self.file_path_var)).grid(row=0, column=2, padx=pad_x, pady=pad_y)
+        tk.Button(self.root, text="Browse", command=self.browse_input_file).grid(row=0, column=2, padx=pad_x, pady=pad_y)
 
         tk.Checkbutton(self.root, text="Read Boundaries from File: ", variable=self.use_results_file_var, command=self.update_use_results_widgets).grid(row=1, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.results_file_path_entry = tk.Entry(self.root, textvariable=self.results_file_path_var, width=40, justify='left', state=tk.DISABLED)
         self.results_file_path_entry.grid(row=1, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-        self.results_file_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_file(self.results_file_path_var), state=tk.DISABLED)
+        self.results_file_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_file(self.results_file_path_entry), state=tk.DISABLED)
         self.results_file_button.grid(row=1, column=2, padx=pad_x, pady=pad_y)
-
         self.use_results_file_var.trace_add('write', lambda *args: self.update_use_results_widgets())
 
-        tk.Label(self.root, text="Kd (M^-1):").grid(row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Label(self.root, text=r"Kₐ (M⁻¹):").grid(row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.Kd_entry = tk.Entry(self.root, textvariable=self.Kd_var, justify='left')
         self.Kd_entry.grid(row=3, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-        tk.Label(self.root, text="h0 (M):").grid(row=4, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Label(self.root, text="H₀ (M):").grid(row=4, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.h0_entry = tk.Entry(self.root, textvariable=self.h0_var, justify='left')
         self.h0_entry.grid(row=4, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-        tk.Label(self.root, text="g0 (M):").grid(row=5, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Label(self.root, text="G₀ (M):").grid(row=5, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.g0_entry = tk.Entry(self.root, textvariable=self.g0_var, justify='left')
         self.g0_entry.grid(row=5, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
@@ -323,14 +390,29 @@ class GDAFittingApp:
         tk.Checkbutton(self.root, text="Save Plots To", variable=self.save_plots_var, command=self.update_save_plot_widgets).grid(row=9, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.results_dir_entry = tk.Entry(self.root, textvariable=self.results_dir_var, width=40, state=tk.DISABLED, justify='left')
         self.results_dir_entry.grid(row=9, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-        self.results_dir_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_directory(self.results_dir_var), state=tk.DISABLED)
+        self.results_dir_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_directory(self.results_dir_entry), state=tk.DISABLED)
         self.results_dir_button.grid(row=9, column=2, padx=pad_x, pady=pad_y)
 
         self.save_plots_var.trace_add('write', lambda *args: self.update_save_plot_widgets())
 
-        tk.Checkbutton(self.root, text="Display Plots", variable=self.display_plots_var).grid(row=10, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Checkbutton(self.root, text="Save Results To", variable=self.save_results_var, command=self.update_save_results_widgets).grid(row=10, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.results_save_dir_entry = tk.Entry(self.root, textvariable=self.results_save_dir_var, width=40, state=tk.DISABLED, justify='left')
+        self.results_save_dir_entry.grid(row=10, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.results_save_dir_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_directory(self.results_save_dir_entry), state=tk.DISABLED)
+        self.results_save_dir_button.grid(row=10, column=2, padx=pad_x, pady=pad_y)
 
-        tk.Button(self.root, text="Run Fitting", command=self.run_fitting).grid(row=11, column=0, columnspan=3, pady=10, padx=pad_x)
+        self.save_results_var.trace_add('write', lambda *args: self.update_save_results_widgets())
+
+        tk.Checkbutton(self.root, text="Display Plots", variable=self.display_plots_var).grid(row=11, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Button(self.root, text="Run Fitting", command=self.run_fitting).grid(row=12, column=0, columnspan=3, pady=10, padx=pad_x)
+
+    def browse_input_file(self):
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            self.file_path_var.set(file_path)
+            root_dir = os.path.dirname(file_path)
+            self.results_dir_var.set(root_dir)
+            self.results_save_dir_var.set(root_dir)
 
     def browse_file(self, entry):
         file_path = filedialog.askopenfilename()
@@ -354,6 +436,11 @@ class GDAFittingApp:
         self.results_dir_entry.config(state=state)
         self.results_dir_button.config(state=state)
 
+    def update_save_results_widgets(self):
+        state = tk.NORMAL if self.save_results_var.get() else tk.DISABLED
+        self.results_save_dir_entry.config(state=state)
+        self.results_save_dir_button.config(state=state)
+
     def run_fitting(self):
         # Adjust the run_fitting function to access self variables and implement the fitting logic
         try:
@@ -368,9 +455,11 @@ class GDAFittingApp:
             r2_threshold = self.r2_threshold_var.get()
             save_plots = self.save_plots_var.get()
             display_plots = self.display_plots_var.get()
-            results_dir = self.results_dir_entry.get()
+            plots_dir = self.results_dir_entry.get()
+            save_results = self.save_results_var.get()
+            results_save_dir = self.results_save_dir_entry.get()
 
-            run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, results_dir)
+            run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir)
 
         except Exception as e:
             messagebox.showerror("Error", str(e))
