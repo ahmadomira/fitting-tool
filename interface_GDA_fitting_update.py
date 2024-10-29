@@ -8,21 +8,11 @@ import os
 
 import matplotlib.pyplot as plt
 
-# Function to run the fitting process
-def run_fitting():
-    try:
-        # Get user inputs
-        file_path = file_path_entry.get()
-        results_file_path = results_file_path_entry.get() if use_results_file_var.get() else None
-        Kd_in_M = float(Kd_entry.get())
-        h0_in_M = float(h0_entry.get())
-        g0_in_M = float(g0_entry.get())
-        number_of_fit_trials = int(fit_trials_entry.get())
-        rmse_threshold_factor = float(rmse_threshold_entry.get())
-        r2_threshold = float(r2_threshold_entry.get())
-        save_plots = save_plots_var.get()
-        display_plots = display_plots_var.get()
+from pltstyle import create_plots
 
+# Function to run the fitting process
+def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, results_dir):
+    try:
         # Load data from input file
         data_lines = load_data(file_path)
         if data_lines is None:
@@ -81,6 +71,8 @@ def run_fitting():
         Kd = Kd_in_M / 1e6
         h0 = h0_in_M * 1e6
         g0 = g0_in_M * 1e6
+
+        figures = []  # List to store figures
 
         # Process each replica for fitting
         for replica_index, replica_data in enumerate(replicas, start=1):
@@ -150,33 +142,34 @@ def run_fitting():
                 fitting_curve_x.extend(extra_points)
                 fitting_curve_y.extend(compute_signal(median_params, extra_points, Kd, h0, g0))
 
-            plt.figure(figsize=(8, 6))
-            plt.plot(d0_values, Signal_observed, 'o', label='Observed Signal')
-            plt.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
-            plt.xlabel('d0 (µM)')
-            plt.ylabel('Signal')
-            plt.title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-            plt.legend()
-            plt.grid(True)
+            fig, ax = create_plots(x_label=r'$D_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$')
+
+            ax.plot(d0_values, Signal_observed, 'o', label='Observed Signal')
+            ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
+            ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
+            ax.legend()
 
             # Annotate plot with median parameter values and fit metrics
-            param_text = (f"Kg: {median_params[1] * 1e6:.2e} M^-1\n"
-                          f"I0: {median_params[0]:.2e}\n"
-                          f"Id: {median_params[2] * 1e6:.2e} signal/M\n"
-                          f"Ihd: {median_params[3] * 1e6:.2e} signal/M\n"
-                          f"RMSE: {rmse:.3f}\n"
-                          f"R²: {r_squared:.3f}")
-
-            plt.gca().annotate(param_text, xy=(1.05, 0.5), xycoords='axes fraction', fontsize=10,
-                               bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey"))
+            param_text = (f"$K_g$: {median_params[1] * 1e6:.2e} $M^{-1}$\n"
+                        f"$I_0$: {median_params[0]:.2e}\n"
+                    f"$I_d$: {median_params[2] * 1e6:.2e} signal/M\n"
+                    f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} signal/M\n"
+                    f"RMSE: {rmse:.3f}\n"
+                    f"$R^2$: {r_squared:.3f}")
+            
+            ax.annotate(param_text, xy=(0.76, 0.03), xycoords='axes fraction', fontsize=10,
+                ha='left', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
 
             if save_plots:
-                results_dir = results_dir_entry.get()
                 plot_file = os.path.join(results_dir, f"fit_plot_replica_{replica_index}.png")
-                plt.savefig(plot_file, bbox_inches='tight')
+                fig.savefig(plot_file, bbox_inches='tight')
                 print(f"Plot saved to {plot_file}")
-            if display_plots:
-                plt.show()
+
+            figures.append(fig)  # Store the figure
+
+        # Display all figures at once if display_plots is True
+        if display_plots:
+            plt.show()
 
     except Exception as e:
         messagebox.showerror("Error", str(e))
@@ -255,82 +248,138 @@ def calculate_fit_metrics(Signal_observed, Signal_computed):
     return rmse, r_squared
 
 # Function to browse file
-def browse_file(entry):
-    file_path = filedialog.askopenfilename()
-    if file_path:
-        entry.delete(0, tk.END)
-        entry.insert(0, file_path)
+class GDAFittingApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("GDA Fitting Update Interface")
 
-# Create the main window
-root = tk.Tk()
-root.title("GDA Fitting Update Interface")
+        # Variables
+        self.file_path_var = tk.StringVar()
+        self.use_results_file_var = tk.BooleanVar()
+        self.results_file_path_var = tk.StringVar()
+        self.Kd_var = tk.DoubleVar()
+        self.h0_var = tk.DoubleVar()
+        self.g0_var = tk.DoubleVar()
+        self.fit_trials_var = tk.IntVar()
+        self.rmse_threshold_var = tk.DoubleVar()
+        self.r2_threshold_var = tk.DoubleVar()
+        self.save_plots_var = tk.BooleanVar()
+        self.results_dir_var = tk.StringVar()
+        self.display_plots_var = tk.BooleanVar()
+        
+        # Set default values
+        self.file_path_var.set('/Users/ahmadomira/Downloads/interface_test/GDA_system.txt')
+        self.results_dir_var.set('/Users/ahmadomira/Downloads/interface_test/untitled folder')
+        self.Kd_var.set(1.68e7)  # Binding constant for h_d binding in M^-1
+        self.h0_var.set(4.3e-6)  # Initial host concentration (M)
+        self.g0_var.set(6e-6)    # Initial guest concentration (M)
+        self.fit_trials_var.set(10)  # Number of fit trials
+        self.rmse_threshold_var.set(2)  # RMSE threshold factor
+        self.r2_threshold_var.set(0.9)  # R² threshold
+        self.display_plots_var.set(True)
+        
+        # Padding
+        pad_x = 10
+        pad_y = 5
 
-# Create and place widgets
-pad_x = 10  # Increase padding
-pad_y = 5
+        # Widgets
+        tk.Label(self.root, text="Input File Path:").grid(row=0, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.file_path_entry = tk.Entry(self.root, textvariable=self.file_path_var, width=40, justify='left')
+        self.file_path_entry.grid(row=0, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        tk.Button(self.root, text="Browse", command=lambda: self.browse_file(self.file_path_var)).grid(row=0, column=2, padx=pad_x, pady=pad_y)
 
-tk.Label(root, text="Input File Path:").grid(row=0, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-file_path_entry = tk.Entry(root, width=40, justify='left')
-file_path_entry.grid(row=0, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-tk.Button(root, text="Browse", command=lambda: browse_file(file_path_entry)).grid(row=0, column=2, padx=pad_x, pady=pad_y)
+        tk.Checkbutton(self.root, text="Read Boundaries from File: ", variable=self.use_results_file_var, command=self.update_use_results_widgets).grid(row=1, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.results_file_path_entry = tk.Entry(self.root, textvariable=self.results_file_path_var, width=40, justify='left', state=tk.DISABLED)
+        self.results_file_path_entry.grid(row=1, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.results_file_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_file(self.results_file_path_var), state=tk.DISABLED)
+        self.results_file_button.grid(row=1, column=2, padx=pad_x, pady=pad_y)
 
-use_results_file_var = tk.BooleanVar()
-tk.Checkbutton(root, text="Read Boundaries from File: ", variable=use_results_file_var, command=lambda : update_use_results_widgets()).grid(row=1, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
-results_file_path_entry = tk.Entry(root, width=40, justify='left', state=tk.DISABLED)
-results_file_path_entry.grid(row=1, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-results_file_button = tk.Button(root, text="Browse", command=lambda: browse_file(results_file_path_entry), state=tk.DISABLED)
-results_file_button.grid(row=1, column=2, padx=pad_x, pady=pad_y)
+        self.use_results_file_var.trace_add('write', lambda *args: self.update_use_results_widgets())
 
-def update_use_results_widgets():
-    state = tk.NORMAL if use_results_file_var.get() else tk.DISABLED
-    results_file_path_entry.config(state=state)
-    results_file_button.config(state=state)
-    
-use_results_file_var.trace_add('write', lambda *args: update_use_results_widgets())
+        tk.Label(self.root, text="Kd (M^-1):").grid(row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.Kd_entry = tk.Entry(self.root, textvariable=self.Kd_var, justify='left')
+        self.Kd_entry.grid(row=3, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-tk.Label(root, text="Kd (M^-1):").grid(row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-Kd_entry = tk.Entry(root, justify='left')
-Kd_entry.grid(row=3, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        tk.Label(self.root, text="h0 (M):").grid(row=4, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.h0_entry = tk.Entry(self.root, textvariable=self.h0_var, justify='left')
+        self.h0_entry.grid(row=4, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-tk.Label(root, text="h0 (M):").grid(row=4, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-h0_entry = tk.Entry(root, justify='left')
-h0_entry.grid(row=4, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        tk.Label(self.root, text="g0 (M):").grid(row=5, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.g0_entry = tk.Entry(self.root, textvariable=self.g0_var, justify='left')
+        self.g0_entry.grid(row=5, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-tk.Label(root, text="g0 (M):").grid(row=5, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-g0_entry = tk.Entry(root, justify='left')
-g0_entry.grid(row=5, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        tk.Label(self.root, text="Number of Fit Trials:").grid(row=6, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.fit_trials_entry = tk.Entry(self.root, textvariable=self.fit_trials_var, justify='left')
+        self.fit_trials_entry.grid(row=6, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-tk.Label(root, text="Number of Fit Trials:").grid(row=6, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-fit_trials_entry = tk.Entry(root, justify='left')
-fit_trials_entry.grid(row=6, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        tk.Label(self.root, text="RMSE Threshold Factor:").grid(row=7, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.rmse_threshold_entry = tk.Entry(self.root, textvariable=self.rmse_threshold_var, justify='left')
+        self.rmse_threshold_entry.grid(row=7, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-tk.Label(root, text="RMSE Threshold Factor:").grid(row=7, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-rmse_threshold_entry = tk.Entry(root, justify='left')
-rmse_threshold_entry.grid(row=7, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        tk.Label(self.root, text="R² Threshold:").grid(row=8, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.r2_threshold_entry = tk.Entry(self.root, textvariable=self.r2_threshold_var, justify='left')
+        self.r2_threshold_entry.grid(row=8, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-tk.Label(root, text="R² Threshold:").grid(row=8, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-r2_threshold_entry = tk.Entry(root, justify='left')
-r2_threshold_entry.grid(row=8, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        tk.Checkbutton(self.root, text="Save Plots To", variable=self.save_plots_var, command=self.update_save_plot_widgets).grid(row=9, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.results_dir_entry = tk.Entry(self.root, textvariable=self.results_dir_var, width=40, state=tk.DISABLED, justify='left')
+        self.results_dir_entry.grid(row=9, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.results_dir_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_directory(self.results_dir_var), state=tk.DISABLED)
+        self.results_dir_button.grid(row=9, column=2, padx=pad_x, pady=pad_y)
 
-save_plots_var = tk.BooleanVar()
-tk.Checkbutton(root, text="Save Plots To", variable=save_plots_var, command=lambda: update_save_plot_widgets()).grid(row=9, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.save_plots_var.trace_add('write', lambda *args: self.update_save_plot_widgets())
 
-results_dir_entry = tk.Entry(root, width=40, state=tk.DISABLED, justify='left')
-results_dir_entry.grid(row=9, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-results_dir_button = tk.Button(root, text="Browse", command=lambda: browse_file(results_dir_entry), state=tk.DISABLED)
-results_dir_button.grid(row=9, column=2, padx=pad_x, pady=pad_y)
+        tk.Checkbutton(self.root, text="Display Plots", variable=self.display_plots_var).grid(row=10, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
 
-def update_save_plot_widgets():
-    state = tk.NORMAL if save_plots_var.get() else tk.DISABLED
-    results_dir_entry.config(state=state)
-    results_dir_button.config(state=state)
+        tk.Button(self.root, text="Run Fitting", command=self.run_fitting).grid(row=11, column=0, columnspan=3, pady=10, padx=pad_x)
 
-save_plots_var.trace_add('write', lambda *args: update_save_plot_widgets())
+    def browse_file(self, entry):
+        file_path = filedialog.askopenfilename()
+        if file_path:
+            entry.delete(0, tk.END)
+            entry.insert(0, file_path)
 
-display_plots_var = tk.BooleanVar()
-tk.Checkbutton(root, text="Display Plots", variable=display_plots_var).grid(row=10, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
+    def browse_directory(self, entry):
+        directory_path = filedialog.askdirectory()
+        if directory_path:
+            entry.delete(0, tk.END)
+            entry.insert(0, directory_path)
 
-tk.Button(root, text="Run Fitting", command=run_fitting).grid(row=11, column=0, columnspan=3, pady=10, padx=pad_x)
+    def update_use_results_widgets(self):
+        state = tk.NORMAL if self.use_results_file_var.get() else tk.DISABLED
+        self.results_file_path_entry.config(state=state)
+        self.results_file_button.config(state=state)
 
-# Start the main loop
-root.mainloop()
+    def update_save_plot_widgets(self):
+        state = tk.NORMAL if self.save_plots_var.get() else tk.DISABLED
+        self.results_dir_entry.config(state=state)
+        self.results_dir_button.config(state=state)
+
+    def run_fitting(self):
+        # Adjust the run_fitting function to access self variables and implement the fitting logic
+        try:
+            # Get user inputs
+            file_path = self.file_path_entry.get()
+            results_file_path = self.results_file_path_entry.get() if self.use_results_file_var.get() else None
+            Kd_in_M = self.Kd_var.get()
+            h0_in_M = self.h0_var.get()
+            g0_in_M = self.g0_var.get()
+            number_of_fit_trials = self.fit_trials_var.get()
+            rmse_threshold_factor = self.rmse_threshold_var.get()
+            r2_threshold = self.r2_threshold_var.get()
+            save_plots = self.save_plots_var.get()
+            display_plots = self.display_plots_var.get()
+            results_dir = self.results_dir_entry.get()
+
+            run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, results_dir)
+
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+# Main function to run the GUI
+if __name__ == "__main__":
+    root = tk.Tk()
+    root.title("Automation Project")
+
+    GDAFittingApp(root)
+
+    root.mainloop()
