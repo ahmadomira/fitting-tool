@@ -1,14 +1,19 @@
+# Standard library imports
+import os
+from datetime import datetime
+
+# Third-party imports
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import numpy as np
 from scipy.optimize import brentq, minimize
-import pandas as pd
-from datetime import datetime
-import os
 import matplotlib.pyplot as plt
 
+# Local imports
 from pltstyle import create_plots
 
+def format_value(value):
+    return f"{value:.0f}" if value > 10 else f"{value:.2f}"
 
 # Function to run the fitting process
 def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
@@ -141,23 +146,23 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
                 extra_points = np.linspace(d0_values[i], d0_values[i + 1], 21)
                 fitting_curve_x.extend(extra_points)
                 fitting_curve_y.extend(compute_signal(median_params, extra_points, Kd, h0, g0))
-
+            # TODO: implement a "dynamic" unit and scale for the x-axis
             fig, ax = create_plots(x_label=r'$D_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$')
 
             ax.plot(d0_values, Signal_observed, 'o', label='Observed Signal')
             ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
             ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
             ax.legend()
-
-            # Annotate plot with median parameter values and fit metrics
-            param_text = (f"$K_g$: {median_params[1] * 1e6:.2e} $M^{-1}$\n"
-                        f"$I_0$: {median_params[0]:.2e}\n"
-                    f"$I_d$: {median_params[2] * 1e6:.2e} signal/M\n"
-                    f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} signal/M\n"
-                    f"RMSE: {rmse:.3f}\n"
-                    f"$R^2$: {r_squared:.3f}")
             
-            ax.annotate(param_text, xy=(0.76, 0.03), xycoords='axes fraction', fontsize=10,
+            # Annotate plot with median parameter values and fit metrics
+            param_text = (f"$K_g$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
+                        f"$I_0$: {median_params[0]:.2e}\n"
+                        f"$I_d$: {median_params[2] * 1e6:.2e} $1/M$\n"
+                        f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} $1/M$\n"
+                        f"$RMSE$: {format_value(rmse)}\n"
+                        f"$R^2$: {r_squared:.3f}")
+            
+            ax.annotate(param_text, xy=(0.8, 0.04), xycoords='axes fraction', fontsize=10,
                 ha='left', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
 
             if save_plots:
@@ -212,10 +217,10 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
                 
                     # Standard Deviations section
                     f.write("\nStandard Deviations:\n")
-                    f.write(f"Kg Std Dev (M^-1): {Kg_std:.2e}\n")  
-                    f.write(f"I0 Std Dev: {I0_std:.2e}\n")
-                    f.write(f"Id Std Dev (signal/M): {Id_std:.2e}\n")
-                    f.write(f"Ihd Std Dev (signal/M): {Ihd_std:.2e}\n")
+                    f.write(f"K_g Std Dev (M-1): {Kg_std:.2e}\n")
+                    f.write(f"I_0 Std Dev: {I0_std:.2e}\n")
+                    f.write(f"I_d Std Dev (signal/M): {Id_std:.2e}\n")
+                    f.write(f"I_hd Std Dev (signal/M): {Ihd_std:.2e}\n")
                     
                     # Original Data section
                     f.write("\nOriginal Data:\nConcentration do (M)\tSignal\n")
@@ -316,7 +321,7 @@ def calculate_fit_metrics(Signal_observed, Signal_computed):
 class GDAFittingApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("GDA Fitting Update Interface")
+        self.root.title("GDA Fitting Interface")
 
         # Variables
         self.file_path_var = tk.StringVar()
@@ -336,12 +341,12 @@ class GDAFittingApp:
         
         # Set default values
         self.file_path_var.set('/Users/ahmadomira/Downloads/interface_test/GDA_system.txt')
-        self.results_dir_var.set('/Users/ahmadomira/Downloads/interface_test/untitled folder')
-        self.results_save_dir_var.set('/Users/ahmadomira/Downloads/interface_test/untitled folder')
+        self.results_dir_var.set('/Users/ahmadomira/Downloads/interface_test/')
+        self.results_save_dir_var.set('/Users/ahmadomira/Downloads/interface_test/')
         self.Kd_var.set(1.68e7)  # Binding constant for h_d binding in M^-1
         self.h0_var.set(4.3e-6)  # Initial host concentration (M)
         self.g0_var.set(6e-6)    # Initial guest concentration (M)
-        self.fit_trials_var.set(10)  # Number of fit trials
+        self.fit_trials_var.set(200)  # Number of fit trials
         self.rmse_threshold_var.set(2)  # RMSE threshold factor
         self.r2_threshold_var.set(0.9)  # R² threshold
         self.display_plots_var.set(True)
@@ -415,13 +420,15 @@ class GDAFittingApp:
             self.results_save_dir_var.set(root_dir)
 
     def browse_file(self, entry):
-        file_path = filedialog.askopenfilename()
+        initial_dir = os.path.dirname(self.file_path_var.get()) if self.file_path_var.get() else os.getcwd()
+        file_path = filedialog.askopenfilename(initialdir=initial_dir)
         if file_path:
             entry.delete(0, tk.END)
             entry.insert(0, file_path)
 
     def browse_directory(self, entry):
-        directory_path = filedialog.askdirectory()
+        initial_dir = os.path.dirname(self.file_path_var.get()) if self.file_path_var.get() else os.getcwd()
+        directory_path = filedialog.askdirectory(initialdir=initial_dir)
         if directory_path:
             entry.delete(0, tk.END)
             entry.insert(0, directory_path)

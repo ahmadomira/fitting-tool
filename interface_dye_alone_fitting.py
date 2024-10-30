@@ -4,7 +4,7 @@ from datetime import datetime
 
 # Third-party imports
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import numpy as np
 from scipy.stats import linregress, ttest_1samp, t
 import matplotlib.pyplot as plt
@@ -30,6 +30,15 @@ def prediction_interval(data, avg_value):
         lower_bound = "not applicable"
         upper_bound = "not applicable"
     return mean, lower_bound, upper_bound, std_dev
+
+def unique_filename(file):
+    base, extension = os.path.splitext(file)
+    counter = 1
+    file = f"{base}{extension}"
+    while os.path.exists(file):
+        file = f"{base}_{counter}{extension}"
+        counter += 1
+    return file
 
 # Load data from the file
 def load_data(file_path):
@@ -122,7 +131,7 @@ def round_to_sigfigs(value, sigfigs=4):
     return value
 
 # Main function to perform the fitting and plotting
-def perform_fitting(input_file_path, output_file_path):
+def perform_fitting(input_file_path, output_file_path, save_plots, display_plots, plots_dir):
     if not output_file_path.endswith(".txt"):
         output_file_path += ".txt"
 
@@ -176,13 +185,21 @@ def perform_fitting(input_file_path, output_file_path):
     ax.plot(x_fit, y_fit, '--', color='orange', linewidth=2, label=rf'Average Fit: $Y = {formatter(avg_slope)}X + {formatter(avg_intercept)}$')
     ax.set_title('Linear Fit of Signal vs. Concentration for Multiple Replicas')
     plt.legend()
-    plt.show()
+
+    if save_plots:
+        plot_file = os.path.join(plots_dir, "dye_alone_fit_plot.png")
+        
+        fig.savefig(unique_filename(plot_file), bbox_inches='tight')
+        print(f"Plot saved to {plot_file}")
+
+    if display_plots:
+        plt.show()
 
     total_replicas = len(fit_results)
     retained_replicas_count = len(retained_indices)
     print(f"{retained_replicas_count} out of {total_replicas} replicas were retained.")
 
-    with open(output_file_path, 'w') as f:
+    with open(unique_filename(output_file_path), 'w') as f:
         f.write("Linear Fit Results\n")
         f.write(f"Average Id\t{Id_mean:.3e}\n")
         f.write(f"Id prediction interval (95%) at least 25% above and below average value: [{Id_lower_bound}, {Id_upper_bound}]\n")
@@ -205,10 +222,14 @@ class DyeAloneFittingApp:
         # Variables
         self.file_path_var = tk.StringVar()
         self.save_path_var = tk.StringVar()
+        self.save_plots_var = tk.BooleanVar()
+        self.display_plots_var = tk.BooleanVar()
+        self.plots_dir_var = tk.StringVar()
         
         # Set default values
         self.file_path_var.set("/Users/ahmadomira/Downloads/interface_test/merged_dye alone.txt")
-        self.save_path_var.set("/Users/ahmadomira/Downloads/interface_test/results.txt")
+        self.save_path_var.set("/Users/ahmadomira/Downloads/interface_test/dye_alone_results.txt")
+        self.plots_dir_var.set("/Users/ahmadomira/Downloads/interface_test/")
         
         tk.Label(root, text="Input File:").grid(row=0, column=0, sticky=tk.W)
         self.file_path_entry = tk.Entry(root, textvariable=self.file_path_var, width=50)
@@ -220,40 +241,62 @@ class DyeAloneFittingApp:
         self.save_path_entry.grid(row=1, column=1)
         tk.Button(root, text="Browse", command=self.browse_save_path).grid(row=1, column=2)
 
-        tk.Button(root, text="Run Fitting", command=self.run_fitting).grid(row=2, column=1, pady=10)
+        tk.Checkbutton(root, text="Save Plots", variable=self.save_plots_var, command=self.update_save_plot_widgets).grid(row=2, column=0, sticky=tk.W)
+        self.plots_dir_entry = tk.Entry(root, textvariable=self.plots_dir_var, width=50, state=tk.DISABLED)
+        self.plots_dir_entry.grid(row=2, column=1)
+        self.plots_dir_button = tk.Button(root, text="Browse", command=self.browse_plots_dir, state=tk.DISABLED)
+        self.plots_dir_button.grid(row=2, column=2)
+
+        tk.Checkbutton(root, text="Display Plots", variable=self.display_plots_var).grid(row=3, column=0, columnspan=3, sticky=tk.W)
+
+        tk.Button(root, text="Run Fitting", command=self.run_fitting).grid(row=4, column=1, pady=10)
         self.info_label = None
+
+        self.save_plots_var.trace_add('write', lambda *args: self.update_save_plot_widgets())
 
     def show_message(self, message, is_error=False):
         if self.info_label:
             self.info_label.destroy()
         fg_color = 'red' if is_error else 'green'
         self.info_label = tk.Label(self.root, text=message, fg=fg_color)
-        self.info_label.grid(row=3, column=0, columnspan=3, pady=10)
+        self.info_label.grid(row=5, column=0, columnspan=3, pady=10)
 
     def browse_input_file(self):
         file_path = filedialog.askopenfilename()
         if file_path:
             self.file_path_var.set(file_path)
             root_dir = os.path.dirname(file_path)
-            
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.save_path_var.set(os.path.join(root_dir, f"results_{timestamp}.txt"))
+            self.save_path_var.set(os.path.join(root_dir, f"dye_alone_results.txt"))
+            self.plots_dir_var.set(os.path.join(root_dir))
 
     def browse_save_path(self):
         file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
         if file_path:
             self.save_path_var.set(file_path)
 
+    def browse_plots_dir(self):
+        directory_path = filedialog.askdirectory()
+        if directory_path:
+            self.plots_dir_var.set(directory_path)
+
+    def update_save_plot_widgets(self):
+        state = tk.NORMAL if self.save_plots_var.get() else tk.DISABLED
+        self.plots_dir_entry.config(state=state)
+        self.plots_dir_button.config(state=state)
+
     def run_fitting(self):
         input_path = self.file_path_var.get()
         output_path = self.save_path_var.get()
+        save_plots = self.save_plots_var.get()
+        display_plots = self.display_plots_var.get()
+        plots_dir = self.plots_dir_var.get()
         
         if not input_path or not output_path:
             self.show_message("Error: Please set all parameters.", is_error=True)
             return
 
         try:
-            perform_fitting(input_path, output_path)
+            perform_fitting(input_path, output_path, save_plots, display_plots, plots_dir)
             self.show_message(f"Results saved to: {output_path}")
         except Exception as e:
             self.show_message(f"Error: {str(e)}", is_error=True)
