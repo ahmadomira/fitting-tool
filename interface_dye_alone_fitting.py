@@ -1,12 +1,16 @@
+# Standard library imports
 import os
+from datetime import datetime
+
+# Third-party imports
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import numpy as np
 from scipy.stats import linregress, ttest_1samp, t
-from datetime import datetime
-
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
+
+# Local imports
 from pltstyle import create_plots
 
 # Function to calculate the 95% prediction interval upper and lower bounds
@@ -118,13 +122,11 @@ def round_to_sigfigs(value, sigfigs=4):
     return value
 
 # Main function to perform the fitting and plotting
-def perform_fitting(base_dir, input_file_name, output_file_name):
-    file_path = os.path.join(base_dir, input_file_name)
-    output_file_path = os.path.join(base_dir, output_file_name)
+def perform_fitting(input_file_path, output_file_path):
     if not output_file_path.endswith(".txt"):
         output_file_path += ".txt"
 
-    data_lines = load_data(file_path)
+    data_lines = load_data(input_file_path)
     if data_lines is None or len(data_lines) == 0:
         raise ValueError("Data loading failed or data is empty.")
 
@@ -155,7 +157,6 @@ def perform_fitting(base_dir, input_file_name, output_file_name):
     I0_upper_bound = round_to_sigfigs(I0_upper_bound)
     I0_stdev = round_to_sigfigs(I0_stdev)
 
-
     fig, ax = create_plots()
     
     def scientific_notation(val, pos=0):
@@ -177,7 +178,6 @@ def perform_fitting(base_dir, input_file_name, output_file_name):
     plt.legend()
     plt.show()
 
-    
     total_replicas = len(fit_results)
     retained_replicas_count = len(retained_indices)
     print(f"{retained_replicas_count} out of {total_replicas} replicas were retained.")
@@ -201,50 +201,63 @@ class DyeAloneFittingApp:
     def __init__(self, root):
         self.root = root
         self.root.title("IDA Fitting Replica Dye Alone")
-
-        self.base_dir = tk.StringVar()
-        self.input_file_name = tk.StringVar()
-        self.output_file_name = tk.StringVar()
         
-        self.input_file_name.set("/Users/ahmadomira/Downloads/interface_test/merged_dye alone.txt")
-        self.output_file_name.set("test.txt")
-        self.base_dir.set(os.path.dirname(self.input_file_name.get()))
+        # Variables
+        self.file_path_var = tk.StringVar()
+        self.save_path_var = tk.StringVar()
         
-        tk.Label(root, text="Input File Name:").grid(row=0, column=0, sticky=tk.W)
-        tk.Entry(root, textvariable=self.input_file_name, width=50).grid(row=0, column=1)
+        # Set default values
+        self.file_path_var.set("/Users/ahmadomira/Downloads/interface_test/merged_dye alone.txt")
+        self.save_path_var.set("/Users/ahmadomira/Downloads/interface_test/results.txt")
+        
+        tk.Label(root, text="Input File:").grid(row=0, column=0, sticky=tk.W)
+        self.file_path_entry = tk.Entry(root, textvariable=self.file_path_var, width=50)
+        self.file_path_entry.grid(row=0, column=1)
         tk.Button(root, text="Browse", command=self.browse_input_file).grid(row=0, column=2)
 
-        tk.Label(root, text="Output File Name:").grid(row=1, column=0, sticky=tk.W)
-        tk.Entry(root, textvariable=self.output_file_name, width=50).grid(row=1, column=1)
+        tk.Label(root, text="Save Result To:").grid(row=1, column=0, sticky=tk.W)
+        self.save_path_entry = tk.Entry(root, textvariable=self.save_path_var, width=50)
+        self.save_path_entry.grid(row=1, column=1)
+        tk.Button(root, text="Browse", command=self.browse_save_path).grid(row=1, column=2)
 
         tk.Button(root, text="Run Fitting", command=self.run_fitting).grid(row=2, column=1, pady=10)
+        self.info_label = None
+
+    def show_message(self, message, is_error=False):
+        if self.info_label:
+            self.info_label.destroy()
+        fg_color = 'red' if is_error else 'green'
+        self.info_label = tk.Label(self.root, text=message, fg=fg_color)
+        self.info_label.grid(row=3, column=0, columnspan=3, pady=10)
 
     def browse_input_file(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+        file_path = filedialog.askopenfilename()
         if file_path:
-            self.input_file_name.set(os.path.basename(file_path))
-            self.base_dir.set(os.path.dirname(file_path))
-
-    def show_info(self, message):
-        info_label = tk.Label(self.root, text=message)
-        info_label.grid(row=3, column=0, columnspan=3, pady=10)
+            self.file_path_var.set(file_path)
+            root_dir = os.path.dirname(file_path)
             
-    def run_fitting(self):
-        base_dir = self.base_dir.get()
-        input_file_name = self.input_file_name.get()
-        output_file_name = self.output_file_name.get()
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.save_path_var.set(os.path.join(root_dir, f"results_{timestamp}.txt"))
 
-        if not base_dir or not input_file_name or not output_file_name:
-            messagebox.showerror("Error", "Please set all parameters.")
+    def browse_save_path(self):
+        file_path = filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+        if file_path:
+            self.save_path_var.set(file_path)
+
+    def run_fitting(self):
+        input_path = self.file_path_var.get()
+        output_path = self.save_path_var.get()
+        
+        if not input_path or not output_path:
+            self.show_message("Error: Please set all parameters.", is_error=True)
             return
 
         try:
-            perform_fitting(base_dir, input_file_name, output_file_name)
-            result_text = f"Results saved to {os.path.join(base_dir, output_file_name)}"
-            self.show_info(result_text)
+            perform_fitting(input_path, output_path)
+            self.show_message(f"Results saved to: {output_path}")
         except Exception as e:
-            self.show_info(f"Error: {str(e)}")
-            
+            self.show_message(f"Error: {str(e)}", is_error=True)
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = DyeAloneFittingApp(root)
