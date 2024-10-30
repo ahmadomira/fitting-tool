@@ -1,14 +1,16 @@
 import tkinter as tk
+import matplotlib
+matplotlib.use('TkAgg')  # Set backend once at application start
 
-from interface_IDA_fitting_replica_dye_alone import DyeAloneFittingApp
+from interface_dye_alone_fitting import DyeAloneFittingApp
 from interface_GDA_fitting_update import GDAFittingApp
-
+from interface_IDA_fitting_update import IDAFittingApp  # Import the new interface
 
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Automation Project")
-    root.geometry("300x200")
-
+    root.geometry("300x150")
+    
     def open_dye_alone_fitting():
         new_window = tk.Toplevel(root)
         new_window.title("Dye Alone Fitting")
@@ -19,10 +21,18 @@ if __name__ == "__main__":
         new_window.title("GDA Fitting")
         GDAFittingApp(new_window)
 
+    def open_ida_fitting():
+        new_window = tk.Toplevel(root)
+        new_window.title("IDA Fitting")
+        IDAFittingApp(new_window)
+
     dye_alone_button = tk.Button(root, text="Dye Alone Fitting", command=open_dye_alone_fitting)
     dye_alone_button.pack(pady=10, padx=20, fill=tk.X)
 
     gda_fitting_button = tk.Button(root, text="GDA Fitting", command=open_gda_fitting)
     gda_fitting_button.pack(pady=10, padx=20, fill=tk.X)
+
+    ida_fitting_button = tk.Button(root, text="IDA Fitting", command=open_ida_fitting)
+    ida_fitting_button.pack(pady=10, padx=20, fill=tk.X)
 
     root.mainloop()

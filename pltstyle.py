@@ -1,4 +1,8 @@
+import matplotlib
+matplotlib.use('TkAgg')
+
 import matplotlib.pyplot as plt
+
 font_size = 11
 plt.rcParams.update({
     'figure.figsize': (8, 6),
@@ -21,7 +25,7 @@ plt.rcParams.update({
     'axes.grid.axis': 'both',
     'axes.grid.which': 'both',
     'axes.formatter.use_mathtext': True,
-    'axes.formatter.limits': (-2, 2),
+    'axes.formatter.limits': (-2, 3),
 
     'xtick.direction': 'in',
     'xtick.minor.visible': True,
