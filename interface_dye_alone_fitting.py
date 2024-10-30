@@ -230,6 +230,7 @@ class DyeAloneFittingApp:
         self.file_path_var.set("/Users/ahmadomira/Downloads/interface_test/merged_dye alone.txt")
         self.save_path_var.set("/Users/ahmadomira/Downloads/interface_test/dye_alone_results.txt")
         self.plots_dir_var.set("/Users/ahmadomira/Downloads/interface_test/")
+        self.display_plots_var.set(True)
         
         tk.Label(root, text="Input File:").grid(row=0, column=0, sticky=tk.W)
         self.file_path_entry = tk.Entry(root, textvariable=self.file_path_var, width=50)
@@ -301,7 +302,3 @@ class DyeAloneFittingApp:
         except Exception as e:
             self.show_message(f"Error: {str(e)}", is_error=True)
 
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = DyeAloneFittingApp(root)
-    root.mainloop()

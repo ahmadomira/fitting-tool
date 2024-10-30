@@ -14,7 +14,7 @@ from pltstyle import create_plots
 
 def format_value(value):
     return f"{value:.0f}" if value > 10 else f"{value:.2f}"
-
+    
 # Function to run the fitting process
 def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
     try:
@@ -157,8 +157,8 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
             # Annotate plot with median parameter values and fit metrics
             param_text = (f"$K_g$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
                         f"$I_0$: {median_params[0]:.2e}\n"
-                        f"$I_d$: {median_params[2] * 1e6:.2e} $1/M$\n"
-                        f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} $1/M$\n"
+                        f"$I_d$: {median_params[2] * 1e6:.2e} $M^{{-1}}$\n"
+                        f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} $M^{{-1}}$\n"
                         f"$RMSE$: {format_value(rmse)}\n"
                         f"$R^2$: {r_squared:.3f}")
             
@@ -322,7 +322,8 @@ class GDAFittingApp:
     def __init__(self, root):
         self.root = root
         self.root.title("GDA Fitting Interface")
-
+        self.info_label = None
+        
         # Variables
         self.file_path_var = tk.StringVar()
         self.use_results_file_var = tk.BooleanVar()
@@ -447,7 +448,14 @@ class GDAFittingApp:
         state = tk.NORMAL if self.save_results_var.get() else tk.DISABLED
         self.results_save_dir_entry.config(state=state)
         self.results_save_dir_button.config(state=state)
-
+        
+    def show_message(self, message, is_error=False):
+        if self.info_label:
+            self.info_label.destroy()
+        fg_color = 'red' if is_error else 'green'
+        self.info_label = tk.Label(self.root, text=message, fg=fg_color)
+        self.info_label.grid(row=13, column=0, columnspan=3, pady=10)
+        
     def run_fitting(self):
         # Adjust the run_fitting function to access self variables and implement the fitting logic
         try:
@@ -465,11 +473,14 @@ class GDAFittingApp:
             plots_dir = self.results_dir_entry.get()
             save_results = self.save_results_var.get()
             results_save_dir = self.results_save_dir_entry.get()
-
+            
+            # Run the fitting process
             run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir)
-
+            
+            self.show_message(f"Fitting completed!", is_error=False)
+            
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            self.show_message(f"Error: {str(e)}", is_error=True)
 
 # Main function to run the GUI
 if __name__ == "__main__":
