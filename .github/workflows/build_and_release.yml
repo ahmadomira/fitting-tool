@@ -10,13 +10,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
         python-version: ['3.x']
     
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: pre-release
     
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -30,30 +28,34 @@ jobs:
         pip install pyinstaller
     
     - name: Build with PyInstaller
-      run: pyinstaller FittingApp.spec
-    
+      run: pyinstaller --clean -y --distpath ./dist --workpath ./build FittingApp.spec
+
+    - name: Zip artifact (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        Compress-Archive -Path 'dist\*' -DestinationPath "${{ matrix.os }}-executable.zip"
+      shell: pwsh
+  
+    - name: Zip artifact (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        cd dist
+        zip -r ../${{ matrix.os }}-executable.zip ./*
+
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.os }}-executable
-        path: dist/
+        path: ./${{ matrix.os }}-executable.zip
 
-  release:
+  create_release:
     needs: build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [macos-latest]
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     
     steps:
     - uses: actions/checkout@v4
-      with:
-        ref: pre-release
-    
-    - name: Download artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{ matrix.os }}-executable
     
     - name: Create Release
       id: create_release
@@ -65,13 +67,28 @@ jobs:
         release_name: Release ${{ github.ref }}
         draft: false
         prerelease: false
+
+  upload_assets:
+    needs: [build, create_release]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
     
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ matrix.os }}-executable
+
     - name: Upload Release Assets
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./${{ matrix.os }}-executable
-        asset_name: ${{ matrix.os }}-executable.zip
+        upload_url: ${{ needs.create_release.outputs.upload_url }}
+        asset_path: ./${{ matrix.os }}-executable.zip
+        asset_name: FittingApp-${{ matrix.os }}.zip
         asset_content_type: application/zip
