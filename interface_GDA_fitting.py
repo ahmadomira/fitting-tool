@@ -1,15 +1,12 @@
-# Standard library imports
 import os
 from datetime import datetime
 
-# Third-party imports
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import numpy as np
 from scipy.optimize import brentq, minimize
 import matplotlib.pyplot as plt
 
-# Local imports
 from pltstyle import create_plots
 
 def format_value(value):

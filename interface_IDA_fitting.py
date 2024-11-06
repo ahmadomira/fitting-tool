@@ -4,22 +4,11 @@ import os
 from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import minimize
-from pltstyle import create_plots
-
-import numpy as np
 from scipy.optimize import brentq, minimize
-import os
-import matplotlib.pyplot as plt
-from datetime import datetime
+from pltstyle import create_plots
     
 def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
-    import numpy as np
-    from scipy.optimize import brentq, minimize
-    import os
-    import matplotlib.pyplot as plt
-    from datetime import datetime
-    from pltstyle import create_plots
+
 
     # Initialize parameter ranges for optimization
     I0_range = (0, None)
@@ -210,8 +199,8 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
                       f"$RMSE$: {rmse:.3f}\n"
                       f"$R^2$: {r_squared:.3f}")
 
-        ax.annotate(param_text, xy=(0.8, 0.04), xycoords='axes fraction', fontsize=10,
-                    ha='left', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
+        ax.annotate(param_text, xy=(0.95, 0.95), xycoords='axes fraction', fontsize=10,
+                ha='right', va='top', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
 
         if save_plots:
             plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")

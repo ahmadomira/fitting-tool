@@ -1,10 +1,10 @@
 import tkinter as tk
 import matplotlib
-matplotlib.use('TkAgg')  # Set backend once at application start
+matplotlib.use('TkAgg')
 
-from interface_dye_alone_fitting import DyeAloneFittingApp
-from interface_GDA_fitting_update import GDAFittingApp
-from interface_IDA_fitting_update import IDAFittingApp  # Import the new interface
+from interface_DyeAlone_fitting import DyeAloneFittingApp
+from interface_GDA_fitting import GDAFittingApp
+from interface_IDA_fitting import IDAFittingApp
 
 if __name__ == "__main__":
     root = tk.Tk()
