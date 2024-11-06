@@ -5,7 +5,7 @@ a = Analysis(
     ['main_interface.py'],
     pathex=[],
     binaries=[],
-    datas=[('interface_dye_alone_fitting.py', '.'), ('interface_GDA_fitting_update.py', '.'), ('interface_IDA_fitting_update.py', '.'), ('pltstyle.py', '.')],
+    datas=[('interface_DyeAlone_fitting.py', '.'), ('interface_GDA_fitting.py', '.'), ('interface_IDA_fitting.py', '.'), ('pltstyle.py', '.')],
     hiddenimports=['matplotlib', 'tkinter'],
     hookspath=[],
     hooksconfig={},
