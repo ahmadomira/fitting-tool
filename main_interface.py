@@ -6,11 +6,12 @@ from interface_DyeAlone_fitting import DyeAloneFittingApp
 from interface_GDA_fitting import GDAFittingApp
 from interface_IDA_fitting import IDAFittingApp
 from interface_DBA_host_to_dye_fitting import DBAFittingAppHtoD
+from interface_DBA_dye_to_host_fitting import DBAFittingAppDtoH
 
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Automation Project")
-    root.geometry("300x200")  # Adjusted to fit the new button
+    root.geometry("300x250")  # Adjusted to fit the new button
     
     def open_dye_alone_fitting():
         new_window = tk.Toplevel(root)
@@ -27,10 +28,15 @@ if __name__ == "__main__":
         new_window.title("IDA Fitting")
         IDAFittingApp(new_window)
 
-    def open_dba_fitting():
+    def open_dba_host_to_dye_fitting():
         new_window = tk.Toplevel(root)
-        new_window.title("DBA Fitting")
+        new_window.title("DBA Fitting (Host to Dye)")
         DBAFittingAppHtoD(new_window)
+
+    def open_dba_dye_to_host_fitting():
+        new_window = tk.Toplevel(root)
+        new_window.title("DBA Fitting (Dye to Host)")
+        DBAFittingAppDtoH(new_window)
 
     dye_alone_button = tk.Button(root, text="Dye Alone Fitting", command=open_dye_alone_fitting)
     dye_alone_button.pack(pady=10, padx=20, fill=tk.X)
@@ -41,7 +47,10 @@ if __name__ == "__main__":
     ida_fitting_button = tk.Button(root, text="IDA Fitting", command=open_ida_fitting)
     ida_fitting_button.pack(pady=10, padx=20, fill=tk.X)
 
-    dba_fitting_button = tk.Button(root, text="DBA Fitting (Host to Dye)", command=open_dba_fitting)
-    dba_fitting_button.pack(pady=10, padx=20, fill=tk.X)
+    dba_host_to_dye_button = tk.Button(root, text="DBA Fitting (Host to Dye)", command=open_dba_host_to_dye_fitting)
+    dba_host_to_dye_button.pack(pady=10, padx=20, fill=tk.X)
+
+    dba_dye_to_host_button = tk.Button(root, text="DBA Fitting (Dye to Host)", command=open_dba_dye_to_host_fitting)
+    dba_dye_to_host_button.pack(pady=10, padx=20, fill=tk.X)
 
     root.mainloop()
