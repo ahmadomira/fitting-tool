@@ -41,7 +41,7 @@ if __name__ == "__main__":
     ida_fitting_button = tk.Button(root, text="IDA Fitting", command=open_ida_fitting)
     ida_fitting_button.pack(pady=10, padx=20, fill=tk.X)
 
-    dba_fitting_button = tk.Button(root, text="DBA Fitting", command=open_dba_fitting)
+    dba_fitting_button = tk.Button(root, text="DBA Fitting (Host to Dye)", command=open_dba_fitting)
     dba_fitting_button.pack(pady=10, padx=20, fill=tk.X)
 
     root.mainloop()

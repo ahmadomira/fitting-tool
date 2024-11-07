@@ -333,9 +333,6 @@ class DBAFittingAppHtoD:
         self.results_save_dir_var = tk.StringVar()
 
         # Set default values
-        self.file_path_var.set('/path/to/data/file.txt')
-        self.results_dir_var.set('/path/to/results/')
-        self.results_save_dir_var.set('/path/to/results/')
         self.d0_var.set(6e-6)
         self.fit_trials_var.set(200)
         self.rmse_threshold_var.set(2)
