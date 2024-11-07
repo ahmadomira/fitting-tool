@@ -8,7 +8,7 @@ from datetime import datetime
 from pltstyle import create_plots
 
 # Add number_of_fit_trials to function parameters
-def run_dba_fitting(file_path, results_dir, d0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
+def run_dba_host_to_dye_fitting(file_path, results_dir, d0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
     # Convert initial concentration to µM units
     d0 = d0_in_M * 1e6  # d0 in µM
 
@@ -454,7 +454,7 @@ class DBAFittingAppHtoD:
             progress_label.pack(padx=20, pady=20)
             self.root.update_idletasks()
             
-            run_dba_fitting(
+            run_dba_host_to_dye_fitting(
                 file_path=file_path,
                 results_dir=results_dir,
                 d0_in_M=d0_in_M,
