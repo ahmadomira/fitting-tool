@@ -149,7 +149,7 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
             ax.plot(d0_values, Signal_observed, 'o', label='Observed Signal')
             ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
             ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-            ax.legend()
+            ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
             
             # Annotate plot with median parameter values and fit metrics
             param_text = (f"$K_g$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
