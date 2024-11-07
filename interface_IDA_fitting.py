@@ -199,8 +199,9 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
                       f"$RMSE$: {rmse:.3f}\n"
                       f"$R^2$: {r_squared:.3f}")
 
-        ax.annotate(param_text, xy=(0.95, 0.95), xycoords='axes fraction', fontsize=10,
-                ha='right', va='top', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
+        ax.annotate(param_text, xy=(0.97, 0.95), xycoords='axes fraction', fontsize=10,
+            ha='right', va='top', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5),
+            multialignment='left')
 
         if save_plots:
             plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")

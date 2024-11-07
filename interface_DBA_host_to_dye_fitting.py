@@ -5,6 +5,7 @@ import numpy as np
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from datetime import datetime
+from pltstyle import create_plots
 
 # Add number_of_fit_trials to function parameters
 def run_dba_fitting(file_path, results_dir, d0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
@@ -203,6 +204,7 @@ def run_dba_fitting(file_path, results_dir, d0_in_M, rmse_threshold_factor, r2_t
         if filtered_results:
             median_params = np.median(np.array([result[0] for result in filtered_results]), axis=0)
         else:
+            # TODO: catch this warning in the interface
             print("Warning: No fits meet the filtering criteria.")
             continue
 
@@ -222,24 +224,22 @@ def run_dba_fitting(file_path, results_dir, d0_in_M, rmse_threshold_factor, r2_t
         fitting_curve_y.append(last_signal)
 
         # Plot observed vs. simulated fitting curve
-        fig, ax = plt.subplots(figsize=(8, 6))
+        fig, ax = create_plots(x_label=r'$h_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$')
+
         ax.plot(h0_values, Signal_observed, 'o', label='Observed Signal')
         ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
-        ax.set_xlabel('h0 (µM)')
-        ax.set_ylabel('Signal')
         ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-        ax.legend()
-        ax.grid(True)
+        ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
 
-        param_text = (f"Kd: {median_params[1] * 1e6:.2e} M^-1\n"
-                    f"I0: {median_params[0]:.2e}\n"
-                    f"Id: {median_params[2] * 1e6:.2e} signal/M\n"
-                    f"Ihd: {median_params[3] * 1e6:.2e} signal/M\n"
-                    f"RMSE: {rmse:.3f}\n"
-                    f"R²: {r_squared:.3f}")
+        param_text = (f"$K_d$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
+                      f"$I_0$: {median_params[0]:.2e}\n"
+                      f"$I_d$: {median_params[2] * 1e6:.2e} $M^{{-1}}$\n"
+                      f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} $M^{{-1}}$\n"
+                      f"$RMSE$: {rmse:.3f}\n"
+                      f"$R^2$: {r_squared:.3f}")
 
-        ax.annotate(param_text, xy=(1.05, 0.5), xycoords='axes fraction', fontsize=10,
-                    bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey"))
+        ax.annotate(param_text, xy=(0.8, 0.04), xycoords='axes fraction', fontsize=10,
+                    ha='left', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
 
         if save_plots:
             plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")
@@ -263,7 +263,6 @@ def run_dba_fitting(file_path, results_dir, d0_in_M, rmse_threshold_factor, r2_t
 
                 f.write("\nOutput:\nMedian parameters:\n")
                 f.write(f"I0: {median_params[0]:.2e}\n")
-                f.write(f"Kd: {median_params[1] * 1e6:.2e} M^-1\n")
                 f.write(f"Id: {median_params[2] * 1e6:.2e} signal/M\n")
                 f.write(f"Ihd: {median_params[3] * 1e6:.2e} signal/M\n")
                 f.write(f"RMSE: {median_rmse:.3f}\n")
@@ -360,7 +359,7 @@ class DBAFittingApp:
         self.results_file_button.grid(row=1, column=2, padx=pad_x, pady=pad_y)
         self.use_results_file_var.trace_add('write', lambda *args: self.update_use_results_widgets())
 
-        tk.Label(self.root, text="d₀ (M):").grid(row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Label(self.root, text="D₀ (M):").grid(row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.d0_entry = tk.Entry(self.root, textvariable=self.d0_var, justify='left')
         self.d0_entry.grid(row=3, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
