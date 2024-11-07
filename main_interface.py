@@ -5,7 +5,7 @@ matplotlib.use('TkAgg')
 from interface_DyeAlone_fitting import DyeAloneFittingApp
 from interface_GDA_fitting import GDAFittingApp
 from interface_IDA_fitting import IDAFittingApp
-from interface_DBA_host_to_dye_fitting import DBAFittingApp  # Import the new interface
+from interface_DBA_host_to_dye_fitting import DBAFittingAppHtoD
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     def open_dba_fitting():
         new_window = tk.Toplevel(root)
         new_window.title("DBA Fitting")
-        DBAFittingApp(new_window)
+        DBAFittingAppHtoD(new_window)
 
     dye_alone_button = tk.Button(root, text="Dye Alone Fitting", command=open_dye_alone_fitting)
     dye_alone_button.pack(pady=10, padx=20, fill=tk.X)

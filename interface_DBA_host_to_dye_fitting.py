@@ -312,7 +312,7 @@ def run_dba_fitting(file_path, results_dir, d0_in_M, rmse_threshold_factor, r2_t
     if display_plots:
         plt.show()
 
-class DBAFittingApp:
+class DBAFittingAppHtoD:
     def __init__(self, root):
         self.root = root
         self.root.title("DBA Host-to-Dye Fitting Interface")
@@ -481,6 +481,6 @@ class DBAFittingApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    DBAFittingApp(root)
+    DBAFittingAppHtoD(root)
     root.mainloop()
 
