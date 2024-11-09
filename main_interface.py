@@ -8,12 +8,13 @@ from interface_IDA_fitting import IDAFittingApp
 from interface_DBA_host_to_dye_fitting import DBAFittingAppHtoD
 from interface_DBA_dye_to_host_fitting import DBAFittingAppDtoH
 from interface_ida_merge_fits import IDAMergeFitsApp
-from interface_dba_merge_fits import DBAMergeFitsApp  # Import the new interface
+from interface_dba_merge_fits import DBAMergeFitsApp
+from interface_gda_merge_fits import GDAMergeFitsApp  # Import the new interface
 
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Automation Project")
-    root.geometry("300x450")  # Adjusted to fit the new sections
+    root.geometry("300x500")  # Adjusted to fit the new sections
 
     # Fitting Section
     fitting_label = tk.Label(root, text="Fitting", font=("Arial", 16, "bold"))
@@ -53,6 +54,11 @@ if __name__ == "__main__":
         new_window = tk.Toplevel(root)
         new_window.title("DBA Merge Fits")
         DBAMergeFitsApp(new_window)
+
+    def open_gda_merge_fits():
+        new_window = tk.Toplevel(root)
+        new_window.title("GDA Merge Fits")
+        GDAMergeFitsApp(new_window)
         
     dye_alone_button = tk.Button(root, text="Dye Alone Fitting", command=open_dye_alone_fitting)
     dye_alone_button.pack(pady=10, padx=20, fill=tk.X)
@@ -81,5 +87,8 @@ if __name__ == "__main__":
 
     dba_merge_fits_button = tk.Button(root, text="DBA Merge Fits", command=open_dba_merge_fits)
     dba_merge_fits_button.pack(pady=10, padx=20, fill=tk.X)
+
+    gda_merge_fits_button = tk.Button(root, text="GDA Merge Fits", command=open_gda_merge_fits)
+    gda_merge_fits_button.pack(pady=10, padx=20, fill=tk.X)
 
     root.mainloop()
