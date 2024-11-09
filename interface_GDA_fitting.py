@@ -338,9 +338,6 @@ class GDAFittingApp:
         self.results_save_dir_var = tk.StringVar()  # New variable for results save directory
         
         # Set default values
-        self.file_path_var.set('/Users/ahmadomira/Downloads/interface_test/GDA_system.txt')
-        self.results_dir_var.set('/Users/ahmadomira/Downloads/interface_test/')
-        self.results_save_dir_var.set('/Users/ahmadomira/Downloads/interface_test/')
         self.Kd_var.set(1.68e7)  # Binding constant for h_d binding in M^-1
         self.h0_var.set(4.3e-6)  # Initial host concentration (M)
         self.g0_var.set(6e-6)    # Initial guest concentration (M)

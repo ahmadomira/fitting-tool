@@ -292,9 +292,6 @@ class IDAFittingApp:
         self.results_save_dir_var = tk.StringVar()
 
         # Set default values
-        self.file_path_var.set('/Users/ahmadomira/Downloads/interface_test/IDA_system.txt')
-        self.results_dir_var.set('/path/to/results/')
-        self.results_save_dir_var.set('/path/to/results/')
         self.Kd_var.set(1.68e7)
         self.h0_var.set(4.3e-6)
         self.g0_var.set(6e-6)

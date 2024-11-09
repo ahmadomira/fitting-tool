@@ -90,7 +90,7 @@ def split_replicas(data):
         print("No replicas detected.")
         return None
 
-    return replicas
+    return np.array(replicas) * 1e6
 # Perform linear fit for each replica and collect results
 def fit_replicas(replicas):
     slopes = []
@@ -167,6 +167,7 @@ def perform_fitting(input_file_path, output_file_path, save_plots, display_plots
     I0_stdev = round_to_sigfigs(I0_stdev)
 
     fig, ax = create_plots()
+    colors = plt.cm.Dark2(np.linspace(0, 1, len(replicas)))
     
     def scientific_notation(val, pos=0):
         return f'{val:.2e}'.replace('e', r'\cdot 10^{') + '}'
@@ -176,15 +177,15 @@ def perform_fitting(input_file_path, output_file_path, save_plots, display_plots
         x_values = replica[:, 0]
         y_values = replica[:, 1]
         slope, intercept = fit_results[i]
-        ax.plot(x_values, y_values, 'o', label=f'Replica {i+1} Data')
+        ax.plot(x_values, y_values, 'o', color=colors[i], label=f'Replica {i+1} Data')
         y_fit = slope * x_values + intercept
-        ax.plot(x_values, y_fit, '-', label=f'Fit {i+1}: $Y = {formatter(slope)}X + {formatter(intercept)}$')
+        ax.plot(x_values, y_fit, '-', color=colors[i], label=f'Fit {i+1}: $Y = {formatter(slope)}X + {formatter(intercept)}$')
 
     x_fit = np.linspace(0, max(np.array([replica[:, 0] for replica in replicas]).flatten()), 100)
     y_fit = avg_slope * x_fit + avg_intercept
     ax.plot(x_fit, y_fit, '--', color='orange', linewidth=2, label=rf'Average Fit: $Y = {formatter(avg_slope)}X + {formatter(avg_intercept)}$')
     ax.set_title('Linear Fit of Signal vs. Concentration for Multiple Replicas')
-    plt.legend()
+    ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
 
     if save_plots:
         plot_file = os.path.join(plots_dir, "dye_alone_fit_plot.png")
@@ -227,9 +228,6 @@ class DyeAloneFittingApp:
         self.plots_dir_var = tk.StringVar()
         
         # Set default values
-        self.file_path_var.set("/Users/ahmadomira/Downloads/interface_test/merged_dye alone.txt")
-        self.save_path_var.set("/Users/ahmadomira/Downloads/interface_test/dye_alone_results.txt")
-        self.plots_dir_var.set("/Users/ahmadomira/Downloads/interface_test/")
         self.display_plots_var.set(True)
         
         tk.Label(root, text="Input File:").grid(row=0, column=0, sticky=tk.W)
@@ -302,3 +300,7 @@ class DyeAloneFittingApp:
         except Exception as e:
             self.show_message(f"Error: {str(e)}", is_error=True)
 
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = DyeAloneFittingApp(root)
+    root.mainloop()
