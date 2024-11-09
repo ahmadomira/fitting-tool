@@ -258,8 +258,9 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
 
                 f.write("\nOutput:\nMedian parameters:\n")
                 f.write(f"I0: {median_params[0]:.2e}\n")
-                f.write(f"Id: {median_params[2] * 1e6:.2e} signal/M\n")
-                f.write(f"Ihd: {median_params[3] * 1e6:.2e} signal/M\n")
+                f.write(f"Kd (M^-1): {median_params[1] * 1e6:.2e}\n")
+                f.write(f"Id (signal/M): {median_params[2] * 1e6:.2e}\n")
+                f.write(f"Ihd (signal/M): {median_params[3] * 1e6:.2e}\n")
                 f.write(f"RMSE: {median_rmse:.3f}\n")
                 f.write(f"R²: {median_r2:.3f}\n")
 
