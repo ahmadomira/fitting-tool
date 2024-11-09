@@ -6,6 +6,11 @@ import re
 import matplotlib.pyplot as plt
 from scipy.optimize import brentq
 from datetime import datetime
+from pltstyle import create_plots  # Import the create_plots function
+
+
+def format_value(value):
+    return f"{value:.0f}" if value > 10 else f"{value:.2f}"
 
 def load_replica_data(file_path):
     # Initialize dictionary to store parsed data
@@ -179,7 +184,7 @@ def run_dba_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
     filtered_signals_per_point = [[] for _ in range(len(median_signals_per_point))]
 
     # Plot each replica's data and fit curves before filtering, marking outliers
-    plt.figure(figsize=(10, 6))
+    fig1, ax1 = create_plots(x_label=r'$H_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$', plot_title='All Replica Data and Fitting Curves with Outlier Detection')
     colors = plt.cm.jet(np.linspace(0, 1, len(replicas)))
 
     for idx, replica in enumerate(replicas):
@@ -212,20 +217,18 @@ def run_dba_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
         last_signal = compute_signal(median_params, [concentrations[-1]], d0, Kd)[0]
         fitting_curve_x.append(concentrations[-1])
         fitting_curve_y.append(last_signal)
-
-        plt.plot(concentrations, signals, 'o', color=colors[idx], label=f'Replica {idx + 1} Data')
-        plt.plot(fitting_curve_x, fitting_curve_y, '--', color=colors[idx], alpha=0.7, label=f'Replica {idx + 1} Fit')
+        
+        concentrations = np.array(concentrations) * 1e6  # Convert to microMolar
+        fitting_curve_x = np.array(fitting_curve_x) * 1e6  # Convert to microMolar
+        ax1.plot(concentrations, signals, 'o', color=colors[idx], label=f'Replica {idx + 1} Data')
+        ax1.plot(fitting_curve_x, fitting_curve_y, '--', color=colors[idx], alpha=0.7, label=f'Replica {idx + 1} Fit')
         if len(outlier_indices) > 0:
-            plt.plot(concentrations[outlier_indices], signals[outlier_indices], 'x', color=colors[idx], markersize=8, label=f"Replica {idx + 1} Outliers")
+            ax1.plot(concentrations[outlier_indices], signals[outlier_indices], 'x', color=colors[idx], markersize=8, label=f"Replica {idx + 1} Outliers")
 
-    plt.xlabel('Concentration (M)')
-    plt.ylabel('Signal')
-    plt.title('All Replica Data and Fitting Curves with Outlier Detection')
-    plt.legend(loc='best')
-    plt.grid(True)
-    fig = plt.gcf()
-    save_plot(fig, "all_replicas_fitting_plot_with_outliers.png", results_dir)
-    plt.show()
+    ax1.legend(loc='best')
+    fig1.tight_layout()
+    if save_plots:
+        save_plot(fig1, "all_replicas_fitting_plot_with_outliers.png", results_dir)
 
     # Filter replicas based on RMSE and Kd thresholds
     valid_replicas = []
@@ -282,85 +285,41 @@ def run_dba_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
     computed_signals_at_avg_conc = compute_signal(avg_params, avg_concentrations, retained_replicas[0][1]['d0'], retained_replicas[0][1]['median_params']['Kd'])
     rmse, r_squared = calculate_fit_metrics(avg_signals, computed_signals_at_avg_conc)
 
+    if save_results:
+        export_averaged_data(
+            avg_concentrations, avg_signals, avg_fitting_curve_x, avg_fitting_curve_y,
+            avg_params, stdev_params, rmse, r_squared, results_save_dir,
+            {
+                'd0 (M)': retained_replicas[0][1]['d0'],
+            },
+            [(original_index, params, rmse, r2) for original_index, _, params, rmse, r2 in retained_replicas]
+        )
+
     # Plot averaged data and fitting curve
-    plt.figure(figsize=(10, 6))
-    plt.plot(avg_concentrations, avg_signals, 'o', label='Averaged Data', color='black')
-    plt.plot(avg_fitting_curve_x, avg_fitting_curve_y, '--', color='red', linewidth=1, label='Averaged Fit')
+    fig2, ax2 = create_plots(x_label=r'$H_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$', plot_title='Averaged Data and Fitting Curve')
+    
+    ax2.plot(np.array(avg_concentrations) * 1e6, avg_signals, 'o', label='Averaged Data', color='black')
+    ax2.plot(np.array(avg_fitting_curve_x) * 1e6, avg_fitting_curve_y, '--', color='red', linewidth=1, label='Averaged Fit')
 
-    param_text = (f"Averaged Parameters:\nKd: {avg_params[1]:.2e} M^-1 (STDEV: {stdev_params[1]:.2e})\n"
-                f"I0: {avg_params[0]:.2e} (STDEV: {stdev_params[0]:.2e})\n"
-                f"Id: {avg_params[2]:.2e} signal/M (STDEV: {stdev_params[2]:.2e})\n"
-                f"Ihd: {avg_params[3]:.2e} signal/M (STDEV: {stdev_params[3]:.2e})\n"
-                f"RMSE: {rmse:.3f}\nR²: {r_squared:.3f}")
-    plt.gca().annotate(param_text, xy=(1.05, 0.5), xycoords='axes fraction', fontsize=10,
-                    bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey"))
+    param_text = (f"$K_d$: {avg_params[1]:.2e} $M^{{-1}}$ (STDEV: {stdev_params[1]:.2e})\n"
+                  f"$I_0$: {avg_params[0]:.2e} $M^{{-1}}$ (STDEV: {stdev_params[0]:.2e})\n"
+                  f"$I_d$: {avg_params[2]:.2e} $M^{{-1}}$ (STDEV: {stdev_params[2]:.2e})\n"
+                  f"$I_{{hd}}$: {avg_params[3]:.2e} $M^{{-1}}$ (STDEV: {stdev_params[3]:.2e})\n"
+                  f"$RMSE$: {format_value(rmse)}\n"
+                  f"$R^2$: {r_squared:.3f}")
+    ax2.annotate(param_text, xy=(0.95, 0.05), xycoords='axes fraction', fontsize=10,
+                ha='right', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5), multialignment='left')
 
-    plt.xlabel('Concentration (M)')
-    plt.ylabel('Signal')
-    plt.title('Averaged Data and Fitting Curve')
-    plt.legend()
-    plt.grid(True)
-    fig = plt.gcf()
-    save_plot(fig, "averaged_fitting_plot.png", results_dir)
-    plt.show()
+    ax2.legend()
+    fig2.tight_layout()
+    if save_plots:
+        save_plot(fig2, "averaged_fitting_plot.png", results_dir)
 
-    def export_averaged_data(
-        avg_concentrations, avg_signals, avg_fitting_curve_x, avg_fitting_curve_y, 
-        avg_params, stdev_params, rmse, r_squared, results_dir, input_values, retained_replicas_info
-    ):
-        averaged_data_file = os.path.join(results_dir, "averaged_fit_results.txt")
-        
-        with open(averaged_data_file, 'w') as f:
-            # Input section
-            f.write("Input:\n")
-            f.write(f"d0 (M): {input_values['d0 (M)']:.6e}\n")
-            
-            # Output - Averaged Parameters
-            f.write("\nOutput:\nAveraged Parameters:\n")
-            f.write(f"Kd (M^-1): {avg_params[1]:.2e}\n")
-            f.write(f"I0: {avg_params[0]:.2e}\n")
-            f.write(f"Id (signal/M): {avg_params[2]:.2e}\n")
-            f.write(f"Ihd (signal/M): {avg_params[3]:.2e}\n")
-            f.write(f"RMSE: {rmse:.3f}\n")
-            f.write(f"R²: {r_squared:.3f}\n")
-
-            # Standard Deviations for Averaged Parameters
-            f.write("\nStandard Deviations:\n")
-            f.write(f"Kd Std Dev (M^-1): {stdev_params[1]:.2e}\n")  
-            f.write(f"I0 Std Dev: {stdev_params[0]:.2e}\n")
-            f.write(f"Id Std Dev (signal/M): {stdev_params[2]:.2e}\n")
-            f.write(f"Ihd Std Dev (signal/M): {stdev_params[3]:.2e}\n")
-
-            # Averaged Data section
-            f.write("\nAveraged Data:\nConcentration h0 (M)\tSignal\n")
-            for conc, signal in zip(avg_concentrations, avg_signals):
-                f.write(f"{conc:.6e}\t{signal:.6e}\n")
-
-            # Averaged Fitting Curve section
-            f.write("\nAveraged Fitting Curve:\nSimulated Concentration h0 (M)\tSimulated Signal\n")
-            for x_fit, y_fit in zip(avg_fitting_curve_x, avg_fitting_curve_y):
-                f.write(f"{x_fit:.6e}\t{y_fit:.6e}\n")
-
-            # Retained Replicas section, positioned near the end
-            f.write("\nRetained Replicas:\n")
-            f.write("Replica\tKd (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
-            for original_index, params, fit_rmse, fit_r2 in retained_replicas_info:
-                f.write(f"{original_index}\t{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n")
-
-            # Date of Export
-            f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            
-        print(f"Averaged data and fitting results saved to {averaged_data_file}")
-
-    # Example function call
-    export_averaged_data(
-        avg_concentrations, avg_signals, avg_fitting_curve_x, avg_fitting_curve_y,
-        avg_params, stdev_params, rmse, r_squared, results_dir,
-        {
-            'd0 (M)': retained_replicas[0][1]['d0'],
-        },
-        [(original_index, params, rmse, r2) for original_index, _, params, rmse, r2 in retained_replicas]
-    )
+    # Show all plots at once
+    if display_plots:
+        plt.show()
+    else:
+        plt.close()
 
 class DBAMergeFitsApp:
     def __init__(self, root):
@@ -475,6 +434,7 @@ class DBAMergeFitsApp:
 
             progress_window.destroy()
             self.show_message("Merging fits completed!", is_error=False)
+        
         except Exception as e:
             self.show_message(f"Error: {str(e)}", is_error=True)
 
