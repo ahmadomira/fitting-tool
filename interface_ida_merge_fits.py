@@ -363,15 +363,12 @@ class IDAMergeFitsApp:
         self.save_results_entry_var = tk.StringVar()
 
         # Set default values
-        self.results_dir_var.set('/Users/ahmadomira/Downloads/interface_test/untitled folder')
         self.outlier_threshold_var.set(0.25)
         self.rmse_threshold_factor_var.set(3)
         self.kg_threshold_factor_var.set(3)
         self.save_plots_var.set(False)
         self.display_plots_var.set(True)
         self.save_results_var.set(False)
-        self.save_results_entry_var.set(self.results_dir_var.get())
-        self.save_plots_entry_var.set(self.results_dir_var.get())
 
         # Padding
         pad_x = 10
