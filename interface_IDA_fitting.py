@@ -6,7 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import brentq, minimize
 from pltstyle import create_plots
-    
+from fitting_utils import load_data, compute_signal_ida, calculate_fit_metrics, residuals, split_replica
+
 def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
 
 
@@ -53,72 +54,10 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
     h0 = h0_in_M * 1e6
     d0 = g0_in_M * 1e6
 
-    def compute_signal(params, g0_values, Kd, h0, d0):
-        I0, Kg, Id, Ihd = params
-        Signal_values = []
-        for g0 in g0_values:
-            try:
-                def equation_h(h):
-                    denom_Kd = 1 + Kd * h
-                    denom_Kg = 1 + Kg * h
-                    h_d = (Kd * h * d0) / denom_Kd
-                    h_g = (Kg * h * g0) / denom_Kg
-                    return h + h_d + h_g - h0
-
-                h_sol = brentq(equation_h, 1e-20, h0, xtol=1e-14, maxiter=1000)
-                denom_Kd = 1 + Kd * h_sol
-                d_free = d0 / denom_Kd
-                h_d = Kd * h_sol * d_free
-                Signal = I0 + Id * d_free + Ihd * h_d
-                Signal_values.append(Signal)
-            except Exception:
-                Signal_values.append(np.nan)
-        return np.array(Signal_values)
-
-    def residuals(params, g0_values, Signal_observed, Kd, h0, d0):
-        Signal_computed = compute_signal(params, g0_values, Kd, h0, d0)
-        residual = Signal_observed - Signal_computed
-        return np.nan_to_num(residual, nan=1e6)
-
-    def calculate_fit_metrics(Signal_observed, Signal_computed):
-        rmse = np.sqrt(np.nanmean((Signal_observed - Signal_computed) ** 2))
-        ss_res = np.nansum((Signal_observed - Signal_computed) ** 2)
-        ss_tot = np.nansum((Signal_observed - np.nanmean(Signal_observed)) ** 2)
-        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else np.nan
-        return rmse, r_squared
-
-    def load_data(file_path):
-        try:
-            with open(file_path, 'r') as f:
-                return f.readlines()
-        except Exception as e:
-            print(f"Error loading file: {e}")
-            return None
-
-    def split_replicas(data):
-        replicas, current_replica = [], []
-        for line in data:
-            if "var" in line.lower():
-                if current_replica:
-                    replicas.append(np.array(current_replica))
-                    current_replica = []
-            else:
-                try:
-                    x, y = map(float, line.split())
-                    if x == 0.0 and current_replica:
-                        replicas.append(np.array(current_replica))
-                        current_replica = []
-                    current_replica.append((x, y))
-                except ValueError:
-                    continue
-        if current_replica:
-            replicas.append(np.array(current_replica))
-        return replicas if replicas else None
-
     data_lines = load_data(file_path)
     if data_lines is None:
         raise ValueError("Data loading failed.")
-    replicas = split_replicas(data_lines)
+    replicas = split_replica(data_lines)
     if replicas is None:
         raise ValueError("Replica splitting failed.")
 
@@ -150,11 +89,11 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
         best_result, best_cost = None, np.inf
         fit_results = []
         for initial_params in initial_params_list:
-            result = minimize(lambda params: np.sum(residuals(params, g0_values, Signal_observed, Kd, h0, d0) ** 2),
+            result = minimize(lambda params: np.sum(residuals(Signal_observed, compute_signal_ida, params, g0_values, Kd, h0, d0) ** 2),
                               initial_params, method='L-BFGS-B',
                               bounds=[(I0_lower, I0_upper), (1e-8, 1e8), (Id_lower, Id_upper), (Ihd_lower, Ihd_upper)])
 
-            Signal_computed = compute_signal(result.x, g0_values, Kd, h0, d0)
+            Signal_computed = compute_signal_ida(result.x, g0_values, Kd, h0, d0)
             rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
             fit_results.append((result.x, result.fun, rmse, r_squared))
 
@@ -176,14 +115,14 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
             print("Warning: No fits meet the filtering criteria.")
             continue
 
-        Signal_computed = compute_signal(median_params, g0_values, Kd, h0, d0)
+        Signal_computed = compute_signal_ida(median_params, g0_values, Kd, h0, d0)
         rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
 
         fitting_curve_x, fitting_curve_y = [], []
         for i in range(len(g0_values) - 1):
             extra_points = np.linspace(g0_values[i], g0_values[i + 1], 21)
             fitting_curve_x.extend(extra_points)
-            fitting_curve_y.extend(compute_signal(median_params, extra_points, Kd, h0, d0))
+            fitting_curve_y.extend(compute_signal_ida(median_params, extra_points, Kd, h0, d0))
 
         fig, ax = create_plots(x_label=r'$g_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$')
 

@@ -6,6 +6,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 from pltstyle import create_plots
+from fitting_utils import load_data, compute_signal_dba, calculate_fit_metrics, residuals, split_replica
 
 def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
     # Convert initial concentration to µM units
@@ -54,89 +55,12 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
         # Print boundary values for verification
         print(f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]")
 
-    # Load data from file
-    def load_data(file_path):
-        try:
-            with open(file_path, 'r') as f:
-                return f.readlines()
-        except Exception as e:
-            raise ValueError(f"Error loading file: {e}")
-
-    # Function to split data into replicas
-    def split_replicas(data):
-        replicas, current_replica = [], []
-        for line in data:
-            if "var" in line.lower():
-                if current_replica:
-                    replicas.append(np.array(current_replica))
-                    current_replica = []
-            else:
-                try:
-                    x, y = map(float, line.split())
-                    if x == 0.0 and current_replica:
-                        replicas.append(np.array(current_replica))
-                        current_replica = []
-                    current_replica.append((x, y))
-                except ValueError:
-                    continue
-
-        if current_replica:
-            replicas.append(np.array(current_replica))
-
-        return replicas if replicas else None
-
-    # Define function to calculate signal based on parameters and d0 values
-    def compute_signal(params, d0_values, h0):
-        I0, Kd, Id, Ihd = params
-        Signal_values = []
-        for d0 in d0_values:
-            delta = d0 - h0
-            a = Kd
-            b = Kd * delta + 1
-            c = -h0
-            discriminant = b**2 - 4 * a * c
-
-            if discriminant < 0:
-                Signal_values.append(np.nan)
-                continue
-
-            sqrt_discriminant = np.sqrt(discriminant)
-            h1 = (-b + sqrt_discriminant) / (2 * a)
-            h2 = (-b - sqrt_discriminant) / (2 * a)
-
-            h = h1 if h1 >= 0 else h2 if h2 >= 0 else np.nan
-            if np.isnan(h):
-                Signal_values.append(np.nan)
-                continue
-
-            d = h + delta
-            hd = Kd * h * d
-            Signal = I0 + Id * h + Ihd * hd
-            Signal_values.append(Signal)
-
-        return np.array(Signal_values)
-
-    # Function to compute residuals
-    def residuals(params, d0_values, Signal_observed, h0):
-        Signal_computed = compute_signal(params, d0_values, h0)
-        residual = Signal_observed - Signal_computed
-        residual = np.nan_to_num(residual, nan=1e6)
-        return residual
-
-    # Function to calculate fit metrics
-    def calculate_fit_metrics(Signal_observed, Signal_computed):
-        rmse = np.sqrt(np.nanmean((Signal_observed - Signal_computed) ** 2))
-        ss_res = np.nansum((Signal_observed - Signal_computed) ** 2)
-        ss_tot = np.nansum((Signal_observed - np.nanmean(Signal_observed)) ** 2)
-        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else np.nan
-        return rmse, r_squared
-
     # Main fitting process
     data_lines = load_data(file_path)
     if data_lines is None:
         raise ValueError("Data loading failed.")
 
-    replicas = split_replicas(data_lines)
+    replicas = split_replica(data_lines)
     if replicas is None:
         raise ValueError("Replica splitting failed.")
 
@@ -176,11 +100,11 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
         best_result, best_cost = None, np.inf
         fit_results = []
         for initial_params in initial_params_list:
-            result = minimize(lambda params: np.sum(residuals(params, d0_values, Signal_observed, h0) ** 2),
+            result = minimize(lambda params: np.sum(residuals(Signal_observed, compute_signal_dba, params, d0_values,  h0) ** 2),
                             initial_params, method='L-BFGS-B',
                             bounds=[(I0_lower, I0_upper), (1e-8, 1e8), (Id_lower, Id_upper), (1e-8, 1e8)])
 
-            Signal_computed = compute_signal(result.x, d0_values, h0)
+            Signal_computed = compute_signal_dba(result.x, d0_values, h0)
             rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
             fit_results.append((result.x, result.fun, rmse, r_squared))
 
@@ -204,7 +128,7 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
             continue
 
         # Compute signal and metrics for the median parameters
-        Signal_computed = compute_signal(median_params, d0_values, h0)
+        Signal_computed = compute_signal_dba(median_params, d0_values, h0)
         rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
 
         # Generate points for the fitting curve to overlay on observed data
@@ -212,9 +136,9 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
         for i in range(len(d0_values) - 1):
             extra_points = np.linspace(d0_values[i], d0_values[i + 1], 21)
             fitting_curve_x.extend(extra_points)
-            fitting_curve_y.extend(compute_signal(median_params, extra_points, h0))
+            fitting_curve_y.extend(compute_signal_dba(median_params, extra_points, h0))
 
-        last_signal = compute_signal(median_params, [d0_values[-1]], h0)[0]
+        last_signal = compute_signal_dba(median_params, [d0_values[-1]], h0)[0]
         fitting_curve_x.append(d0_values[-1])
         fitting_curve_y.append(last_signal)
 

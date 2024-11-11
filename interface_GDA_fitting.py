@@ -8,6 +8,7 @@ from scipy.optimize import brentq, minimize
 import matplotlib.pyplot as plt
 
 from pltstyle import create_plots
+from fitting_utils import load_data, compute_signal_gda, calculate_fit_metrics, residuals, split_replica
 
 def format_value(value):
     return f"{value:.0f}" if value > 10 else f"{value:.2f}"
@@ -19,7 +20,7 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
         data_lines = load_data(file_path)
         if data_lines is None:
             raise ValueError("Data loading failed.")
-        replicas = split_replicas(data_lines)
+        replicas = split_replica(data_lines)
         if replicas is None:
             raise ValueError("Replica splitting failed.")
         print(f"Number of replicas detected: {len(replicas)}")
@@ -106,10 +107,10 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
             best_result, best_cost = None, np.inf
             fit_results = []
             for initial_params in initial_params_list:
-                result = minimize(lambda params: np.sum(residuals(params, d0_values, Signal_observed, Kd, h0, g0) ** 2),
+                result = minimize(lambda params: np.sum(residuals(Signal_observed, compute_signal_gda, params, d0_values, Kd, h0, g0) ** 2),
                                   initial_params, method='L-BFGS-B',
                                   bounds=[(I0_lower, I0_upper), (1e-8, 1e8), (Id_lower, Id_upper), (Ihd_lower, Ihd_upper)])
-                Signal_computed = compute_signal(result.x, d0_values, Kd, h0, g0)
+                Signal_computed = compute_signal_gda(result.x, d0_values, Kd, h0, g0)
                 rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
                 fit_results.append((result.x, result.fun, rmse, r_squared))
 
@@ -134,7 +135,7 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
                 continue
 
             # Compute metrics for median fit
-            Signal_computed = compute_signal(median_params, d0_values, Kd, h0, g0)
+            Signal_computed = compute_signal_gda(median_params, d0_values, Kd, h0, g0)
             rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
 
             # Plot observed vs. simulated fitting curve
@@ -142,7 +143,7 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
             for i in range(len(d0_values) - 1):
                 extra_points = np.linspace(d0_values[i], d0_values[i + 1], 21)
                 fitting_curve_x.extend(extra_points)
-                fitting_curve_y.extend(compute_signal(median_params, extra_points, Kd, h0, g0))
+                fitting_curve_y.extend(compute_signal_gda(median_params, extra_points, Kd, h0, g0))
             # TODO: implement a "dynamic" unit and scale for the x-axis
             fig, ax = create_plots(x_label=r'$D_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$')
 
@@ -240,79 +241,6 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
 
     except Exception as e:
         messagebox.showerror("Error", str(e))
-
-# Function to load data from file
-def load_data(file_path):
-    try:
-        with open(file_path, 'r') as f:
-            return f.readlines()
-    except Exception as e:
-        print(f"Error loading file: {e}")
-        return None
-
-# Function to split data into replicas
-def split_replicas(data):
-    if data is None:
-        return None
-    replicas, current_replica = [], []
-    use_var_signal_split = any("var signal" in line.lower() for line in data)
-
-    for line in data:
-        if "var" in line.lower():
-            if current_replica:
-                replicas.append(np.array(current_replica))
-                current_replica = []
-        else:
-            try:
-                x, y = map(float, line.split())
-                if use_var_signal_split:
-                    current_replica.append((x, y))
-                else:
-                    if x == 0.0 and current_replica:
-                        replicas.append(np.array(current_replica))
-                        current_replica = []
-                    current_replica.append((x, y))
-            except ValueError:
-                continue
-    if current_replica:
-        replicas.append(np.array(current_replica))
-    return replicas if replicas else None
-
-# Function to compute signal
-def compute_signal(params, d0_values, Kd, h0, g0):
-    I0, Kg, Id, Ihd = params
-    Signal_values = []
-    for d0 in d0_values:
-        try:
-            def equation_h(h):
-                denom_Kd = 1 + Kd * h
-                denom_Kg = 1 + Kg * h
-                h_d = (Kd * h * d0) / denom_Kd
-                h_g = (Kg * h * g0) / denom_Kg
-                return h + h_d + h_g - h0
-
-            h_sol = brentq(equation_h, 1e-20, h0, xtol=1e-14, maxiter=1000)
-            denom_Kd = 1 + Kd * h_sol
-            d_free = d0 / denom_Kd
-            h_d = Kd * h_sol * d_free
-            Signal = I0 + Id * d_free + Ihd * h_d
-            Signal_values.append(Signal)
-        except Exception:
-            Signal_values.append(np.nan)
-    return np.array(Signal_values)
-
-# Function to compute residuals
-def residuals(params, d0_values, Signal_observed, Kd, h0, g0):
-    Signal_computed = compute_signal(params, d0_values, Kd, h0, g0)
-    return np.nan_to_num(Signal_observed - Signal_computed, nan=1e6)
-
-# Function to calculate fit metrics
-def calculate_fit_metrics(Signal_observed, Signal_computed):
-    rmse = np.sqrt(np.nanmean((Signal_observed - Signal_computed) ** 2))
-    ss_res = np.nansum((Signal_observed - Signal_computed) ** 2)
-    ss_tot = np.nansum((Signal_observed - np.nanmean(Signal_observed)) ** 2)
-    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else np.nan
-    return rmse, r_squared
 
 # Function to browse file
 class GDAFittingApp:

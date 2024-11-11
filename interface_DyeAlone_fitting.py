@@ -12,6 +12,7 @@ from matplotlib.ticker import FuncFormatter
 
 # Local imports
 from pltstyle import create_plots
+from fitting_utils import unique_filename
 
 # Function to calculate the 95% prediction interval upper and lower bounds
 def prediction_interval(data, avg_value):
@@ -30,15 +31,6 @@ def prediction_interval(data, avg_value):
         lower_bound = "not applicable"
         upper_bound = "not applicable"
     return mean, lower_bound, upper_bound, std_dev
-
-def unique_filename(file):
-    base, extension = os.path.splitext(file)
-    counter = 1
-    file = f"{base}{extension}"
-    while os.path.exists(file):
-        file = f"{base}_{counter}{extension}"
-        counter += 1
-    return file
 
 # Load data from the file
 def load_data(file_path):
