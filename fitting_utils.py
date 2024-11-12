@@ -167,9 +167,6 @@ def load_bounds_from_results_file(results_file_path):
     # Convert bounds to µM⁻¹ for fitting
     Id_lower /= 1e6
     Id_upper /= 1e6
-    I0_lower /= 1e6
-    if I0_upper:
-        I0_upper /= 1e6
     
     # TODO: ask frank about this Ihd
     Ihd_lower = 0.001
