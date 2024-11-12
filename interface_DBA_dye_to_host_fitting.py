@@ -6,9 +6,9 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 from pltstyle import create_plots
-from fitting_utils import load_data, compute_signal_dba, calculate_fit_metrics, residuals, split_replicas
+from fitting_utils import load_bounds_from_results_file, load_data, compute_signal_dba, calculate_fit_metrics, residuals, split_replicas
 
-def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
+def run_dba_dye_to_host_fitting(file_path, results_file_path, h0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
     # Convert initial concentration to µM units
     h0 = h0_in_M * 1e6  # h0 in µM
 
@@ -16,53 +16,16 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
     I0_lower, I0_upper = 0, None
     Id_lower, Id_upper = 1e3 / 1e6, 1e18 / 1e6  # Convert Id range to µM⁻¹
 
-    # Load boundaries from existing results file if available
-    if results_dir:
-        results_file_path = os.path.join(results_dir, 'dye_alone_linear_fit_results.txt')
 
-        if os.path.exists(results_file_path):
-            try:
-                with open(results_file_path, 'r') as f:
-                    lines = f.readlines()
+    # load boundaries from existing results file if available
+    Id_lower, Id_upper, I0_lower, I0_upper, _, _ = load_bounds_from_results_file(results_file_path)
 
-                # Extract Id prediction interval from the file if available
-                id_prediction_line = next((line for line in lines if 'Id prediction interval' in line), None)
-                if id_prediction_line and 'not applicable' not in id_prediction_line:
-                    Id_lower = float(id_prediction_line.split('[')[-1].split(',')[0].strip()) / 1e6
-                    Id_upper = float(id_prediction_line.split(',')[-1].split(']')[0].strip()) / 1e6
-                else:
-                    average_Id = float(next(line for line in lines if 'Average Id' in line).split('\t')[-1].strip()) / 1e6
-                    Id_lower, Id_upper = 0.5 * average_Id, 2.0 * average_Id
-
-                # Extract I0 prediction interval from the file if available
-                i0_prediction_line = next((line for line in lines if 'I0 prediction interval' in line), None)
-                if i0_prediction_line and 'not applicable' not in i0_prediction_line:
-                    I0_lower = float(i0_prediction_line.split('[')[-1].split(',')[0].strip())
-                    I0_upper = float(i0_prediction_line.split(',')[-1].split(']')[0].strip())
-                else:
-                    average_I0 = float(next(line for line in lines if 'Average I0' in line).split('\t')[-1].strip())
-                    I0_lower, I0_upper = 0.5 * average_I0, 2.0 * average_I0
-
-            except Exception as e:
-                print(f"Error parsing boundaries from the results file: {e}")
-                Id_lower, Id_upper = 1e3 / 1e6, 1e18 / 1e6  # Default bounds if parsing fails
-                I0_lower, I0_upper = 0, np.inf
-        else:
-            # Set default ranges if no results file is present
-            Id_lower, Id_upper = 1e3 / 1e6, 1e18 / 1e6
-            I0_lower, I0_upper = 0, np.inf
-
-        # Print boundary values for verification
-        print(f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]")
+    # Print boundary values for verification
+    print(f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]")
 
     # Main fitting process
     data_lines = load_data(file_path)
-    if data_lines is None:
-        raise ValueError("Data loading failed.")
-
     replicas = split_replicas(data_lines)
-    if replicas is None:
-        raise ValueError("Replica splitting failed.")
 
     print(f"Number of replicas detected: {len(replicas)}")
 
@@ -376,7 +339,7 @@ class DBAFittingAppDtoH:
             
             run_dba_dye_to_host_fitting(
                 file_path=file_path,
-                results_dir=results_dir,
+                results_file_path=results_dir,
                 h0_in_M=h0_in_M,
                 rmse_threshold_factor=rmse_threshold_factor,
                 r2_threshold=r2_threshold,

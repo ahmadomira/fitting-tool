@@ -159,10 +159,10 @@ def load_bounds_from_results_file(results_file_path):
             # TODO: redirect this to interface
             print(f"Error parsing boundaries from the results file: {e}")
             Id_lower, Id_upper = 1e3, 1e18
-            I0_lower, I0_upper = 0, None
+            I0_lower, I0_upper = 0, np.inf
     else:
         Id_lower, Id_upper = 1e3, 1e18
-        I0_lower, I0_upper = 0, None
+        I0_lower, I0_upper = 0, np.inf
     
     # Convert bounds to µM⁻¹ for fitting
     Id_lower /= 1e6

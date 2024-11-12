@@ -10,20 +10,23 @@ from fitting_utils import load_data, compute_signal_ida, calculate_fit_metrics, 
 
 def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
 
-    data_lines = load_data(file_path)
-    replicas = split_replicas(data_lines)
-    
-    print(f"Number of replicas detected: {len(replicas)}")
-    
 
     # try loading bounds from results file if available
     Id_lower, Id_upper, I0_lower, I0_upper, Ihd_lower, Ihd_upper = load_bounds_from_results_file(results_file_path)
 
+    # Print boundary values for verification
+    print(f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]")
+    
     # Convert constants to µM
     Kd = Kd_in_M / 1e6
     h0 = h0_in_M * 1e6
     d0 = g0_in_M * 1e6
 
+    # Main fitting process
+    data_lines = load_data(file_path)
+    replicas = split_replicas(data_lines)
+    
+    print(f"Number of replicas detected: {len(replicas)}")
     figures = []  # List to store figures
 
     for replica_index, replica_data in enumerate(replicas, start=1):
