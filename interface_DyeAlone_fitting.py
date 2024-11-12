@@ -159,7 +159,7 @@ def perform_fitting(input_file_path, output_file_path, save_plots, display_plots
     I0_stdev = round_to_sigfigs(I0_stdev)
 
     fig, ax = create_plots()
-    colors = plt.cm.Dark2(np.linspace(0, 1, len(replicas)))
+    colors = plt.cm.jet(np.linspace(0, 1, len(replicas)))
     
     def scientific_notation(val, pos=0):
         return f'{val:.2e}'.replace('e', r'\cdot 10^{') + '}'

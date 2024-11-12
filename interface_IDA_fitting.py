@@ -1,65 +1,28 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import os
 from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import brentq, minimize
+from scipy.optimize import minimize
 from pltstyle import create_plots
-from fitting_utils import load_data, compute_signal_ida, calculate_fit_metrics, residuals, split_replica
+from fitting_utils import load_data, compute_signal_ida, calculate_fit_metrics, residuals, split_replicas, load_bounds_from_results_file
 
 def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
 
+    data_lines = load_data(file_path)
+    replicas = split_replicas(data_lines)
+    
+    print(f"Number of replicas detected: {len(replicas)}")
+    
 
-    # Initialize parameter ranges for optimization
-    I0_range = (0, None)
-    Id_range = (None, None)
-    Ihd_range = (None, None)
+    # try loading bounds from results file if available
+    Id_lower, Id_upper, I0_lower, I0_upper, Ihd_lower, Ihd_upper = load_bounds_from_results_file(results_file_path)
 
-    # Load bounds from results file if available
-    if results_file_path and os.path.exists(results_file_path):
-        try:
-            with open(results_file_path, 'r') as f:
-                lines = f.readlines()
-            id_prediction_line = next((line for line in lines if 'Id prediction interval' in line), None)
-            if id_prediction_line and 'not applicable' not in id_prediction_line:
-                Id_lower = float(id_prediction_line.split('[')[-1].split(',')[0].strip())
-                Id_upper = float(id_prediction_line.split(',')[-1].split(']')[0].strip())
-            else:
-                average_Id = float(next(line for line in lines if 'Average Id' in line).split('\t')[-1].strip())
-                Id_lower = 0.5 * average_Id
-                Id_upper = 2.0 * average_Id
-            i0_prediction_line = next((line for line in lines if 'I0 prediction interval' in line), None)
-            if i0_prediction_line and 'not applicable' not in i0_prediction_line:
-                I0_lower = float(i0_prediction_line.split('[')[-1].split(',')[0].strip())
-                I0_upper = float(i0_prediction_line.split(',')[-1].split(']')[0].strip())
-            else:
-                average_I0 = float(next(line for line in lines if 'Average I0' in line).split('\t')[-1].strip())
-                I0_lower = 0.5 * average_I0
-                I0_upper = 2.0 * average_I0
-        except Exception as e:
-            print(f"Error parsing boundaries from the results file: {e}")
-            Id_lower, Id_upper = 1e3, 1e18
-            I0_lower, I0_upper = 0, None
-    else:
-        Id_lower, Id_upper = 1e3, 1e18
-        I0_lower, I0_upper = 0, None
-
-    Id_lower /= 1e6
-    Id_upper /= 1e6
-    Ihd_lower = Ihd_range[0] / 1e6 if Ihd_range[0] is not None else 0.001
-    Ihd_upper = Ihd_range[1] / 1e6 if Ihd_range[1] is not None else 1e12
-
+    # Convert constants to µM
     Kd = Kd_in_M / 1e6
     h0 = h0_in_M * 1e6
     d0 = g0_in_M * 1e6
-
-    data_lines = load_data(file_path)
-    if data_lines is None:
-        raise ValueError("Data loading failed.")
-    replicas = split_replica(data_lines)
-    if replicas is None:
-        raise ValueError("Replica splitting failed.")
 
     figures = []  # List to store figures
 

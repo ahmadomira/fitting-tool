@@ -6,7 +6,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 from pltstyle import create_plots
-from fitting_utils import load_data, compute_signal_dba, calculate_fit_metrics, residuals, split_replica
+from fitting_utils import load_data, compute_signal_dba, calculate_fit_metrics, residuals, split_replicas
 
 def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
     # Convert initial concentration to µM units
@@ -60,7 +60,7 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
     if data_lines is None:
         raise ValueError("Data loading failed.")
 
-    replicas = split_replica(data_lines)
+    replicas = split_replicas(data_lines)
     if replicas is None:
         raise ValueError("Replica splitting failed.")
 

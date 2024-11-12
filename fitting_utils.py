@@ -2,7 +2,6 @@
 import numpy as np
 from scipy.optimize import brentq, minimize
 import os
-from datetime import datetime
 
 def load_data(file_path):
     try:
@@ -15,7 +14,7 @@ def load_data(file_path):
     except Exception as e:
         raise Exception(f"An unexpected error occurred: {e}")
 
-def split_replica(data):
+def split_replicas(data):
         replicas, current_replica = [], []
         for line in data:
             if "var" in line.lower():
@@ -34,7 +33,7 @@ def split_replica(data):
         if current_replica:
             replicas.append(np.array(current_replica))
         if not replicas:
-            raise ValueError("No valid data found in the input file to split into replicas.")
+            raise ValueError("Replica splitting failed.")
         return replicas
 
 def compute_signal_dba(params, x_titrations, y_fixed):
@@ -133,3 +132,47 @@ def unique_filename(file):
         file = f"{base}_{counter}{extension}"
         counter += 1
     return file
+
+def load_bounds_from_results_file(results_file_path):
+    r"""Tries to load boundaries from previous fit results. If unsuccessful, sets default boundaries. Returns bounds in µM⁻¹."""
+    if results_file_path and os.path.exists(results_file_path):
+        try:
+            with open(results_file_path, 'r') as f:
+                lines = f.readlines()
+            id_prediction_line = next((line for line in lines if 'Id prediction interval' in line), None)
+            if id_prediction_line and 'not applicable' not in id_prediction_line:
+                Id_lower = float(id_prediction_line.split('[')[-1].split(',')[0].strip())
+                Id_upper = float(id_prediction_line.split(',')[-1].split(']')[0].strip())
+            else:
+                average_Id = float(next(line for line in lines if 'Average Id' in line).split('\t')[-1].strip())
+                Id_lower = 0.5 * average_Id
+                Id_upper = 2.0 * average_Id
+            i0_prediction_line = next((line for line in lines if 'I0 prediction interval' in line), None)
+            if i0_prediction_line and 'not applicable' not in i0_prediction_line:
+                I0_lower = float(i0_prediction_line.split('[')[-1].split(',')[0].strip())
+                I0_upper = float(i0_prediction_line.split(',')[-1].split(']')[0].strip())
+            else:
+                average_I0 = float(next(line for line in lines if 'Average I0' in line).split('\t')[-1].strip())
+                I0_lower = 0.5 * average_I0
+                I0_upper = 2.0 * average_I0
+        except Exception as e:
+            # TODO: redirect this to interface
+            print(f"Error parsing boundaries from the results file: {e}")
+            Id_lower, Id_upper = 1e3, 1e18
+            I0_lower, I0_upper = 0, None
+    else:
+        Id_lower, Id_upper = 1e3, 1e18
+        I0_lower, I0_upper = 0, None
+    
+    # Convert bounds to µM⁻¹ for fitting
+    Id_lower /= 1e6
+    Id_upper /= 1e6
+    I0_lower /= 1e6
+    if I0_upper:
+        I0_upper /= 1e6
+    
+    # TODO: ask frank about this Ihd
+    Ihd_lower = 0.001
+    Ihd_upper = 1e12
+    
+    return Id_lower, Id_upper, I0_lower, I0_upper, Ihd_lower, Ihd_upper

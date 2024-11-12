@@ -1,10 +1,9 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import os
 import numpy as np
 import re
 import matplotlib.pyplot as plt
-from scipy.optimize import brentq
 from datetime import datetime
 from pltstyle import create_plots  # Import the create_plots function
 
@@ -398,12 +397,14 @@ class DBAMergeFitsApp:
         state = tk.NORMAL if self.save_plots_var.get() else tk.DISABLED
         self.plots_dir_entry.config(state=state)
         self.plots_dir_button.config(state=state)
+        self.save_plots_entry_var.set(self.results_dir_var.get())
 
     def update_save_results_widgets(self):
         state = tk.NORMAL if self.save_results_var.get() else tk.DISABLED
         self.save_results_dir_entry.config(state=state)
         self.save_results_dir_button.config(state=state)
-
+        self.save_results_entry_var.set(self.results_dir_var.get())
+        
     def show_message(self, message, is_error=False):
         if self.info_label:
             self.info_label.destroy()

@@ -9,7 +9,7 @@ from interface_DBA_host_to_dye_fitting import DBAFittingAppHtoD
 from interface_DBA_dye_to_host_fitting import DBAFittingAppDtoH
 from interface_ida_merge_fits import IDAMergeFitsApp
 from interface_dba_merge_fits import DBAMergeFitsApp
-from interface_gda_merge_fits import GDAMergeFitsApp  # Import the new interface
+from interface_gda_merge_fits import GDAMergeFitsApp
 
 if __name__ == "__main__":
     root = tk.Tk()
