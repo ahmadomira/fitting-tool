@@ -5,13 +5,12 @@ from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
-from pltstyle import create_plots
+from plot_utils import plot_fitting_results, save_plot
 from fitting_utils import load_data, compute_signal_gda, calculate_fit_metrics, residuals, split_replicas, load_bounds_from_results_file
 
-from plot_utils import format_value
+import traceback
     
-# Function to run the fitting process
-def run_gda_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
+def run_gda_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, assay='gda'):
 
 
     # try loading bounds from results file if available
@@ -100,30 +99,12 @@ def run_gda_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
             extra_points = np.linspace(d0_values[i], d0_values[i + 1], 21)
             fitting_curve_x.extend(extra_points)
             fitting_curve_y.extend(compute_signal_gda(median_params, extra_points, Kd, h0, g0))
-        # TODO: implement a "dynamic" unit and scale for the x-axis
-        fig, ax = create_plots(x_label=r'$D_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$')
-
-        ax.plot(d0_values, Signal_observed, 'o', label='Observed Signal')
-        ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
-        ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-        ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
         
-        # Annotate plot with median parameter values and fit metrics
-        param_text = (f"$K_g$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
-                    f"$I_0$: {median_params[0]:.2e}\n"
-                    f"$I_d$: {median_params[2] * 1e6:.2e} $M^{{-1}}$\n"
-                    f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} $M^{{-1}}$\n"
-                    f"$RMSE$: {format_value(rmse)}\n"
-                    f"$R^2$: {r_squared:.3f}")
-        
-        ax.annotate(param_text, xy=(0.8, 0.04), xycoords='axes fraction', fontsize=10,
-            ha='left', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
+        plot_title = f'Replica {replica_index}'
+        fig = plot_fitting_results(d0_values, Signal_observed, fitting_curve_x, fitting_curve_y, median_params, rmse, r_squared, assay, plot_title)
 
-        if save_plots:
-            plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")
-            fig.savefig(plot_file, bbox_inches='tight')
-            print(f"Plot saved to {plot_file}")
-
+        # the label is used in save_plot as the filename for saving the plot
+        fig.set_label(f"fit_plot_replica_{replica_index}")
         figures.append(fig)  # Store the figure
 
         # Save results to a file if save_results is True
@@ -142,10 +123,10 @@ def run_gda_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
             
                 # Output - Median parameters
                 f.write("\nOutput:\nMedian parameters:\n")
-                f.write(f"Kg (M^-1): {median_params[1] * 1e6:.2e}\n")
-                f.write(f"I0: {median_params[0]:.2e}\n")
-                f.write(f"Id (signal/M): {median_params[2] * 1e6:.2e}\n")
-                f.write(f"Ihd (signal/M): {median_params[3] * 1e6:.2e}\n")
+                f.write(f"K_g (M^-1): {median_params[1] * 1e6:.2e}\n")
+                f.write(f"I_0: {median_params[0]:.2e}\n")
+                f.write(f"I_d (signal/M): {median_params[2] * 1e6:.2e}\n")
+                f.write(f"I_hd (signal/M): {median_params[3] * 1e6:.2e}\n")
                 f.write(f"RMSE: {rmse:.3f}\n")
                 f.write(f"R²: {r_squared:.3f}\n")
             
@@ -171,7 +152,7 @@ def run_gda_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
             
                 # Standard Deviations section
                 f.write("\nStandard Deviations:\n")
-                f.write(f"K_g Std Dev (M-1): {Kg_std:.2e}\n")
+                f.write(f"K_g Std Dev (M^-1): {Kg_std:.2e}\n")
                 f.write(f"I_0 Std Dev: {I0_std:.2e}\n")
                 f.write(f"I_d Std Dev (signal/M): {Id_std:.2e}\n")
                 f.write(f"I_hd Std Dev (signal/M): {Ihd_std:.2e}\n")
@@ -191,7 +172,10 @@ def run_gda_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
                 f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 print(f"Results for Replica {replica_index} saved to {replica_file}")
 
-    # Display all figures at once if display_plots is True
+    if save_plots:
+        for fig in figures:
+            save_plot(fig, plots_dir)
+    
     if display_plots:
         plt.show()
 
@@ -287,6 +271,10 @@ class GDAFittingApp:
         tk.Checkbutton(self.root, text="Display Plots", variable=self.display_plots_var).grid(row=11, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
         tk.Button(self.root, text="Run Fitting", command=self.run_fitting).grid(row=12, column=0, columnspan=3, pady=10, padx=pad_x)
 
+        # Bring the window to the front
+        self.root.lift()
+        self.root.focus_force()
+        
     def browse_input_file(self):
         file_path = filedialog.askopenfilename()
         if file_path:

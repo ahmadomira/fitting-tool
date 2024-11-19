@@ -5,22 +5,24 @@ from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
-from pltstyle import create_plots
+from plot_utils import plot_fitting_results, save_plot
 from fitting_utils import load_data, compute_signal_ida, calculate_fit_metrics, residuals, split_replicas, load_bounds_from_results_file
 
-def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
+import traceback
+
+def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, d0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, assay='ida'):
 
 
     # try loading bounds from results file if available
     Id_lower, Id_upper, I0_lower, I0_upper, Ihd_lower, Ihd_upper = load_bounds_from_results_file(results_file_path)
-
+    
     # Print boundary values for verification
     print(f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]")
     
     # Convert constants to µM
     Kd = Kd_in_M / 1e6
     h0 = h0_in_M * 1e6
-    d0 = g0_in_M * 1e6
+    d0 = d0_in_M * 1e6
 
     # Main fitting process
     data_lines = load_data(file_path)
@@ -84,42 +86,26 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
         Signal_computed = compute_signal_ida(median_params, g0_values, Kd, h0, d0)
         rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
 
+        # plot observed vs. simulated fitting curve
         fitting_curve_x, fitting_curve_y = [], []
         for i in range(len(g0_values) - 1):
             extra_points = np.linspace(g0_values[i], g0_values[i + 1], 21)
             fitting_curve_x.extend(extra_points)
             fitting_curve_y.extend(compute_signal_ida(median_params, extra_points, Kd, h0, d0))
 
-        fig, ax = create_plots(x_label=r'$g_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$')
-
-        ax.plot(g0_values, Signal_observed, 'o', label='Observed Signal')
-        ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
-        ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-        ax.legend()
-
-        param_text = (f"$K_g$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
-                      f"$I_0$: {median_params[0]:.2e}\n"
-                      f"$I_d$: {median_params[2] * 1e6:.2e} $M^{{-1}}$\n"
-                      f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} $M^{{-1}}$\n"
-                      f"$RMSE$: {rmse:.3f}\n"
-                      f"$R^2$: {r_squared:.3f}")
-
-        ax.annotate(param_text, xy=(0.97, 0.95), xycoords='axes fraction', fontsize=10,
-            ha='right', va='top', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5),
-            multialignment='left')
-
-        if save_plots:
-            plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")
-            fig.savefig(plot_file, bbox_inches='tight')
-            print(f"Plot saved to {plot_file}")
-
-        figures.append(fig)  # Store the figure
-
+        plot_title = f'Replica {replica_index}'
+        fig = plot_fitting_results(g0_values, Signal_observed, fitting_curve_x, fitting_curve_y, median_params, rmse, r_squared, assay, plot_title)
+        
+        # the label is used in save_plot as the filename for saving the plot
+        fig.set_label(f"fit_plot_replica_{replica_index}")
+        figures.append(fig)
+        
+        save_results_file = f"fit_results_replica_{replica_index}.txt"
         if save_results:
-            replica_file = os.path.join(results_save_dir, f"fit_results_replica_{replica_index}.txt")
+            replica_file = os.path.join(results_save_dir, save_results_file)
             with open(replica_file, 'w') as f:
                 f.write("Input:\n")
-                f.write(f"d0 (M): {g0_in_M:.6e}\n")
+                f.write(f"d0 (M): {d0_in_M:.6e}\n")
                 f.write(f"h0 (M): {h0_in_M:.6e}\n")
                 f.write(f"Kd (M^-1): {Kd_in_M:.6e}\n")
                 f.write(f"Id lower bound (signal/M): {Id_lower * 1e6:.3e}\n")
@@ -128,10 +114,10 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
                 f.write(f"I0 upper bound: {I0_upper:.3e}\n")
 
                 f.write("\nOutput:\nMedian parameters:\n")
-                f.write(f"Kg (M^-1): {median_params[1] * 1e6:.2e}\n")
-                f.write(f"I0: {median_params[0]:.2e}\n")
-                f.write(f"Id (signal/M): {median_params[2] * 1e6:.2e}\n")
-                f.write(f"Ihd (signal/M): {median_params[3] * 1e6:.2e}\n")
+                f.write(f"K_g (M^-1): {median_params[1] * 1e6:.2e}\n")
+                f.write(f"I_0: {median_params[0]:.2e}\n")
+                f.write(f"I_d (signal/M): {median_params[2] * 1e6:.2e}\n")
+                f.write(f"I_hd (signal/M): {median_params[3] * 1e6:.2e}\n")
                 f.write(f"RMSE: {rmse:.3f}\n")
                 f.write(f"R²: {r_squared:.3f}\n")
 
@@ -154,10 +140,10 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
                     Kg_std = I0_std = Id_std = Ihd_std = np.nan
 
                 f.write("\nStandard Deviations:\n")
-                f.write(f"Kg Std Dev (M^-1): {Kg_std:.2e}\n")
-                f.write(f"I0 Std Dev: {I0_std:.2e}\n")
-                f.write(f"Id Std Dev (signal/M): {Id_std:.2e}\n")
-                f.write(f"Ihd Std Dev (signal/M): {Ihd_std:.2e}\n")
+                f.write(f"K_g Std Dev (M^-1): {Kg_std:.2e}\n")
+                f.write(f"I_0 Std Dev: {I0_std:.2e}\n")
+                f.write(f"I_d Std Dev (signal/M): {Id_std:.2e}\n")
+                f.write(f"I_hd Std Dev (signal/M): {Ihd_std:.2e}\n")
 
                 f.write("\nOriginal Data:\nConcentration g0 (M)\tSignal\n")
                 for g0, signal in zip(g0_values / 1e6, Signal_observed):
@@ -171,6 +157,10 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
                 f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                 print(f"Results for Replica {replica_index} saved to {replica_file}")
 
+    if save_plots:
+        for fig in figures:
+            save_plot(fig, plots_dir)
+            
     if display_plots:
         plt.show()
 
@@ -197,10 +187,11 @@ class IDAFittingApp:
         self.results_save_dir_var = tk.StringVar()
 
         # Set default values
+        self.file_path_var.set("/Users/ahmadomira/Downloads/interface_test/IDA_system.txt")
         self.Kd_var.set(1.68e7)
         self.h0_var.set(4.3e-6)
         self.g0_var.set(6e-6)
-        self.fit_trials_var.set(200)
+        self.fit_trials_var.set(10)
         self.rmse_threshold_var.set(2)
         self.r2_threshold_var.set(0.9)
         self.display_plots_var.set(True)
@@ -264,6 +255,10 @@ class IDAFittingApp:
 
         tk.Checkbutton(self.root, text="Display Plots", variable=self.display_plots_var).grid(row=11, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
         tk.Button(self.root, text="Run Fitting", command=self.run_fitting).grid(row=12, column=0, columnspan=3, pady=10, padx=pad_x)
+        
+        # Bring the window to the front
+        self.root.lift()
+        self.root.focus_force()
 
     def browse_input_file(self):
         file_path = filedialog.askopenfilename()
@@ -339,10 +334,11 @@ class IDAFittingApp:
             self.show_message(f"Fitting completed!", is_error=False)
             
         except Exception as e:
-            self.show_message(f"Error: {str(e)}", is_error=True)
+            error_message = f"Error: {str(e)}\n{traceback.format_exc()}"
+            self.show_message(error_message, is_error=True)
+            print(error_message)
 
 if __name__ == "__main__":
     root = tk.Tk()
-    
     IDAFittingApp(root)
     root.mainloop()

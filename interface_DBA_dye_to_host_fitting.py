@@ -5,7 +5,7 @@ from datetime import datetime
 import os
 import tkinter as tk
 from tkinter import filedialog
-from pltstyle import create_plots
+from plot_utils import create_plots
 from fitting_utils import load_bounds_from_results_file, load_data, compute_signal_dba, calculate_fit_metrics, residuals, split_replicas
 
 def run_dba_dye_to_host_fitting(file_path, results_file_path, h0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):

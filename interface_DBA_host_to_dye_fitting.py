@@ -6,7 +6,7 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-from pltstyle import create_plots
+from plot_utils import create_plots
 from fitting_utils import load_bounds_from_results_file, load_data, compute_signal_dba, calculate_fit_metrics, residuals, split_replicas
 
 import traceback

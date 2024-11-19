@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 
 # Local imports
-from pltstyle import create_plots
+from plot_utils import create_plots
 from fitting_utils import unique_filename
 
 # Function to calculate the 95% prediction interval upper and lower bounds
