@@ -6,7 +6,7 @@ import re
 import matplotlib.pyplot as plt
 from scipy.optimize import brentq
 from datetime import datetime
-from pltstyle import create_plots  # Import the create_plots function
+from plot_utils import create_plots  # Import the create_plots function
 
 def format_value(value):
     return f"{value:.0f}" if value > 10 else f"{value:.2f}"

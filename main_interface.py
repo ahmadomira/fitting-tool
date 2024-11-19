@@ -63,17 +63,17 @@ if __name__ == "__main__":
     dye_alone_button = tk.Button(root, text="Dye Alone Fitting", command=open_dye_alone_fitting)
     dye_alone_button.pack(pady=10, padx=20, fill=tk.X)
 
-    gda_fitting_button = tk.Button(root, text="GDA Fitting", command=open_gda_fitting)
-    gda_fitting_button.pack(pady=10, padx=20, fill=tk.X)
-
-    ida_fitting_button = tk.Button(root, text="IDA Fitting", command=open_ida_fitting)
-    ida_fitting_button.pack(pady=10, padx=20, fill=tk.X)
-
     dba_host_to_dye_button = tk.Button(root, text="DBA Fitting (Host to Dye)", command=open_dba_host_to_dye_fitting)
     dba_host_to_dye_button.pack(pady=10, padx=20, fill=tk.X)
 
     dba_dye_to_host_button = tk.Button(root, text="DBA Fitting (Dye to Host)", command=open_dba_dye_to_host_fitting)
     dba_dye_to_host_button.pack(pady=10, padx=20, fill=tk.X)
+
+    ida_fitting_button = tk.Button(root, text="IDA Fitting", command=open_ida_fitting)
+    ida_fitting_button.pack(pady=10, padx=20, fill=tk.X)
+
+    gda_fitting_button = tk.Button(root, text="GDA Fitting", command=open_gda_fitting)
+    gda_fitting_button.pack(pady=10, padx=20, fill=tk.X)
 
     # Add extra vertical space before the next section
     tk.Label(root, text="").pack(pady=5)
@@ -82,11 +82,11 @@ if __name__ == "__main__":
     merging_label = tk.Label(root, text="Merging Results", font=("Arial", 16, "bold"))
     merging_label.pack(pady=5)
 
-    ida_merge_fits_button = tk.Button(root, text="IDA Merge Fits", command=open_ida_merge_fits)
-    ida_merge_fits_button.pack(pady=10, padx=20, fill=tk.X)
-
     dba_merge_fits_button = tk.Button(root, text="DBA Merge Fits", command=open_dba_merge_fits)
     dba_merge_fits_button.pack(pady=10, padx=20, fill=tk.X)
+
+    ida_merge_fits_button = tk.Button(root, text="IDA Merge Fits", command=open_ida_merge_fits)
+    ida_merge_fits_button.pack(pady=10, padx=20, fill=tk.X)
 
     gda_merge_fits_button = tk.Button(root, text="GDA Merge Fits", command=open_gda_merge_fits)
     gda_merge_fits_button.pack(pady=10, padx=20, fill=tk.X)
