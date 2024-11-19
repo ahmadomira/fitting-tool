@@ -6,11 +6,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 from plot_utils import plot_fitting_results, save_plot
-from fitting_utils import load_data, compute_signal_ida, calculate_fit_metrics, residuals, split_replicas, load_bounds_from_results_file
+from fitting_utils import load_data, compute_signal_ida, calculate_fit_metrics, residuals, save_replica_file, split_replicas, load_bounds_from_results_file
 
 import traceback
 
-def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, d0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, assay='ida'):
+def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, d0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results_bool, results_save_dir, assay='ida'):
 
 
     # try loading bounds from results file if available
@@ -100,62 +100,12 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, d0_in_M, num
         fig.set_label(f"fit_plot_replica_{replica_index}")
         figures.append(fig)
         
-        save_results_file = f"fit_results_replica_{replica_index}.txt"
-        if save_results:
-            replica_file = os.path.join(results_save_dir, save_results_file)
-            with open(replica_file, 'w') as f:
-                f.write("Input:\n")
-                f.write(f"d0 (M): {d0_in_M:.6e}\n")
-                f.write(f"h0 (M): {h0_in_M:.6e}\n")
-                f.write(f"Kd (M^-1): {Kd_in_M:.6e}\n")
-                f.write(f"Id lower bound (signal/M): {Id_lower * 1e6:.3e}\n")
-                f.write(f"Id upper bound (signal/M): {Id_upper * 1e6:.3e}\n")
-                f.write(f"I0 lower bound: {I0_lower:.3e}\n")
-                f.write(f"I0 upper bound: {I0_upper:.3e}\n")
-
-                f.write("\nOutput:\nMedian parameters:\n")
-                f.write(f"K_g (M^-1): {median_params[1] * 1e6:.2e}\n")
-                f.write(f"I_0: {median_params[0]:.2e}\n")
-                f.write(f"I_d (signal/M): {median_params[2] * 1e6:.2e}\n")
-                f.write(f"I_hd (signal/M): {median_params[3] * 1e6:.2e}\n")
-                f.write(f"RMSE: {rmse:.3f}\n")
-                f.write(f"R²: {r_squared:.3f}\n")
-
-                f.write("\nAcceptable Fit Parameters:\n")
-                f.write("Kg (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
-                for params, fit_rmse, fit_r2 in filtered_results:
-                    f.write(f"{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n")
-
-                if filtered_results:
-                    Kg_values = [params[1] * 1e6 for params, _, _ in filtered_results]
-                    I0_values = [params[0] for params, _, _ in filtered_results]
-                    Id_values = [params[2] * 1e6 for params, _, _ in filtered_results]
-                    Ihd_values = [params[3] * 1e6 for params, _, _ in filtered_results]
-
-                    Kg_std = np.std(Kg_values)
-                    I0_std = np.std(I0_values)
-                    Id_std = np.std(Id_values)
-                    Ihd_std = np.std(Ihd_values)
-                else:
-                    Kg_std = I0_std = Id_std = Ihd_std = np.nan
-
-                f.write("\nStandard Deviations:\n")
-                f.write(f"K_g Std Dev (M^-1): {Kg_std:.2e}\n")
-                f.write(f"I_0 Std Dev: {I0_std:.2e}\n")
-                f.write(f"I_d Std Dev (signal/M): {Id_std:.2e}\n")
-                f.write(f"I_hd Std Dev (signal/M): {Ihd_std:.2e}\n")
-
-                f.write("\nOriginal Data:\nConcentration g0 (M)\tSignal\n")
-                for g0, signal in zip(g0_values / 1e6, Signal_observed):
-                    f.write(f"{g0:.6e}\t{signal:.6e}\n")
-
-                f.write("\nFitting Curve:\n")
-                f.write("Simulated Concentration (M)\tSimulated Signal\n")
-                for x_sim, y_sim in zip(np.array(fitting_curve_x) / 1e6, fitting_curve_y):
-                    f.write(f"{x_sim:.6e}\t{y_sim:.6e}\n")
-
-                f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                print(f"Results for Replica {replica_index} saved to {replica_file}")
+        replica_filename = f"fit_results_replica_{replica_index}.txt"
+        if save_results_bool:
+            input_params = (d0_in_M, h0_in_M, Kd_in_M, Id_lower, Id_upper, I0_lower, I0_upper) 
+            median_params = (*median_params, rmse, r_squared)
+            fitting_params = (g0_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index)
+            save_replica_file(results_save_dir, replica_filename, filtered_results, input_params, median_params, fitting_params, assay)
 
     if save_plots:
         for fig in figures:
@@ -181,13 +131,15 @@ class IDAFittingApp:
         self.rmse_threshold_var = tk.DoubleVar()
         self.r2_threshold_var = tk.DoubleVar()
         self.save_plots_var = tk.BooleanVar()
-        self.results_dir_var = tk.StringVar()
+        self.plots_dir_var = tk.StringVar()
         self.display_plots_var = tk.BooleanVar()
         self.save_results_var = tk.BooleanVar()
-        self.results_save_dir_var = tk.StringVar()
-
+        self.results_dir_var = tk.StringVar()
+    
         # Set default values
         self.file_path_var.set("/Users/ahmadomira/Downloads/interface_test/IDA_system.txt")
+        self.plots_dir_var.set("/Users/ahmadomira/Downloads/interface_test/untitled folder")
+        self.results_dir_var.set("/Users/ahmadomira/Downloads/interface_test/untitled folder")
         self.Kd_var.set(1.68e7)
         self.h0_var.set(4.3e-6)
         self.g0_var.set(6e-6)
@@ -238,7 +190,7 @@ class IDAFittingApp:
         self.r2_threshold_entry.grid(row=8, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
         tk.Checkbutton(self.root, text="Save Plots To", variable=self.save_plots_var, command=self.update_save_plot_widgets).grid(row=9, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
-        self.results_dir_entry = tk.Entry(self.root, textvariable=self.results_dir_var, width=40, state=tk.DISABLED, justify='left')
+        self.results_dir_entry = tk.Entry(self.root, textvariable=self.plots_dir_var, width=40, state=tk.DISABLED, justify='left')
         self.results_dir_entry.grid(row=9, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
         self.results_dir_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_directory(self.results_dir_entry), state=tk.DISABLED)
         self.results_dir_button.grid(row=9, column=2, padx=pad_x, pady=pad_y)
@@ -246,7 +198,7 @@ class IDAFittingApp:
         self.save_plots_var.trace_add('write', lambda *args: self.update_save_plot_widgets())
 
         tk.Checkbutton(self.root, text="Save Results To", variable=self.save_results_var, command=self.update_save_results_widgets).grid(row=10, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
-        self.results_save_dir_entry = tk.Entry(self.root, textvariable=self.results_save_dir_var, width=40, state=tk.DISABLED, justify='left')
+        self.results_save_dir_entry = tk.Entry(self.root, textvariable=self.results_dir_var, width=40, state=tk.DISABLED, justify='left')
         self.results_save_dir_entry.grid(row=10, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
         self.results_save_dir_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_directory(self.results_save_dir_entry), state=tk.DISABLED)
         self.results_save_dir_button.grid(row=10, column=2, padx=pad_x, pady=pad_y)
@@ -265,8 +217,8 @@ class IDAFittingApp:
         if file_path:
             self.file_path_var.set(file_path)
             root_dir = os.path.dirname(file_path)
+            self.plots_dir_var.set(root_dir)
             self.results_dir_var.set(root_dir)
-            self.results_save_dir_var.set(root_dir)
 
     def browse_file(self, entry):
         initial_dir = os.path.dirname(self.file_path_var.get()) if self.file_path_var.get() else os.getcwd()
@@ -317,7 +269,7 @@ class IDAFittingApp:
             save_plots = self.save_plots_var.get()
             display_plots = self.display_plots_var.get()
             plots_dir = self.results_dir_entry.get()
-            save_results = self.save_results_var.get()
+            save_results_bool = self.save_results_var.get()
             results_save_dir = self.results_save_dir_entry.get()
             
             # Show a progress indicator
@@ -327,7 +279,7 @@ class IDAFittingApp:
             progress_label.pack(padx=20, pady=20)
             self.root.update_idletasks()
             
-            run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir)
+            run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results_bool, results_save_dir)
             
             progress_window.destroy()
             
