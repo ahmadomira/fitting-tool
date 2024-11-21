@@ -176,7 +176,7 @@ def load_bounds_from_results_file(results_file_path):
     
     return Id_lower, Id_upper, I0_lower, I0_upper, Ihd_lower, Ihd_upper
 
-def save_replica_file(results_save_dir, replica_filename, filtered_results, input_params, median_params, fitting_params, assay):
+def save_replica_file(results_save_dir, filtered_results, input_params, median_params, fitting_params, assay):
     analytes = {
             'ida': { 
                 'constant' : 'd0',
@@ -187,13 +187,14 @@ def save_replica_file(results_save_dir, replica_filename, filtered_results, inpu
             }
         }[assay]
     
-    replica_file = os.path.join(results_save_dir, replica_filename)
+    
     
     constant_analyte_in_M, h0_in_M, Kd_in_M, Id_lower, Id_upper, I0_lower, I0_upper = input_params
     I0, K_g, I_d, I_hd, rmse, r_squared = median_params
     variable_analyte_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index = fitting_params
     
-    
+    replica_filename = f"fit_results_replica_{replica_index}.txt"
+    replica_file = os.path.join(results_save_dir, replica_filename)
     with open(replica_file, 'w') as f:
         f.write("Input:\n")
         f.write(f"{analytes['constant']} (M): {constant_analyte_in_M:.6e}\n")

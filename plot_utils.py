@@ -57,11 +57,28 @@ plt.rcParams.update({
 })
 
 plot_config = {
-    'dba' : {
+    # defaults 
+    'x_label': r'Concentration $\rm{[\mu M]}$',
+    'y_label': r'Signal $\rm{[AU]}$',     
+    'annotation_config': {
+        'xy': (0.8, 0.04),
+        'ha': 'left',
+        'va': 'bottom'
+        },
+    'legend_config': {
+        'loc': 'upper left',
+        'bbox_to_anchor': (0.02, 0.98)
     },
+    'K_g' : 'K_g',
+    
+    # specific configurations
+    'dba' : {
+        'x_label' : r'$h_0$ $\rm{[\mu M]}$',
+        'K_d' : 'K_d' 
+    },
+    
     'ida' : {
         'x_label': r'$G_0$ $\rm{[\mu M]}$',
-        'y_label': r'Signal $\rm{[AU]}$',
         'annotation_config': {
             'xy': (0.97, 0.95),
             'ha': 'right',
@@ -73,18 +90,9 @@ plot_config = {
         }
         
     },
+    
     'gda' : {
         'x_label': r'$D_0$ $\rm{[\mu M]}$',
-        'y_label': r'Signal $\rm{[AU]}$',
-        'annotation_config': {
-            'xy': (0.8, 0.04),
-            'ha': 'left',
-            'va': 'bottom'
-            },
-        'legend_config': {
-            'loc': 'upper left',
-            'bbox_to_anchor': (0.02, 0.98)
-        }
     }
 }
     
@@ -112,10 +120,17 @@ def create_plots(x_label=r'Concentration $\rm{[\mu M]}$',
 def format_value(value):
     return f"{value:.0f}" if value > 10 else f"{value:.3f}"
 
-def plot_fitting_results(x_values, Signal_observed, fitting_curve_x, fitting_curve_y, median_params, rmse, r_squared, assay, plot_title):
+def plot_fitting_results(fitting_params, median_params, assay):
+    x_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index = fitting_params
+    I_0, k, I_d, I_hd, rmse, r_squared = median_params
+    plot_title = f'Replica {replica_index}'
+    
     # TODO: implement a "dynamic" unit and scale for the x-axis
     config = plot_config.get(assay)
-    fig, ax = create_plots(x_label=config['x_label'], y_label=config['y_label'])
+    x_label = config.get('x_label', plot_config['x_label'])
+    y_label = config.get('y_label', plot_config['y_label'])
+    
+    fig, ax = create_plots(x_label=x_label, y_label=y_label)
 
     ax.plot(x_values, Signal_observed, 'o', label='Observed Signal')
     ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
@@ -123,22 +138,24 @@ def plot_fitting_results(x_values, Signal_observed, fitting_curve_x, fitting_cur
     plot_title = f'Observed vs. Simulated Fitting Curve ({plot_title})'
     
     ax.set_title(plot_title)
-    ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
-
-    param_text = (f"$K_g$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
-                  f"$I_0$: {median_params[0]:.2e}\n"
-                  f"$I_d$: {median_params[2] * 1e6:.2e} $M^{{-1}}$\n"
-                  f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} $M^{{-1}}$\n"
+    
+    K_text = config.get('K_d', plot_config['K_g'])
+    param_text = (f"${K_text}$: {k * 1e6:.2e} $M^{{-1}}$\n"
+                  f"$I_0$: {I_0:.2e}\n"
+                  f"$I_d$: {I_d * 1e6:.2e} $M^{{-1}}$\n"
+                  f"$I_{{hd}}$: {I_hd * 1e6:.2e} $M^{{-1}}$\n"
                   f"$RMSE$: {format_value(rmse)}\n"
                   f"$R^2$: {r_squared:.3f}")
 
-    annot_config = config['annotation_config']
+    annot_config = config.get('annotation_config', plot_config['annotation_config'])
     ax.annotate(param_text, xy=annot_config['xy'], xycoords='axes fraction', fontsize=10,
                 ha=annot_config['ha'], va=annot_config['va'], bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5), multialignment='left')
     
-    legend_config = config['legend_config']
+    legend_config = config.get('legend_config', plot_config['legend_config'])
     ax.legend(loc=legend_config['loc'], bbox_to_anchor=legend_config['bbox_to_anchor'])
 
+    # the label is used in save_plot as the filename for saving the plot
+    fig.set_label(f"fit_plot_replica_{replica_index}")
     return fig
 
 def save_plot(fig, plots_dir):

@@ -93,19 +93,17 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, d0_in_M, num
             fitting_curve_x.extend(extra_points)
             fitting_curve_y.extend(compute_signal_ida(median_params, extra_points, Kd, h0, d0))
 
-        plot_title = f'Replica {replica_index}'
-        fig = plot_fitting_results(g0_values, Signal_observed, fitting_curve_x, fitting_curve_y, median_params, rmse, r_squared, assay, plot_title)
+        # pack parameters for plotting and saving
+        input_params = (d0_in_M, h0_in_M, Kd_in_M, Id_lower, Id_upper, I0_lower, I0_upper)
+        median_params = (*median_params, rmse, r_squared)
+        fitting_params = (g0_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index)
         
-        # the label is used in save_plot as the filename for saving the plot
-        fig.set_label(f"fit_plot_replica_{replica_index}")
+        
+        fig = plot_fitting_results(fitting_params, median_params, assay)
         figures.append(fig)
         
-        replica_filename = f"fit_results_replica_{replica_index}.txt"
         if save_results_bool:
-            input_params = (d0_in_M, h0_in_M, Kd_in_M, Id_lower, Id_upper, I0_lower, I0_upper) 
-            median_params = (*median_params, rmse, r_squared)
-            fitting_params = (g0_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index)
-            save_replica_file(results_save_dir, replica_filename, filtered_results, input_params, median_params, fitting_params, assay)
+            save_replica_file(results_save_dir, filtered_results, input_params, median_params, fitting_params, assay)
 
     if save_plots:
         for fig in figures:
