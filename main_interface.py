@@ -91,4 +91,8 @@ if __name__ == "__main__":
     gda_merge_fits_button = tk.Button(root, text="GDA Merge Fits", command=open_gda_merge_fits)
     gda_merge_fits_button.pack(pady=10, padx=20, fill=tk.X)
 
+    # Bring the window to the front
+    root.lift()
+    root.focus_force()
+    
     root.mainloop()

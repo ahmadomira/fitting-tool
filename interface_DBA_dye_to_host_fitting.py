@@ -5,12 +5,12 @@ from datetime import datetime
 import os
 import tkinter as tk
 from tkinter import filedialog
-from plot_utils import create_plots
-from fitting_utils import load_bounds_from_results_file, load_data, compute_signal_dba, calculate_fit_metrics, residuals, split_replicas
+from plot_utils import create_plots, plot_fitting_results, save_plot
+from fitting_utils import load_bounds_from_results_file, load_data, compute_signal_dba, calculate_fit_metrics, residuals, save_replica_file, split_replicas
 
-def run_dba_dye_to_host_fitting(file_path, results_file_path, h0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
+def run_dba_dye_to_host_fitting(file_path, results_file_path, h0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results_bool, results_save_dir, number_of_fit_trials, assay='dba_DtoH'):
     # Convert initial concentration to µM units
-    h0 = h0_in_M * 1e6  # h0 in µM
+    h0 = h0_in_M * 1e6
 
     # Initialize parameter ranges with default boundaries
     I0_lower, I0_upper = 0, None
@@ -105,93 +105,24 @@ def run_dba_dye_to_host_fitting(file_path, results_file_path, h0_in_M, rmse_thre
         fitting_curve_x.append(d0_values[-1])
         fitting_curve_y.append(last_signal)
 
-        # Plot observed vs. simulated fitting curve
-        fig, ax = create_plots(x_label=r'$D_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$')
+        # Calculate RMSE and R² for the median fit
+        rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
+        
+        # pack parameters for plotting and saving
+        input_params = (h0_in_M, None, None, Id_lower, Id_upper, I0_lower, I0_upper)
+        median_params = (*median_params, rmse, r_squared)
+        fitting_params = (d0_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index)
 
-        ax.plot(d0_values, Signal_observed, 'o', label='Observed Signal')
-        ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
-        ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-        ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
-
-        param_text = (f"$K_d$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
-                      f"$I_0$: {median_params[0]:.2e}\n"
-                      f"$I_d$: {median_params[2] * 1e6:.2e} $M^{{-1}}$\n"
-                      f"$I_{{hd}}$: {median_params[3] * 1e6:.2e} $M^{{-1}}$\n"
-                      f"$RMSE$: {rmse:.3f}\n"
-                      f"$R^2$: {r_squared:.3f}")
-
-        ax.annotate(param_text, xy=(0.8, 0.04), xycoords='axes fraction', fontsize=10,
-                    ha='left', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
-
-        if save_plots:
-            plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")
-            fig.savefig(plot_file, bbox_inches='tight')
-            print(f"Plot saved to {plot_file}")
-
+        fig = plot_fitting_results(fitting_params, median_params, assay)
         figures.append(fig)
 
-        # Calculate RMSE and R² for the median fit
-        median_rmse, median_r2 = calculate_fit_metrics(Signal_observed, Signal_computed)
+        if save_results_bool:
+            save_replica_file(results_save_dir, filtered_results, input_params, median_params, fitting_params, assay)
 
-        # Export fit parameters and results to a text file
-        if save_results:
-            replica_file = os.path.join(results_save_dir, f"fit_results_replica_{replica_index}.txt")
-            with open(replica_file, 'w') as f:
-                f.write(f"Input:\nh0 (M): {h0_in_M:.6e}\n")
-                f.write(f"Id lower bound: {Id_lower * 1e6:.3e} signal/M\n")
-                f.write(f"Id upper bound: {Id_upper * 1e6:.3e} signal/M\n")
-                f.write(f"I0 lower bound: {I0_lower:.3e}\n")
-                f.write(f"I0 upper bound: {I0_upper:.3e}\n")
-
-                f.write("\nOutput:\nMedian parameters:\n")
-                f.write(f"I0: {median_params[0]:.2e}\n")
-                f.write(f"Kd (M^-1): {median_params[1] * 1e6:.2e}\n")
-                f.write(f"Id (signal/M): {median_params[2] * 1e6:.2e}\n")
-                f.write(f"Ihd (signal/M): {median_params[3] * 1e6:.2e}\n")
-                f.write(f"RMSE: {median_rmse:.3f}\n")
-                f.write(f"R²: {median_r2:.3f}\n")
-
-                # Export only acceptable filtered fit parameters
-                f.write("\nAcceptable Fit Parameters:\n")
-                f.write("Kd (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
-                for params, fit_rmse, fit_r2 in filtered_results:
-                    f.write(f"{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n")
-
-                # Calculate standard deviations for Kg, I0, Id, and Ihd if there are filtered results
-                if filtered_results:
-                    Kd_values = [params[1] * 1e6 for params, _, _ in filtered_results]
-                    I0_values = [params[0] for params, _, _ in filtered_results]
-                    Id_values = [params[2] * 1e6 for params, _, _ in filtered_results]
-                    Ihd_values = [params[3] * 1e6 for params, _, _ in filtered_results]
+    if save_plots:
+        for fig in figures:
+            save_plot(fig, plots_dir)
             
-                    Kd_std = np.std(Kd_values)
-                    I0_std = np.std(I0_values)
-                    Id_std = np.std(Id_values)
-                    Ihd_std = np.std(Ihd_values)
-                else:
-                    Kd_std = I0_std = Id_std = Ihd_std = np.nan  # Assign NaN if no filtered results
-                
-                # Write the standard deviations
-                f.write("\nStandard Deviations:\n")
-                f.write(f"Kd Std Dev: {Kd_std:.2e} M^-1\n")
-                f.write(f"I0 Std Dev: {I0_std:.2e}\n")
-                f.write(f"Id Std Dev: {Id_std:.2e} signal/M\n")
-                f.write(f"Ihd Std Dev: {Ihd_std:.2e} signal/M\n")
-
-                # Write the input signal data
-                f.write("\nOriginal Data:\nConcentration (M)\tSignal\n")
-                for d0, signal in zip(d0_values / 1e6, Signal_observed):  # Convert d0_values to M
-                    f.write(f"{d0:.6e}\t{signal:.6e}\n")
-
-                # Write the fitting curve data
-                f.write("\nFitting Curve:\n")
-                f.write("Simulated Concentration (M)\tSimulated Signal\n")
-                for x_sim, y_sim in zip(np.array(fitting_curve_x) / 1e6, fitting_curve_y):  # Convert fitting_curve_x to M
-                    f.write(f"{x_sim:.6e}\t{y_sim:.6e}\n")
-                f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")   # Exports time stamp
-
-            print(f"Results for Replica {replica_index} saved to {replica_file}")
-
     if display_plots:
         plt.show()
 
@@ -272,6 +203,10 @@ class DBAFittingAppDtoH:
         tk.Checkbutton(self.root, text="Display Plots", variable=self.display_plots_var).grid(row=9, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
         tk.Button(self.root, text="Run Fitting", command=self.run_fitting).grid(row=10, column=0, columnspan=3, pady=10, padx=pad_x)
 
+        # Bring the window to the front
+        self.root.lift()
+        self.root.focus_force() 
+        
     def browse_input_file(self):
         file_path = filedialog.askopenfilename()
         if file_path:
@@ -346,7 +281,7 @@ class DBAFittingAppDtoH:
                 save_plots=save_plots,
                 display_plots=display_plots,
                 plots_dir=plots_dir,
-                save_results=save_results,
+                save_results_bool=save_results,
                 results_save_dir=results_save_dir,
                 number_of_fit_trials=number_of_fit_trials
             )

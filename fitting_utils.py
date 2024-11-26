@@ -178,6 +178,16 @@ def load_bounds_from_results_file(results_file_path):
 
 def save_replica_file(results_save_dir, filtered_results, input_params, median_params, fitting_params, assay):
     analytes = {
+            'dba_HtoD': {
+                'constant' : 'd0',
+                'variable' : 'h0',
+                'K_d' : 'K_d'
+                    },
+            'dba_DtoH': {
+                'constant' : 'h0',
+                'variable' : 'd0',
+                'K_d' : 'K_d'
+                    }, 
             'ida': { 
                 'constant' : 'd0',
                 'variable' : 'g0'
@@ -187,10 +197,10 @@ def save_replica_file(results_save_dir, filtered_results, input_params, median_p
             }
         }[assay]
     
-    
+    K_text = analytes.get('K_d', 'K_g')
     
     constant_analyte_in_M, h0_in_M, Kd_in_M, Id_lower, Id_upper, I0_lower, I0_upper = input_params
-    I0, K_g, I_d, I_hd, rmse, r_squared = median_params
+    I0, k, I_d, I_hd, rmse, r_squared = median_params
     variable_analyte_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index = fitting_params
     
     replica_filename = f"fit_results_replica_{replica_index}.txt"
@@ -198,15 +208,17 @@ def save_replica_file(results_save_dir, filtered_results, input_params, median_p
     with open(replica_file, 'w') as f:
         f.write("Input:\n")
         f.write(f"{analytes['constant']} (M): {constant_analyte_in_M:.6e}\n")
-        f.write(f"h0 (M): {h0_in_M:.6e}\n")
-        f.write(f"Kd (M^-1): {Kd_in_M:.6e}\n")
+        if h0_in_M:
+            f.write(f"h0 (M): {h0_in_M:.6e}\n")
+        if Kd_in_M:
+            f.write(f"Kd (M^-1): {Kd_in_M:.6e}\n")
         f.write(f"Id lower bound (signal/M): {Id_lower * 1e6:.3e}\n")
         f.write(f"Id upper bound (signal/M): {Id_upper * 1e6:.3e}\n")
         f.write(f"I0 lower bound: {I0_lower:.3e}\n")
         f.write(f"I0 upper bound: {I0_upper:.3e}\n")
         
         f.write("\nOutput:\nMedian parameters:\n")
-        f.write(f"K_g (M^-1): {K_g * 1e6:.2e}\n")
+        f.write(f"{K_text} (M^-1): {k * 1e6:.2e}\n")
         f.write(f"I_0: {I0:.2e}\n")
         f.write(f"I_d (signal/M): {I_d * 1e6:.2e}\n")
         f.write(f"I_hd (signal/M): {I_hd * 1e6:.2e}\n")
@@ -214,7 +226,7 @@ def save_replica_file(results_save_dir, filtered_results, input_params, median_p
         f.write(f"R²: {r_squared:.3f}\n")
         
         f.write("\nAcceptable Fit Parameters:\n")
-        f.write("Kg (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
+        f.write(f"{K_text} (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
         for params, fit_rmse, fit_r2 in filtered_results:
             f.write(f"{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n")
         if filtered_results:
@@ -230,7 +242,7 @@ def save_replica_file(results_save_dir, filtered_results, input_params, median_p
             Kg_std = I0_std = Id_std = Ihd_std = np.nan
             
         f.write("\nStandard Deviations:\n")
-        f.write(f"K_g Std Dev (M^-1): {Kg_std:.2e}\n")
+        f.write(f"{K_text} Std Dev (M^-1): {Kg_std:.2e}\n")
         f.write(f"I_0 Std Dev: {I0_std:.2e}\n")
         f.write(f"I_d Std Dev (signal/M): {Id_std:.2e}\n")
         f.write(f"I_hd Std Dev (signal/M): {Ihd_std:.2e}\n")
@@ -244,7 +256,8 @@ def save_replica_file(results_save_dir, filtered_results, input_params, median_p
         for x_sim, y_sim in zip(np.array(fitting_curve_x) / 1e6, fitting_curve_y):
             f.write(f"{x_sim:.6e}\t{y_sim:.6e}\n")
         f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        
         print(f"Results for Replica {replica_index} saved to {replica_file}")
-
+        
 def run_fitting_routine():
     pass

@@ -72,8 +72,13 @@ plot_config = {
     'K_g' : 'K_g',
     
     # specific configurations
-    'dba' : {
-        'x_label' : r'$h_0$ $\rm{[\mu M]}$',
+    'dba_HtoD' : {
+        'x_label' : r'$H_0$ $\rm{[\mu M]}$',
+        'K_d' : 'K_d' 
+    },
+    
+    'dba_DtoH' : {
+        'x_label' : r'$D_0$ $\rm{[\mu M]}$',
         'K_d' : 'K_d' 
     },
     
