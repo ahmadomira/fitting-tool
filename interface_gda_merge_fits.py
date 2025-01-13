@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 import os
 import numpy as np
 import re
@@ -78,13 +78,13 @@ def load_replica_data(file_path):
             continue  # Skip to next line
 
         if in_median_params_section:
-            if "Kg (M^-1):" in line:
+            if "K_g (M^-1):" in line:
                 data['median_params']['Kg'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
-            elif "I0:" in line:
+            elif "I_0:" in line:
                 data['median_params']['I0'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
-            elif "Id (signal/M):" in line:
+            elif "I_d (signal/M):" in line:
                 data['median_params']['Id'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
-            elif "Ihd (signal/M):" in line:
+            elif "I_hd (signal/M):" in line:
                 data['median_params']['Ihd'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
             elif "RMSE:" in line:
                 data['rmse'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
@@ -172,7 +172,7 @@ def export_averaged_data(avg_concentrations, avg_signals, avg_fitting_curve_x, a
         f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
     print(f"Averaged data and fitting results saved to {averaged_data_file}")
 
-def run_gda_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_factor, kg_threshold_factor, save_plots, display_plots, save_results, results_save_dir):
+def run_gda_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_factor, kg_threshold_factor, save_plots, display_plots, save_results, results_save_dir, plot_title):
     # Load replica data
     replica_files = [f for f in os.listdir(results_dir) if f.startswith('fit_results_replica_')]
     replicas = [load_replica_data(os.path.join(results_dir, f)) for f in replica_files]
@@ -184,7 +184,7 @@ def run_gda_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
     filtered_signals_per_point = [[] for _ in range(len(median_signals_per_point))]
 
     # Plot each replica's data and fit curves before filtering, marking outliers
-    fig1, ax1 = create_plots(x_label=r'$D_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$', plot_title='All Replica Data and Fitting Curves with Outlier Detection')
+    fig1, ax1 = create_plots(x_label=r'$D_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$', plot_title=plot_title)
     colors = plt.cm.jet(np.linspace(0, 1, len(replicas)))
 
     for idx, replica in enumerate(replicas):
@@ -299,7 +299,7 @@ def run_gda_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
         )
 
     # Plot averaged data and fitting curve
-    fig2, ax2 = create_plots(x_label=r'$D_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$', plot_title='Averaged Data and Fitting Curve')
+    fig2, ax2 = create_plots(x_label=r'$D_0$ $\rm{[\mu M]}$', y_label=r'Signal $\rm{[AU]}$', plot_title=plot_title)
     
     ax2.plot(np.array(avg_concentrations) * 1e6, avg_signals, 'o', label='Averaged Data', color='black')
     ax2.plot(np.array(avg_fitting_curve_x) * 1e6, avg_fitting_curve_y, '--', color='red', linewidth=1, label='Averaged Fit')
@@ -340,6 +340,7 @@ class GDAMergeFitsApp:
         self.display_plots_var = tk.BooleanVar()
         self.save_results_var = tk.BooleanVar()
         self.save_results_entry_var = tk.StringVar()
+        self.plot_title_var = tk.StringVar()
 
         # Set default values
         self.outlier_threshold_var.set(0.25)
@@ -359,36 +360,40 @@ class GDAMergeFitsApp:
         self.results_dir_entry.grid(row=0, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
         tk.Button(self.root, text="Browse", command=lambda: self.browse_directory(self.results_dir_entry)).grid(row=0, column=2, padx=pad_x, pady=pad_y)
 
-        tk.Label(self.root, text="Outlier Relative Threshold:").grid(row=1, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Label(self.root, text="Plot Title:").grid(row=1, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.plot_title_entry = tk.Entry(self.root, textvariable=self.plot_title_var, width=40, justify='left')
+        self.plot_title_entry.grid(row=1, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+
+        tk.Label(self.root, text="Outlier Relative Threshold:").grid(row=2, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.outlier_threshold_entry = tk.Entry(self.root, textvariable=self.outlier_threshold_var, justify='left')
-        self.outlier_threshold_entry.grid(row=1, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.outlier_threshold_entry.grid(row=2, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-        tk.Label(self.root, text="RMSE Threshold Factor:").grid(row=2, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Label(self.root, text="RMSE Threshold Factor:").grid(row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.rmse_threshold_factor_entry = tk.Entry(self.root, textvariable=self.rmse_threshold_factor_var, justify='left')
-        self.rmse_threshold_factor_entry.grid(row=2, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.rmse_threshold_factor_entry.grid(row=3, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-        tk.Label(self.root, text="Kg Threshold Factor:").grid(row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Label(self.root, text="Kg Threshold Factor:").grid(row=4, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.kg_threshold_factor_entry = tk.Entry(self.root, textvariable=self.kg_threshold_factor_var, justify='left')
-        self.kg_threshold_factor_entry.grid(row=3, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.kg_threshold_factor_entry.grid(row=4, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
 
-        tk.Checkbutton(self.root, text="Save Plots To", variable=self.save_plots_var, command=self.update_save_plot_widgets).grid(row=4, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Checkbutton(self.root, text="Save Plots To", variable=self.save_plots_var, command=self.update_save_plot_widgets).grid(row=5, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.plots_dir_entry = tk.Entry(self.root, textvariable=self.save_plots_entry_var, width=40, state=tk.DISABLED, justify='left')
-        self.plots_dir_entry.grid(row=4, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.plots_dir_entry.grid(row=5, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
         self.plots_dir_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_directory(self.plots_dir_entry), state=tk.DISABLED)
-        self.plots_dir_button.grid(row=4, column=2, padx=pad_x, pady=pad_y)
+        self.plots_dir_button.grid(row=5, column=2, padx=pad_x, pady=pad_y)
 
         self.save_plots_var.trace_add('write', lambda *args: self.update_save_plot_widgets())
 
-        tk.Checkbutton(self.root, text="Save Results To", variable=self.save_results_var, command=self.update_save_results_widgets).grid(row=5, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Checkbutton(self.root, text="Save Results To", variable=self.save_results_var, command=self.update_save_results_widgets).grid(row=6, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.save_results_dir_entry = tk.Entry(self.root, textvariable=self.save_results_entry_var, width=40, state=tk.DISABLED, justify='left')
-        self.save_results_dir_entry.grid(row=5, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.save_results_dir_entry.grid(row=6, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
         self.save_results_dir_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_directory(self.save_results_dir_entry), state=tk.DISABLED)
-        self.save_results_dir_button.grid(row=5, column=2, padx=pad_x, pady=pad_y)
+        self.save_results_dir_button.grid(row=6, column=2, padx=pad_x, pady=pad_y)
         
         self.save_results_var.trace_add('write', lambda *args: self.update_save_results_widgets())
 
-        tk.Checkbutton(self.root, text="Display Plots", variable=self.display_plots_var).grid(row=6, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
-        tk.Button(self.root, text="Run Merge Fits", command=self.run_merge_fits).grid(row=7, column=0, columnspan=3, pady=10, padx=pad_x)
+        tk.Checkbutton(self.root, text="Display Plots", variable=self.display_plots_var).grid(row=7, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
+        tk.Button(self.root, text="Run Merge Fits", command=self.run_merge_fits).grid(row=8, column=0, columnspan=3, pady=10, padx=pad_x)
 
     def browse_directory(self, entry):
         initial_dir = os.path.dirname(self.results_dir_var.get()) if self.results_dir_var.get() else os.getcwd()
@@ -401,18 +406,20 @@ class GDAMergeFitsApp:
         state = tk.NORMAL if self.save_plots_var.get() else tk.DISABLED
         self.plots_dir_entry.config(state=state)
         self.plots_dir_button.config(state=state)
+        self.save_plots_entry_var.set(self.results_dir_var.get())
 
     def update_save_results_widgets(self):
         state = tk.NORMAL if self.save_results_var.get() else tk.DISABLED
         self.save_results_dir_entry.config(state=state)
         self.save_results_dir_button.config(state=state)
+        self.save_results_entry_var.set(self.results_dir_var.get())
 
     def show_message(self, message, is_error=False):
         if self.info_label:
             self.info_label.destroy()
         fg_color = 'red' if is_error else 'green'
         self.info_label = tk.Label(self.root, text=message, fg=fg_color)
-        self.info_label.grid(row=8, column=0, columnspan=3, pady=10)
+        self.info_label.grid(row=9, column=0, columnspan=3, pady=10)
 
     def run_merge_fits(self):
         try:
@@ -424,6 +431,7 @@ class GDAMergeFitsApp:
             display_plots = self.display_plots_var.get()
             save_results = self.save_results_var.get()
             results_save_dir = self.save_results_entry_var.get()
+            plot_title = self.plot_title_var.get()
 
             # Show a progress indicator
             progress_window = tk.Toplevel(self.root)
@@ -435,7 +443,7 @@ class GDAMergeFitsApp:
             # Run the GDA merge fits process
             run_gda_merge_fits(
                 results_dir, outlier_relative_threshold, rmse_threshold_factor,
-                kg_threshold_factor, save_plots, display_plots, save_results, results_save_dir
+                kg_threshold_factor, save_plots, display_plots, save_results, results_save_dir, plot_title
             )
 
             # Close the progress window and show success message
