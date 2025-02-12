@@ -55,11 +55,11 @@ def split_replicas(data):
     if data is None:
         print("Data is None. Cannot split replicas.")
         return None
-
+    
     replicas = []
     current_replica = []
     use_var_signal_split = False
-
+    
     for line in data:
         if "var\tsignal" in line.lower():
             use_var_signal_split = True
@@ -89,8 +89,9 @@ def split_replicas(data):
     if not replicas:
         print("No replicas detected.")
         return None
+    
+    return np.array(replicas)
 
-    return np.array(replicas) * 1e6
 # Perform linear fit for each replica and collect results
 def fit_replicas(replicas):
     slopes = []
