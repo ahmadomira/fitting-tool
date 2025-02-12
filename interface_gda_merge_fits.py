@@ -78,13 +78,13 @@ def load_replica_data(file_path):
             continue  # Skip to next line
 
         if in_median_params_section:
-            if "K_g (M^-1):" in line:
+            if "Kg (M^-1):" in line:
                 data['median_params']['Kg'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
-            elif "I_0:" in line:
+            elif "I0:" in line:
                 data['median_params']['I0'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
-            elif "I_d (signal/M):" in line:
+            elif "Id (signal/M):" in line:
                 data['median_params']['Id'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
-            elif "I_hd (signal/M):" in line:
+            elif "Ihd (signal/M):" in line:
                 data['median_params']['Ihd'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
             elif "RMSE:" in line:
                 data['rmse'] = float(re.sub(r'[^\d.eE+-]', '', line.split(":")[1]))
@@ -156,7 +156,7 @@ def export_averaged_data(avg_concentrations, avg_signals, avg_fitting_curve_x, a
         f.write("Replica\tKg (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
         for replica_info in retained_replicas_info:
             original_index, params, fit_rmse, fit_r2 = replica_info
-            f.write(f"{original_index}\t{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n")
+            f.write(f"{original_index}\t{params[1]:.2e}\t{params[0]:.2e}\t{params[2]:.2e}\t{params[3]:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n")
         f.write("\nOutput:\nAveraged Parameters:\n")
         f.write(f"Kg: {avg_params[1]:.2e} M^-1 (STDEV: {stdev_params[1]:.2e})\n")
         f.write(f"I0: {avg_params[0]:.2e} (STDEV: {stdev_params[0]:.2e})\n")

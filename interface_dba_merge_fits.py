@@ -155,7 +155,7 @@ def export_averaged_data(avg_concentrations, avg_signals, avg_fitting_curve_x, a
         f.write("Replica\tKd (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
         for replica_info in retained_replicas_info:
             original_index, params, fit_rmse, fit_r2 = replica_info
-            f.write(f"{original_index}\t{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n")
+            f.write(f"{original_index}\t{params[1]:.2e}\t{params[0]:.2e}\t{params[2]:.2e}\t{params[3]:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n")
         f.write("\nOutput:\nAveraged Parameters:\n")
         f.write(f"Kd: {avg_params[1]:.2e} M^-1 (STDEV: {stdev_params[1]:.2e})\n")
         f.write(f"I0: {avg_params[0]:.2e} (STDEV: {stdev_params[0]:.2e})\n")
