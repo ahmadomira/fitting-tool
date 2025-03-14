@@ -14,7 +14,6 @@ from plot_replica import PlotReplica
 from bmg_to_txt import BMGToTxtConverter
 
 import openpyxl
-from openpyxl.cell._writer import CellWriter
 
 if __name__ == "__main__":
     root = tk.Tk()
