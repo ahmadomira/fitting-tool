@@ -224,7 +224,7 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
         ax.plot(d0_values, Signal_observed, 'o', label='Observed Signal')
         ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
         ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-        ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
+        ax.legend(loc='best', bbox_to_anchor=(0.02, 0.98))
 
         # TODO: double check whether x 10^6 is needed for Id and Ihd
         # TODO: should Kd be multiplied by 10^6 or 10^-6?

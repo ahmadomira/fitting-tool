@@ -186,7 +186,7 @@ def perform_fitting(input_file_path, output_file_path, save_plots, display_plots
     y_fit = avg_slope * x_fit + avg_intercept
     ax.plot(x_fit, y_fit, '--', color='orange', linewidth=2, label=rf'Average Fit: $Y = {formatter(avg_slope)}X + {formatter(avg_intercept)}$')
     ax.set_title('Linear Fit of Signal vs. Concentration for Multiple Replicas')
-    ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
+    ax.legend(loc='best', bbox_to_anchor=(0.02, 0.98))
 
     if save_plots:
         plot_file = os.path.join(plots_dir, "dye_alone_fit_plot.png")

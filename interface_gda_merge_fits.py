@@ -226,7 +226,7 @@ def run_gda_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
         if len(outlier_indices) > 0:
             ax1.plot(concentrations[outlier_indices], signals[outlier_indices], 'x', color=colors[idx], markersize=8, label=f"Replica {idx + 1} Outliers")
 
-    ax1.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
+    ax1.legend(loc='best', bbox_to_anchor=(0.02, 0.98))
     fig1.tight_layout()
     if save_plots:
         save_plot(fig1, "all_replicas_fitting_plot_with_outliers.png", results_dir)
@@ -313,7 +313,7 @@ def run_gda_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
     ax2.annotate(param_text, xy=(0.97, 0.04), xycoords='axes fraction', fontsize=10,
                 ha='right', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5), multialignment='left')
 
-    ax2.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
+    ax2.legend(loc='best', bbox_to_anchor=(0.02, 0.98))
     fig2.tight_layout()
     if save_plots:
         save_plot(fig2, "averaged_fitting_plot.png", results_dir)

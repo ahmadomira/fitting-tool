@@ -229,7 +229,7 @@ def run_dba_host_to_dye_fitting(file_path, results_dir, d0_in_M, rmse_threshold_
         ax.plot(h0_values, Signal_observed, 'o', label='Observed Signal')
         ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
         ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-        ax.legend(loc='upper left', bbox_to_anchor=(0.02, 0.98))
+        ax.legend(loc='best', bbox_to_anchor=(0.02, 0.98))
 
         param_text = (f"$K_d$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
                       f"$I_0$: {median_params[0]:.2e}\n"
