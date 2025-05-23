@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog
 import os
-from core.fitting.dye_alone import perform_fitting
+from core.fitting.dye_alone import DyeAloneFittingAlgorithm
 
 class DyeAloneFittingApp:
     def __init__(self, root):
@@ -83,7 +83,8 @@ class DyeAloneFittingApp:
             return
 
         try:
-            perform_fitting(input_path, output_path, save_plots, display_plots, plots_dir)
+            algorithm = DyeAloneFittingAlgorithm()
+            algorithm.perform_fitting(input_path, output_path, save_plots, display_plots, plots_dir)
             self.show_message(f"Results saved to: {output_path}")
         except Exception as e:
             self.show_message(f"Error: {str(e)}", is_error=True)
