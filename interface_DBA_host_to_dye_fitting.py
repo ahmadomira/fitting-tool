@@ -6,7 +6,7 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pltstyle import create_plots
-from plot_replica import place_annotation_safely, place_annotation_opposite_legend
+from plot_replica import place_annotation_safely, place_annotation_opposite_legend, place_annotation_best_corner
 from matplotlib.transforms import Bbox
 
 # Add number_of_fit_trials to function parameters
@@ -240,7 +240,7 @@ def run_dba_host_to_dye_fitting(file_path, results_dir, d0_in_M, rmse_threshold_
                       f"$RMSE$: {rmse:.3f}\n"
                       f"$R^2$: {r_squared:.3f}")
 
-        place_annotation_opposite_legend(ax, param_text)
+        place_annotation_best_corner(ax, param_text, h0_values, Signal_observed)
 
         if save_plots:
             plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")

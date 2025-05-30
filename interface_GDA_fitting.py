@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.transforms import Bbox
 
 from pltstyle import create_plots
-from plot_replica import place_annotation_safely, place_annotation_opposite_legend
+from plot_replica import place_annotation_safely, place_annotation_opposite_legend, place_annotation_best_corner
 
 def format_value(value):
     return f"{value:.0f}" if value > 10 else f"{value:.2f}"
@@ -161,7 +161,7 @@ def run_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_
                         f"$RMSE$: {format_value(rmse)}\n"
                         f"$R^2$: {r_squared:.3f}")
             
-            place_annotation_opposite_legend(ax, param_text)
+            place_annotation_best_corner(ax, param_text, d0_values, Signal_observed)
 
             if save_plots:
                 plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")

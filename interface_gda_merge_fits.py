@@ -8,7 +8,7 @@ from scipy.optimize import brentq
 from datetime import datetime
 from pltstyle import create_plots  # Import the create_plots function
 from matplotlib.transforms import Bbox
-from plot_replica import place_annotation_safely, place_annotation_opposite_legend
+from plot_replica import place_annotation_safely, place_annotation_opposite_legend, place_annotation_best_corner
 
 def format_value(value):
     return f"{value:.0f}" if value > 10 else f"{value:.2f}"
@@ -312,7 +312,7 @@ def run_gda_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
                   f"$I_{{hd}}$: {avg_params[3]:.2e} $M^{{-1}}$ (STDEV: {stdev_params[3]:.2e})\n"
                   f"$RMSE$: {format_value(rmse)}\n"
                   f"$R^2$: {r_squared:.3f}")
-    place_annotation_opposite_legend(ax2, param_text)
+    place_annotation_best_corner(ax2, param_text, np.array(avg_concentrations) * 1e6, avg_signals)
 
     ax2.legend(loc='best')
     fig2.tight_layout()

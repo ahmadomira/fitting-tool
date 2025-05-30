@@ -66,27 +66,90 @@ def place_annotation_safely(ax, text, data_x, data_y, line2d=None, marker_size=1
     return best  # fallback: least overlap
 
 
-def place_annotation_opposite_legend(ax, text, offset_frac=0.03, **annotate_kwargs):
+def place_annotation_opposite_legend(ax, text, offset_frac=0.07, **annotate_kwargs):
     """
     Place annotation box in the corner diagonally opposite to the legend, with a margin from axes.
-    offset_frac: fraction of axes width/height to offset from the edge (default 0.03 = 3%)
+    This version determines the legend's actual position using its bounding box in axes fraction coordinates.
     """
     legend = ax.get_legend()
-    loc = getattr(legend, '_loc', 'upper right') if legend else 'upper right'
-    loc_map = {
+    if legend is not None:
+        renderer = ax.figure.canvas.get_renderer()
+        bbox = legend.get_window_extent(renderer)
+        inv = ax.transAxes.inverted()
+        bbox_axes = inv.transform(bbox)
+        # bbox_axes: [[x0, y0], [x1, y1]] in axes fraction
+        x_c = (bbox_axes[0,0] + bbox_axes[1,0]) / 2
+        y_c = (bbox_axes[0,1] + bbox_axes[1,1]) / 2
+        # Determine which corner legend is closest to
+        corners = {
+            'upper right': (1, 1),
+            'upper left': (0, 1),
+            'lower left': (0, 0),
+            'lower right': (1, 0)
+        }
+        dists = {k: (x_c-x0)**2 + (y_c-y0)**2 for k, (x0, y0) in corners.items()}
+        legend_corner = min(dists, key=dists.get)
+    else:
+        legend_corner = 'upper right'
+    # Map to opposite corner
+    opposite = {
         'upper right':  (offset_frac, offset_frac, {'xycoords': 'axes fraction', 'va': 'bottom', 'ha': 'left'}),
         'upper left':   (1-offset_frac, offset_frac, {'xycoords': 'axes fraction', 'va': 'bottom', 'ha': 'right'}),
         'lower left':   (1-offset_frac, 1-offset_frac, {'xycoords': 'axes fraction', 'va': 'top', 'ha': 'right'}),
-        'lower right':  (offset_frac, 1-offset_frac, {'xycoords': 'axes fraction', 'va': 'top', 'ha': 'left'}),
-        'best':         (offset_frac, offset_frac, {'xycoords': 'axes fraction', 'va': 'bottom', 'ha': 'left'}),
+        'lower right':  (offset_frac, 1-offset_frac, {'xycoords': 'axes fraction', 'va': 'top', 'ha': 'left'})
     }
-    x, y, opts = loc_map.get(loc, loc_map['upper right'])
+    x, y, opts = opposite.get(legend_corner, opposite['upper right'])
     return ax.annotate(
         text, (x, y),
         bbox=dict(boxstyle='round', fc='w', ec='k', alpha=0.8),
         annotation_clip=False,
         **opts, **annotate_kwargs
     )
+
+
+def place_annotation_best_corner(ax, text, data_x=None, data_y=None, offset_frac=0.07, **annotate_kwargs):
+    """
+    Place annotation box in the best available corner (least overlap with legend and data).
+    Tries all four corners, picks the one with least overlap.
+    """
+    renderer = ax.figure.canvas.get_renderer()
+    corners = [
+        (offset_frac, 1-offset_frac, 'top', 'left'),      # upper left
+        (1-offset_frac, 1-offset_frac, 'top', 'right'),   # upper right
+        (offset_frac, offset_frac, 'bottom', 'left'),     # lower left
+        (1-offset_frac, offset_frac, 'bottom', 'right'),  # lower right
+    ]
+    legend = ax.get_legend()
+    legend_bbox = legend.get_window_extent(renderer) if legend else None
+    data_bboxes = []
+    if data_x is not None and data_y is not None:
+        data_disp = ax.transData.transform(np.column_stack([data_x, data_y]))
+        data_bboxes = [Bbox.from_bounds(x-8, y-8, 16, 16) for x, y in data_disp]
+    best = None
+    min_overlap = float('inf')
+    for x, y, va, ha in corners:
+        ann = ax.annotate(
+            text, (x, y),
+            bbox=dict(boxstyle='round', fc='w', ec='k', alpha=0.8),
+            annotation_clip=False,
+            xycoords='axes fraction', va=va, ha=ha,
+            **annotate_kwargs
+        )
+        ax.figure.canvas.draw()
+        ann_bbox = ann.get_window_extent(renderer)
+        overlap = 0
+        if legend_bbox and ann_bbox.overlaps(legend_bbox):
+            overlap += 1e6
+        for db in data_bboxes:
+            if ann_bbox.overlaps(db):
+                overlap += 1
+        if overlap == 0:
+            return ann
+        if overlap < min_overlap:
+            min_overlap = overlap
+            best = ann
+        ann.remove()
+    return best  # fallback: least overlap
 
 
 def plot_all_replica(raw_data_path : str, robot_file_path : str, save_dir : str):

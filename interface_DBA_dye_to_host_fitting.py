@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import filedialog
 from pltstyle import create_plots
 from matplotlib.transforms import Bbox
-from plot_replica import place_annotation_safely, place_annotation_opposite_legend
+from plot_replica import place_annotation_safely, place_annotation_opposite_legend, place_annotation_best_corner
 
 def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
     # Convert initial concentration to µM units
@@ -237,7 +237,7 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
                       f"$RMSE$: {rmse:.3f}\n"
                       f"$R^2$: {r_squared:.3f}")
 
-        place_annotation_opposite_legend(ax, param_text)
+        place_annotation_best_corner(ax, param_text, d0_values, Signal_observed)
 
         if save_plots:
             plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")
