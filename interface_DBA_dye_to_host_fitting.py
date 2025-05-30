@@ -6,6 +6,8 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 from pltstyle import create_plots
+from matplotlib.transforms import Bbox
+from plot_replica import place_annotation_safely, place_annotation_opposite_legend
 
 def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
     # Convert initial concentration to µM units
@@ -224,7 +226,7 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
         ax.plot(d0_values, Signal_observed, 'o', label='Observed Signal')
         ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
         ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-        ax.legend(loc='best', bbox_to_anchor=(0.02, 0.98))
+        ax.legend(loc='best')
 
         # TODO: double check whether x 10^6 is needed for Id and Ihd
         # TODO: should Kd be multiplied by 10^6 or 10^-6?
@@ -235,8 +237,7 @@ def run_dba_dye_to_host_fitting(file_path, results_dir, h0_in_M, rmse_threshold_
                       f"$RMSE$: {rmse:.3f}\n"
                       f"$R^2$: {r_squared:.3f}")
 
-        ax.annotate(param_text, xy=(0.8, 0.04), xycoords='axes fraction', fontsize=10,
-                    ha='left', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
+        place_annotation_opposite_legend(ax, param_text)
 
         if save_plots:
             plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")

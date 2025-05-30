@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from scipy.optimize import brentq
 from pltstyle import create_plots
+from matplotlib.transforms import Bbox
+from plot_replica import place_annotation_safely, place_annotation_opposite_legend
 
 def format_value(value):
     return f"{value:.0f}" if value > 10 else f"{value:.2f}"
@@ -329,11 +331,9 @@ def run_ida_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
                   f"$I_{{hd}}$: {avg_params[3]:.2e} $M^{{-1}}$ (STDEV: {stdev_params[3]:.2e})\n"
                   f"$RMSE$: {format_value(rmse)}\n"
                   f"$R^2$: {r_squared:.3f}")
-    ax2.annotate(param_text, xy=(0.97, 0.95), xycoords='axes fraction', fontsize=10,
-                 ha='right', va='top', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5),
-                 multialignment='left')
+    place_annotation_opposite_legend(ax2, param_text)
 
-    ax2.legend()
+    ax2.legend(loc='best')
     fig2.tight_layout()
     if save_plots:
         save_plot(fig2, "averaged_fitting_plot.png", results_dir)

@@ -6,6 +6,8 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pltstyle import create_plots
+from plot_replica import place_annotation_safely, place_annotation_opposite_legend
+from matplotlib.transforms import Bbox
 
 # Add number_of_fit_trials to function parameters
 def run_dba_host_to_dye_fitting(file_path, results_dir, d0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir, number_of_fit_trials):
@@ -229,7 +231,7 @@ def run_dba_host_to_dye_fitting(file_path, results_dir, d0_in_M, rmse_threshold_
         ax.plot(h0_values, Signal_observed, 'o', label='Observed Signal')
         ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
         ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-        ax.legend(loc='best', bbox_to_anchor=(0.02, 0.98))
+        ax.legend(loc='best')
 
         param_text = (f"$K_d$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
                       f"$I_0$: {median_params[0]:.2e}\n"
@@ -238,8 +240,7 @@ def run_dba_host_to_dye_fitting(file_path, results_dir, d0_in_M, rmse_threshold_
                       f"$RMSE$: {rmse:.3f}\n"
                       f"$R^2$: {r_squared:.3f}")
 
-        ax.annotate(param_text, xy=(0.8, 0.04), xycoords='axes fraction', fontsize=10,
-                    ha='left', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5))
+        place_annotation_opposite_legend(ax, param_text)
 
         if save_plots:
             plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")

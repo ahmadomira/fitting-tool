@@ -9,6 +9,7 @@ import numpy as np
 from scipy.stats import linregress, ttest_1samp, t
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
+from matplotlib.transforms import Bbox
 
 # Local imports
 from pltstyle import create_plots
@@ -131,6 +132,52 @@ def round_to_sigfigs(value, sigfigs=4):
         return f"{value:.{sigfigs}g}"
     return value
 
+def place_annotation_safely(ax, text, fontsize=10, margin=10, **kwargs):
+    """
+    Place annotation in a corner that avoids overlap with legend and data points.
+    Tries all corners, prefers the first non-overlapping, else picks the one with least overlap.
+    """
+    renderer = ax.figure.canvas.get_renderer()
+    legend = ax.get_legend()
+    legend_bbox = legend.get_window_extent(renderer) if legend else None
+    # Get data points in display coords
+    data_disp = ax.transData.transform(np.column_stack((ax.get_lines()[0].get_xdata(), ax.get_lines()[0].get_ydata())))
+    data_bboxes = [Bbox.from_bounds(x - margin, y - margin, 2*margin, 2*margin) for x, y in data_disp]
+    # Candidate positions: (x, y, ha, va)
+    candidates = [
+        (0.01, 0.99, 'left', 'top'),    # upper left
+        (0.99, 0.99, 'right', 'top'),   # upper right
+        (0.01, 0.01, 'left', 'bottom'), # lower left
+        (0.99, 0.01, 'right', 'bottom') # lower right
+    ]
+    best_ann = None
+    min_overlap = float('inf')
+    for x, y, ha, va in candidates:
+        ann = ax.annotate(
+            text, xy=(x, y), xycoords='axes fraction',
+            ha=ha, va=va, fontsize=fontsize,
+            bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5),
+            **kwargs
+        )
+        plt.draw()  # Needed to get the bbox
+        ann_bbox = ann.get_window_extent(renderer)
+        overlap = 0
+        # Check overlap with legend
+        if legend_bbox is not None and ann_bbox.overlaps(legend_bbox):
+            overlap += ann_bbox.intersection(legend_bbox).area
+        # Check overlap with data points
+        for db in data_bboxes:
+            if ann_bbox.overlaps(db):
+                overlap += ann_bbox.intersection(db).area
+        if overlap == 0:
+            return ann  # Found a good spot
+        if overlap < min_overlap:
+            min_overlap = overlap
+            best_ann = ann
+        else:
+            ann.remove()
+    return best_ann  # Return the least-overlapping position if all overlap
+
 # Main function to perform the fitting and plotting
 def perform_fitting(input_file_path, output_file_path, save_plots, display_plots, plots_dir):
     if not output_file_path.endswith(".txt"):
@@ -150,7 +197,7 @@ def perform_fitting(input_file_path, output_file_path, save_plots, display_plots
     Id_mean, Id_lower_bound, Id_upper_bound, Id_stdev = prediction_interval(retained_slopes, avg_slope)
     I0_mean, I0_lower_bound, I0_upper_bound, I0_stdev = prediction_interval(retained_intercepts, avg_intercept)
 
-    if len(retained_slopes) == 1:
+    if len(retained_slopes == 1):
         Id_mean = retained_slopes[0]
         I0_mean = retained_intercepts[0]
         Id_lower_bound = "not applicable"
@@ -204,7 +251,10 @@ def perform_fitting(input_file_path, output_file_path, save_plots, display_plots
     handles.append(avg_fit_plot[0])
     labels.append(rf'Average Fit: $Y = {formatter(avg_slope)}X + {formatter(avg_intercept)}$')
 
-    ax.legend(handles, labels, loc='upper left', bbox_to_anchor=(0, 1))
+    ax.legend(handles, labels, loc='best')
+
+    param_text = f"Id: {Id_mean:.3e}\nI0: {I0_mean:.3e}"
+    place_annotation_safely(ax, param_text)
 
     if save_plots:
         # Create a unique plot filename based on the input file

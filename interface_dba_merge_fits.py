@@ -6,6 +6,8 @@ import re
 import matplotlib.pyplot as plt
 from datetime import datetime
 from pltstyle import create_plots  # Import the create_plots function
+from matplotlib.transforms import Bbox
+from plot_replica import place_annotation_safely, place_annotation_opposite_legend
 
 
 def format_value(value):
@@ -306,10 +308,9 @@ def run_dba_merge_fits(results_dir, outlier_relative_threshold, rmse_threshold_f
                   f"$I_{{hd}}$: {avg_params[3]:.2e} $M^{{-1}}$ (STDEV: {stdev_params[3]:.2e})\n"
                   f"$RMSE$: {format_value(rmse)}\n"
                   f"$R^2$: {r_squared:.3f}")
-    ax2.annotate(param_text, xy=(0.95, 0.05), xycoords='axes fraction', fontsize=10,
-                ha='right', va='bottom', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5), multialignment='left')
+    place_annotation_opposite_legend(ax2, param_text)
 
-    ax2.legend()
+    ax2.legend(loc='best')
     fig2.tight_layout()
     if save_plots:
         save_plot(fig2, "averaged_fitting_plot.png", results_dir)

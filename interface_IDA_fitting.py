@@ -6,7 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import brentq, minimize
 from pltstyle import create_plots
-    
+from matplotlib.transforms import Bbox
+from plot_replica import place_annotation_safely, place_annotation_opposite_legend
+
 def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, number_of_fit_trials, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results, results_save_dir):
 
 
@@ -190,7 +192,7 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
         ax.plot(g0_values, Signal_observed, 'o', label='Observed Signal')
         ax.plot(fitting_curve_x, fitting_curve_y, '--', color='blue', alpha=0.6, label='Simulated Fitting Curve')
         ax.set_title(f'Observed vs. Simulated Fitting Curve for Replica {replica_index}')
-        ax.legend()
+        ax.legend(loc='best')
 
         param_text = (f"$K_g$: {median_params[1] * 1e6:.2e} $M^{{-1}}$\n"
                       f"$I_0$: {median_params[0]:.2e}\n"
@@ -199,9 +201,7 @@ def run_ida_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
                       f"$RMSE$: {rmse:.3f}\n"
                       f"$R^2$: {r_squared:.3f}")
 
-        ax.annotate(param_text, xy=(0.97, 0.95), xycoords='axes fraction', fontsize=10,
-            ha='right', va='top', bbox=dict(boxstyle="round,pad=0.3", edgecolor="black", facecolor="lightgrey", alpha=0.5),
-            multialignment='left')
+        place_annotation_opposite_legend(ax, param_text)
 
         if save_plots:
             plot_file = os.path.join(plots_dir, f"fit_plot_replica_{replica_index}.png")

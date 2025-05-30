@@ -5,12 +5,88 @@ import matplotlib.pyplot as plt
 import pltstyle
 import tkinter as tk
 import re
+import numpy as np
+from matplotlib.transforms import Bbox
 
 from pathlib import Path
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 from collections import defaultdict
 from bmg_to_txt import read_bmg_xlsx, extract_concentration_vector
+
+
+def place_annotation_safely(ax, text, data_x, data_y, line2d=None, marker_size=12, margin=8, **annotate_kwargs):
+    """
+    Place annotation box in a location that avoids overlap with legend, data points, and optionally a line.
+    - data_x, data_y: arrays of data points (for scatter/markers)
+    - line2d: optional, a matplotlib Line2D object to check for overlap with the line itself
+    - marker_size: pixel size of marker to avoid (default 12)
+    - margin: extra pixels to add around annotation box (default 8)
+    """
+    renderer = ax.figure.canvas.get_renderer()
+    corners = [
+        (0.01, 0.99, {'xycoords': 'axes fraction', 'va': 'top', 'ha': 'left'}),
+        (0.99, 0.99, {'xycoords': 'axes fraction', 'va': 'top', 'ha': 'right'}),
+        (0.01, 0.01, {'xycoords': 'axes fraction', 'va': 'bottom', 'ha': 'left'}),
+        (0.99, 0.01, {'xycoords': 'axes fraction', 'va': 'bottom', 'ha': 'right'}),
+    ]
+    legend = ax.get_legend()
+    legend_bbox = legend.get_window_extent(renderer) if legend else None
+    # Data points as bboxes (expanded for marker size)
+    data_disp = ax.transData.transform(np.column_stack([data_x, data_y]))
+    data_bboxes = [Bbox.from_bounds(x-marker_size, y-marker_size, 2*marker_size, 2*marker_size) for x, y in data_disp]
+    # If a line is provided, rasterize it to points and add bboxes
+    line_bboxes = []
+    if line2d is not None:
+        line_x, line_y = line2d.get_data()
+        line_disp = ax.transData.transform(np.column_stack([line_x, line_y]))
+        for x, y in line_disp:
+            line_bboxes.append(Bbox.from_bounds(x-2, y-2, 4, 4))
+    best = None
+    min_overlap = float('inf')
+    for x, y, opts in corners:
+        ann = ax.annotate(text, (x, y), bbox=dict(boxstyle='round', fc='w', ec='k', alpha=0.8), annotation_clip=False, **opts, **annotate_kwargs)
+        ax.figure.canvas.draw()
+        ann_bbox = ann.get_window_extent(renderer).expanded(1.05, 1.1).padded(margin)
+        overlap = 0
+        if legend_bbox and ann_bbox.overlaps(legend_bbox):
+            overlap += 1e6
+        for db in data_bboxes:
+            if ann_bbox.overlaps(db):
+                overlap += 1
+        for lb in line_bboxes:
+            if ann_bbox.overlaps(lb):
+                overlap += 1
+        if overlap == 0:
+            return ann
+        if overlap < min_overlap:
+            min_overlap = overlap
+            best = ann
+        ann.remove()
+    return best  # fallback: least overlap
+
+
+def place_annotation_opposite_legend(ax, text, offset_frac=0.03, **annotate_kwargs):
+    """
+    Place annotation box in the corner diagonally opposite to the legend, with a margin from axes.
+    offset_frac: fraction of axes width/height to offset from the edge (default 0.03 = 3%)
+    """
+    legend = ax.get_legend()
+    loc = getattr(legend, '_loc', 'upper right') if legend else 'upper right'
+    loc_map = {
+        'upper right':  (offset_frac, offset_frac, {'xycoords': 'axes fraction', 'va': 'bottom', 'ha': 'left'}),
+        'upper left':   (1-offset_frac, offset_frac, {'xycoords': 'axes fraction', 'va': 'bottom', 'ha': 'right'}),
+        'lower left':   (1-offset_frac, 1-offset_frac, {'xycoords': 'axes fraction', 'va': 'top', 'ha': 'right'}),
+        'lower right':  (offset_frac, 1-offset_frac, {'xycoords': 'axes fraction', 'va': 'top', 'ha': 'left'}),
+        'best':         (offset_frac, offset_frac, {'xycoords': 'axes fraction', 'va': 'bottom', 'ha': 'left'}),
+    }
+    x, y, opts = loc_map.get(loc, loc_map['upper right'])
+    return ax.annotate(
+        text, (x, y),
+        bbox=dict(boxstyle='round', fc='w', ec='k', alpha=0.8),
+        annotation_clip=False,
+        **opts, **annotate_kwargs
+    )
 
 
 def plot_all_replica(raw_data_path : str, robot_file_path : str, save_dir : str):
@@ -25,7 +101,7 @@ def plot_all_replica(raw_data_path : str, robot_file_path : str, save_dir : str)
     fig, ax = pltstyle.create_plots(plot_title=plot_title)
     # ax.boxplot(data, tick_labels=concentration_vector, patch_artist=True)
     ax.plot(concentration_vector, data.values.T, label=[f'Replica {i+1}' for i in range(data.shape[0])])#
-    ax.legend()
+    ax.legend(loc='best')
     
     # save plot of different analytes to separate folders
     save_dir_analyte = (save_dir / ' '.join(raw_data_path.stem.split('_')[1:4]))
