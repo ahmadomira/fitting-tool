@@ -203,3 +203,4 @@ scratch/*
 app/*
 MyIcon.iconset/*
 AppIcon.png
+/data
