@@ -6,11 +6,8 @@ import numpy as np
 import re
 from datetime import datetime
 from scipy.optimize import brentq
-from utils.plot_utils import create_plots
+from utils.plot_utils import create_plots, format_value
 import matplotlib.pyplot as plt
-
-def format_value(value):
-    return f"{value:.0f}" if value > 10 else f"{value:.2f}"
 
 def load_replica_data(file_path):
     data = {

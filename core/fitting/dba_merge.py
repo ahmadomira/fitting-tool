@@ -6,10 +6,7 @@ import numpy as np
 import re
 import matplotlib.pyplot as plt
 from datetime import datetime
-from utils.plot_utils import create_plots
-
-def format_value(value):
-    return f"{value:.0f}" if value > 10 else f"{value:.2f}"
+from utils.plot_utils import create_plots, format_value
 
 def load_replica_data(file_path):
     data = {
