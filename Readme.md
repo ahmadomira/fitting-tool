@@ -1,3 +1,8 @@
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Build and Release](https://github.com/ahmadomira/fitting-tool/actions/workflows/build_and_release.yml/badge.svg)](https://github.com/ahmadomira/fitting-tool/actions/workflows/build_and_release.yml)
+
 # Molecular Binding Assay Fitting Toolkit
 
 A Python-based application for analyzing molecular binding interactions using various spectroscopic assays. This tool provides robust mathematical fitting algorithms for different types of binding experiments commonly used in supramolecular chemistry and biochemistry. 
