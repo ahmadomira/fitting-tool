@@ -4,7 +4,7 @@ DBA Host-to-Dye fitting logic extracted from the GUI for reuse and testing.
 import numpy as np
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
-from core.fitting_utils import load_bounds_from_results_file, load_data, calculate_fit_metrics, residuals, save_replica_file, split_replicas
+from utils.fitting_utils import load_bounds_from_results_file, load_data, calculate_fit_metrics, residuals, save_replica_file, split_replicas
 from core.forward_model import compute_signal_dba
 from utils.plot_utils import plot_fitting_results, save_plot
 
