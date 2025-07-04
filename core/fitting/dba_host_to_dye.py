@@ -10,7 +10,7 @@ from utils.plot_utils import plot_fitting_results, save_plot
 
 def run_dba_host_to_dye_fitting(file_path, results_file_path, d0_in_M, rmse_threshold_factor, r2_threshold, save_plots, display_plots, plots_dir, save_results_bool, results_save_dir, number_of_fit_trials, assay='dba_HtoD'):
     d0 = d0_in_M * 1e6
-    Id_lower, Id_upper, I0_lower, I0_upper, _, _ = load_bounds_from_results_file(results_file_path)
+    Id_lower, Id_upper, I0_lower, I0_upper, _, _ = (load_bounds_from_results_file(results_file_path))
     print(f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]")
     data_lines = load_data(file_path)
     replicas = split_replicas(data_lines)

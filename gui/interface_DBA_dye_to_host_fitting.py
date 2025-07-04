@@ -23,132 +23,49 @@ class DBAFittingAppDtoH(BaseAppGUI):
         pad_x = self.pad_x
         pad_y = self.pad_y
 
-        tk.Label(self.root, text="Input File Path:").grid(
-            row=0, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
-        )
-        self.file_path_entry = tk.Entry(
-            self.root, textvariable=self.file_path_var, width=40, justify="left"
-        )
-        self.file_path_entry.grid(row=0, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-        tk.Button(
-            self.root,
-            text="Browse",
-            command=lambda: self.browse_file(self.file_path_var),
-        ).grid(row=0, column=2, padx=pad_x, pady=pad_y)
-
-        tk.Checkbutton(
-            self.root,
-            text="Read Boundaries from File: ",
-            variable=self.use_results_file_var,
-            command=self.update_use_results_widgets,
-        ).grid(row=1, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-        self.results_file_path_entry = tk.Entry(
-            self.root,
-            textvariable=self.results_file_path_var,
-            width=40,
-            justify="left",
-            state=tk.DISABLED,
-        )
-        self.results_file_path_entry.grid(
-            row=1, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
-        )
-        self.results_file_button = tk.Button(
-            self.root,
-            text="Browse",
-            command=lambda: self.browse_file(self.results_file_path_var),
-            state=tk.DISABLED,
-        )
-        self.results_file_button.grid(row=1, column=2, padx=pad_x, pady=pad_y)
-        self.use_results_file_var.trace_add(
-            "write", lambda *args: self.update_use_results_widgets()
+        self.file_path_entry, self.file_path_browse = self.add_file_selector(
+            row=0, label_text="Input File Path:", var=self.file_path_var
         )
 
-        tk.Label(self.root, text="H₀ (M):").grid(
-            row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
-        )
-        self.h0_entry = tk.Entry(self.root, textvariable=self.h0_var, justify="left")
-        self.h0_entry.grid(row=3, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-
-        tk.Label(self.root, text="Number of Fit Trials:").grid(
-            row=4, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
-        )
-        self.fit_trials_entry = tk.Entry(
-            self.root, textvariable=self.fit_trials_var, justify="left"
-        )
-        self.fit_trials_entry.grid(row=4, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-
-        tk.Label(self.root, text="RMSE Threshold Factor:").grid(
-            row=5, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
-        )
-        self.rmse_threshold_entry = tk.Entry(
-            self.root, textvariable=self.rmse_threshold_var, justify="left"
-        )
-        self.rmse_threshold_entry.grid(
-            row=5, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+        self.results_file_path_entry, self.results_file_button = (
+            self.add_toggleable_file_selector(
+                row=1,
+                label_text="Read Boundaries from File: ",
+                bool_var=self.use_results_file_var,
+                file_var=self.results_file_path_var,
+            )
         )
 
-        tk.Label(self.root, text="R² Threshold:").grid(
-            row=6, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+        self.h0_entry = self.add_labeled_entry(
+            row=3, label_text="H₀ (M):", var=self.h0_var
         )
-        self.r2_threshold_entry = tk.Entry(
-            self.root, textvariable=self.r2_threshold_var, justify="left"
+        self.fit_trials_entry = self.add_labeled_entry(
+            row=4, label_text="Number of Fit Trials:", var=self.fit_trials_var
         )
-        self.r2_threshold_entry.grid(
-            row=6, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+        self.rmse_threshold_entry = self.add_labeled_entry(
+            row=5, label_text="RMSE Threshold Factor:", var=self.rmse_threshold_var
         )
-
-        tk.Checkbutton(
-            self.root,
-            text="Save Plots To",
-            variable=self.save_plots_var,
-            command=self.update_save_plot_widgets,
-        ).grid(row=7, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-        self.results_dir_entry = tk.Entry(
-            self.root,
-            textvariable=self.results_dir_var,
-            width=40,
-            state=tk.DISABLED,
-            justify="left",
-        )
-        self.results_dir_entry.grid(
-            row=7, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
-        )
-        self.results_dir_button = tk.Button(
-            self.root,
-            text="Browse",
-            command=lambda: self.browse_directory(self.results_dir_var),
-            state=tk.DISABLED,
-        )
-        self.results_dir_button.grid(row=7, column=2, padx=pad_x, pady=pad_y)
-        self.save_plots_var.trace_add(
-            "write", lambda *args: self.update_save_plot_widgets()
+        self.r2_threshold_entry = self.add_labeled_entry(
+            row=6, label_text="R² Threshold:", var=self.r2_threshold_var
         )
 
-        tk.Checkbutton(
-            self.root,
-            text="Save Results To",
-            variable=self.save_results_var,
-            command=self.update_save_results_widgets,
-        ).grid(row=8, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-        self.results_save_dir_entry = tk.Entry(
-            self.root,
-            textvariable=self.results_save_dir_var,
-            width=40,
-            state=tk.DISABLED,
-            justify="left",
+        self.results_dir_entry, self.results_dir_button = (
+            self.add_toggleable_dir_selector(
+                row=7,
+                label_text="Save Plots To",
+                bool_var=self.save_plots_var,
+                dir_var=self.results_dir_var,
+                input_file_var=self.file_path_var,
+            )
         )
-        self.results_save_dir_entry.grid(
-            row=8, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
-        )
-        self.results_save_dir_button = tk.Button(
-            self.root,
-            text="Browse",
-            command=lambda: self.browse_directory(self.results_save_dir_var),
-            state=tk.DISABLED,
-        )
-        self.results_save_dir_button.grid(row=8, column=2, padx=pad_x, pady=pad_y)
-        self.save_results_var.trace_add(
-            "write", lambda *args: self.update_save_results_widgets()
+        self.results_save_dir_entry, self.results_save_dir_button = (
+            self.add_toggleable_dir_selector(
+                row=8,
+                label_text="Save Results To",
+                bool_var=self.save_results_var,
+                dir_var=self.results_save_dir_var,
+                input_file_var=self.file_path_var,
+            )
         )
 
         tk.Checkbutton(
@@ -158,21 +75,6 @@ class DBAFittingAppDtoH(BaseAppGUI):
             row=10, column=0, columnspan=3, pady=10, padx=pad_x
         )
         self.lift_and_focus()
-
-    def update_use_results_widgets(self):
-        state = tk.NORMAL if self.use_results_file_var.get() else tk.DISABLED
-        self.results_file_path_entry.config(state=state)
-        self.results_file_button.config(state=state)
-
-    def update_save_plot_widgets(self):
-        state = tk.NORMAL if self.save_plots_var.get() else tk.DISABLED
-        self.results_dir_entry.config(state=state)
-        self.results_dir_button.config(state=state)
-
-    def update_save_results_widgets(self):
-        state = tk.NORMAL if self.save_results_var.get() else tk.DISABLED
-        self.results_save_dir_entry.config(state=state)
-        self.results_save_dir_button.config(state=state)
 
     def run_fitting(self):
         try:

@@ -16,51 +16,29 @@ class DyeAloneFittingApp(BaseAppGUI):
         pad_x = self.pad_x
         pad_y = self.pad_y
 
-        tk.Label(self.root, text="Input File:").grid(
-            row=0, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+        self.file_path_entry, self.file_path_browse = self.add_file_selector(
+            row=0, label_text="Input File Path:", var=self.file_path_var
         )
-        self.file_path_entry = tk.Entry(
-            self.root, textvariable=self.file_path_var, width=50
-        )
-        self.file_path_entry.grid(row=0, column=1, padx=pad_x, pady=pad_y)
-        tk.Button(
-            self.root,
-            text="Browse",
-            command=lambda: self.browse_file(self.file_path_var),
-        ).grid(row=0, column=2, padx=pad_x, pady=pad_y)
 
-        tk.Label(self.root, text="Save Result To:").grid(
-            row=1, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+        self.save_path_entry = self.add_labeled_entry(
+            row=1, label_text="Save Result To:", var=self.save_path_var, width=50
         )
-        self.save_path_entry = tk.Entry(
-            self.root, textvariable=self.save_path_var, width=50
-        )
-        self.save_path_entry.grid(row=1, column=1, padx=pad_x, pady=pad_y)
-        tk.Button(
+        self.save_path_browse = tk.Button(
             self.root,
             text="Browse",
-            command=lambda: self.browse_file(self.save_path_var),
-        ).grid(row=1, column=2, padx=pad_x, pady=pad_y)
+            command=lambda: self.browse_save_file(
+                self.save_path_var, input_var=self.file_path_var
+            ),
+        )
+        self.save_path_browse.grid(row=1, column=2, padx=pad_x, pady=pad_y)
 
-        tk.Checkbutton(
-            self.root,
-            text="Save Plots",
-            variable=self.save_plots_var,
-            command=self.update_save_plot_widgets,
-        ).grid(row=2, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-        self.plots_dir_entry = tk.Entry(
-            self.root, textvariable=self.plots_dir_var, width=50, state=tk.DISABLED
-        )
-        self.plots_dir_entry.grid(row=2, column=1, padx=pad_x, pady=pad_y)
-        self.plots_dir_button = tk.Button(
-            self.root,
-            text="Browse",
-            command=lambda: self.browse_directory(self.plots_dir_var),
-            state=tk.DISABLED,
-        )
-        self.plots_dir_button.grid(row=2, column=2, padx=pad_x, pady=pad_y)
-        self.save_plots_var.trace_add(
-            "write", lambda *args: self.update_save_plot_widgets()
+        self.plots_dir_entry, self.plots_dir_button = self.add_toggleable_dir_selector(
+            row=2,
+            label_text="Save Plots",
+            bool_var=self.save_plots_var,
+            dir_var=self.plots_dir_var,
+            input_file_var=self.file_path_var,
+            width=50,
         )
 
         tk.Checkbutton(
@@ -71,11 +49,6 @@ class DyeAloneFittingApp(BaseAppGUI):
             row=4, column=1, pady=10
         )
         self.lift_and_focus()
-
-    def update_save_plot_widgets(self):
-        state = tk.NORMAL if self.save_plots_var.get() else tk.DISABLED
-        self.plots_dir_entry.config(state=state)
-        self.plots_dir_button.config(state=state)
 
     def run_fitting(self):
         input_path = self.file_path_var.get()

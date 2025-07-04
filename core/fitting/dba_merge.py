@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from utils.plot_utils import create_plots, format_value
 
+
+# FIXME: loading data is not working here. We need to move to a pro data format
 def load_replica_data(file_path):
     data = {
         'd0': None,
