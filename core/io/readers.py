@@ -72,7 +72,7 @@ class ClarioStarXlsxReader(Reader):
 
         return MeasurementSet.from_dataframe(tidy, meta)
 
-
+# ─ Parquet reader ----------------------------------------------------------
 @register_reader(".parquet")
 class ParquetReader(Reader):
     """
@@ -93,6 +93,25 @@ class ParquetReader(Reader):
 
         df = table.to_pandas()  # index already flat
         return MeasurementSet.from_dataframe(df, meta)
+
+
+# ── NetCDF reader ----------------------------------------------------------
+@register_reader(".nc")
+class NetCDFReader(Reader):
+    """
+    Load a MeasurementSet from a NetCDF file previously written by NetCDFWriter into a MeasurementSet object.
+    The Dataset already carries all attrs/meta, so we just wrap it.
+    """
+
+    def read(self, path: Path) -> MeasurementSet:
+        import xarray as xr
+
+        ds = xr.open_dataset(path)
+        # fully read into memory so file handles close quickly
+        ds.load()
+
+        meta = dict(ds.attrs)  # copy attrs to plain dict
+        return MeasurementSet(ds, meta)
 
 
 # ── CSV reader -------------------------------------------------------------
