@@ -41,10 +41,9 @@ class MeasurementSet:
 
         da = (
             df.set_index(["well_row", "well_col", "channel", "time_s"])
-              .sort_index()
-              ["signal"]
-              .to_xarray()
-              .rename("signal")
+            .sort_index()["signal"]
+            .to_xarray()
+            .rename("signal")
         )
         ds = xr.Dataset({"signal": da})
         ds.attrs.update(meta)
@@ -87,11 +86,13 @@ class MeasurementSet:
                 da = xr.DataArray(arr)
             elif arr.ndim == 1:
                 if arr.size != 12:
-                    raise ValueError("1‑D concentration vector must have length 12 (one per column).")
+                    raise ValueError(
+                        "1‑D concentration vector must have length 12 (one per column)."
+                    )
                 da = xr.DataArray(
                     arr,
                     dims=("well_col",),
-                    coords={"well_col": self.ds.coords["well_col"]}
+                    coords={"well_col": self.ds.coords["well_col"]},
                 )
             elif arr.ndim == 2:
                 if arr.shape != (8, 12):
@@ -101,8 +102,8 @@ class MeasurementSet:
                     dims=("well_row", "well_col"),
                     coords={
                         "well_row": self.ds.coords["well_row"],
-                        "well_col": self.ds.coords["well_col"]
-                    }
+                        "well_col": self.ds.coords["well_col"],
+                    },
                 )
             else:
                 raise ValueError("`values` must be scalar, 1‑D or 2‑D.")
@@ -111,7 +112,7 @@ class MeasurementSet:
         # ---- attach as coordinate (auto‑broadcast) ------------------------------
         new_ds = self.ds.assign_coords({name: da})
         return MeasurementSet(new_ds, self.meta)
-        
+
     # ---- convenience ----------------------------------------------------
     def row(self, label: str, channel="FI", time_s=0):
         """1-D DataArray for a whole row (12 wells)."""
@@ -138,7 +139,7 @@ class MeasurementSet:
             .sel(channel="FI", time_s=0)
             .sortby(["well_row", "well_col"])
         )
-    
+
     #   In‑place mutator for concentration
     def add_concentration(self, values, name: str = "concentration", unit: str = "µM"):
         """
