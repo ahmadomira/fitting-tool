@@ -1,22 +1,40 @@
+import json
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 import xarray as xr
+
+from .base import Serializable
+
 
 # channel: only one channel in our current use case (FI), can be extended to, e.g., multiple wavelengths
 # time_s: for kinetic assays
 REQUIRED_COLS = {"well_row", "well_col", "channel", "time_s", "signal"}
 
-
-class MeasurementSet:
+@dataclass
+class MeasurementSet(Serializable):
     """
     Canonical representation of one plate (or plate-series) worth of data.
       - self.ds : xarray.Dataset, dims: well_row, well_col, channel, time_s
       - self.meta : dict, any (meta-)data that is *not* necessarily numeric
     """
 
-    def __init__(self, ds: xr.Dataset, meta: dict):
-        self.ds = ds
-        self.meta = meta
+    ds: xr.Dataset
+    meta: dict
+    
+    # data structure version
+    SCHEMA_VERSION: int = 1
+
+    def __post_init__(self):
+        # Ensure meta has object_type key
+        if "object_type" not in self.meta:
+            self.meta["object_type"] = "mset"
+
+        if "schema_version" not in self.meta:
+            self.meta["schema_version"] = self.SCHEMA_VERSION
+        
+        self.ds.attrs.update(self.meta)
 
     # handy aliases
     @property
@@ -28,6 +46,16 @@ class MeasurementSet:
         """Return a long DataFrame (one row per point)."""
         return self.ds.to_dataframe().reset_index()
 
+    # --- Serializable interface -------------------------------------------
+    def tag(self) -> str:
+        return "mset"
+
+    def to_dataframe(self) -> pd.DataFrame:
+        return self.tidy
+
+    def to_dataset(self) -> xr.Dataset:
+        return self.ds
+
     # ---------- factory helpers -------------------------------------------
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame, meta: dict):
@@ -35,7 +63,6 @@ class MeasurementSet:
         if missing:
             raise ValueError(f"Missing columns: {', '.join(sorted(missing))}")
 
-        # ensure the signal column is numeric (float64); invalid parsings → NaN
         df = df.copy()
         df["signal"] = pd.to_numeric(df["signal"], errors="coerce")
 
@@ -45,9 +72,24 @@ class MeasurementSet:
             .to_xarray()
             .rename("signal")
         )
+        meta = {**meta, "object_type": "mset"}
         ds = xr.Dataset({"signal": da})
         ds.attrs.update(meta)
         return cls(ds, meta)
+
+    @classmethod
+    def from_dataset(cls, ds: xr.Dataset):
+        meta = dict(ds.attrs)
+        return cls(ds, meta)
+
+    @classmethod
+    def from_serialisable(cls, payload):
+        if isinstance(payload, pd.DataFrame):
+            return cls.from_dataframe(payload, json.loads(payload.attrs["attrs"]))
+        elif isinstance(payload, xr.Dataset):
+            return cls.from_dataset(payload)
+        else:
+            raise TypeError("Unsupported payload")
 
     # ----------------------------------------------------------------------
     #   Concentration handling

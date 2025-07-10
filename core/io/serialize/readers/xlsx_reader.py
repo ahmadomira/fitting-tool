@@ -1,24 +1,15 @@
 from pathlib import Path
 
-from .io_base import Reader
-from .measurement_sets import MeasurementSet
-
-# ── registry ---------------------------------------------------------------
-_readers = {}
-
-
-def register_reader(ext: str):
-    def decorator(cls):
-        _readers[ext.lower()] = cls()
-        return cls
-
-    return decorator
+from ...base import Reader
+from ...registry import register_reader
 
 
 # ── XLSX reader ------------------------------------------------------------
 @register_reader(".xlsx")
 class ClarioStarXlsxReader(Reader):
-    def read(self, path: Path) -> MeasurementSet:
+    def read_raw(self, path: Path):
+        import json
+
         import pandas as pd
 
         xls = pd.ExcelFile(path)
@@ -70,57 +61,6 @@ class ClarioStarXlsxReader(Reader):
         )
         tidy["time_s"] = 0.0  # endpoint ⇒ single time point (no kinetic assay)
 
-        return MeasurementSet.from_dataframe(tidy, meta)
-
-# ─ Parquet reader ----------------------------------------------------------
-@register_reader(".parquet")
-class ParquetReader(Reader):
-    """
-    Load a MeasurementSet from a Parquet file previously written by
-    ParquetWriter.  Expects:
-        • a tidy table (one row per point)
-        • attrs dict JSON-encoded under schema metadata key b"attrs"
-    """
-
-    def read(self, path: Path) -> MeasurementSet:
-        import json
-
-        import pyarrow.parquet as pq
-
-        table = pq.read_table(path)
-        meta_json = (table.schema.metadata or {}).get(b"attrs")
-        meta = json.loads(meta_json) if meta_json else {}
-
-        df = table.to_pandas()  # index already flat
-        return MeasurementSet.from_dataframe(df, meta)
-
-
-# ── NetCDF reader ----------------------------------------------------------
-@register_reader(".nc")
-class NetCDFReader(Reader):
-    """
-    Load a MeasurementSet from a NetCDF file previously written by NetCDFWriter into a MeasurementSet object.
-    The Dataset already carries all attrs/meta, so we just wrap it.
-    """
-
-    def read(self, path: Path) -> MeasurementSet:
-        import xarray as xr
-
-        ds = xr.open_dataset(path)
-        # fully read into memory so file handles close quickly
-        ds.load()
-
-        meta = dict(ds.attrs)  # copy attrs to plain dict
-        return MeasurementSet(ds, meta)
-
-
-# ── CSV reader -------------------------------------------------------------
-@register_reader(".csv")
-class ClarioStarCsvReader(Reader):
-    def read(self, path: Path) -> MeasurementSet: ...
-
-
-# ── TXT reader -------------------------------------------------------------
-@register_reader(".txt")
-class ClarioStarTxtReader(Reader):
-    def read(self, path: Path) -> MeasurementSet: ...
+        # embed metadata for the dispatcher
+        tidy.attrs["attrs"] = json.dumps({**meta, "object_type": "mset"})
+        return "mset", tidy

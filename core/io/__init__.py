@@ -1,21 +1,9 @@
-from pathlib import Path
+from .fit_result import FitResult
+from .measurement_set import MeasurementSet
+from .registry import load, save
 
-from .measurement_sets import MeasurementSet
-from .readers import _readers
-from .writers import _writers
+# ensure all plug-ins register
+from . import serialize_boot  # noqa: E402  (import after registry)
+_ = serialize_boot  # to prevent unused import removal by linters
 
-
-def load(path: Path) -> MeasurementSet:
-    ext = path.suffix.lower()
-    try:
-        return _readers[ext].read(path)
-    except KeyError:
-        raise ValueError(f"No reader for *{ext} files")
-
-
-def save(mset: MeasurementSet, path: Path):
-    ext = path.suffix.lower()
-    try:
-        return _writers[ext].write(mset, path)
-    except KeyError:
-        raise ValueError(f"No writer for *{ext} files")
+__all__ = ["load", "save", "MeasurementSet", "FitResult"]
