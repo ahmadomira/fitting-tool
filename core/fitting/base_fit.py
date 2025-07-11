@@ -8,14 +8,15 @@ class BaseFittingAlgorithm(abc.ABC):
     """Abstract base class for fitting algorithms."""
 
     @abc.abstractmethod
+    def load_data(self, file_path):
+        """Load and preprocess data from a file."""
+        pass
+    
+    @abc.abstractmethod
     def fit(self, *args, **kwargs):
         """Run the fitting routine. Must be implemented by subclasses."""
         pass
 
-    @abc.abstractmethod
-    def load_data(self, file_path):
-        """Load and preprocess data from a file."""
-        pass
 
     @abc.abstractmethod
     def export_results(self, *args, **kwargs):
