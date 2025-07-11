@@ -1,3 +1,20 @@
+"""
+Writer for MeasurementSet objects to Parquet files.
+
+This module provides a Writer implementation for saving MeasurementSet objects
+as .parquet files, embedding metadata in the file's Arrow schema.
+
+Classes
+-------
+MsetParquetWriter : Writer
+    Serializes MeasurementSet to .parquet format.
+
+Examples
+--------
+>>> writer = MsetParquetWriter()
+>>> writer.write(mset, 'file.parquet')
+"""
+
 from pathlib import Path
 
 import pyarrow as pa
@@ -11,17 +28,20 @@ from ...registry import register_writer
 @register_writer("mset", ".parquet")
 class MsetParquetWriter(Writer):
     """
-    Save MeasurementSet as Parquet and embed the meta-dict in the file's Arrow schema.
-
-    Reload snippet:
-    >>> import pyarrow.parquet as pq, json
-    >>> tbl = pq.read_table("file.parquet")
-    >>> meta = json.loads(tbl.schema.metadata[b"attrs"])
-    >>> df = tbl.to_pandas()
-    >>> mset = MeasurementSet.from_dataframe(df, meta)
+    Writer for MeasurementSet objects to .parquet files.
     """
 
     def write(self, obj: MeasurementSet, path: Path):
+        """
+        Write a MeasurementSet object to a .parquet file, embedding metadata.
+
+        Parameters
+        ----------
+        obj : MeasurementSet
+            The MeasurementSet object to serialize.
+        path : pathlib.Path or str
+            Path to the .parquet file.
+        """
         import json
 
         df = obj.to_dataframe()

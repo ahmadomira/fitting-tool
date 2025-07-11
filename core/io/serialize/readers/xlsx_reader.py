@@ -1,3 +1,15 @@
+"""
+XLSX file reader for ClarioStar microplate exports.
+
+This module provides a Reader implementation for .xlsx files exported from ClarioStar
+microplate readers, returning a tidy pandas DataFrame and associated metadata.
+
+Classes
+-------
+ClarioStarXlsxReader : Reader
+    Reads .xlsx files and returns (tag, DataFrame).
+"""
+
 from pathlib import Path
 
 from ...base import Reader
@@ -7,7 +19,26 @@ from ...registry import register_reader
 # ── XLSX reader ------------------------------------------------------------
 @register_reader(".xlsx")
 class ClarioStarXlsxReader(Reader):
+    """
+    Reader for BMG Labtech's ClarioStar plate reader .xlsx files, returning a tidy DataFrame and metadata of the well plate.
+    """
+
     def read_raw(self, path: Path):
+        """
+        Parse a ClarioStar .xlsx file and return its tag and data as a DataFrame.
+
+        Parameters
+        ----------
+        path : pathlib.Path or str
+            Path to the .xlsx file.
+
+        Returns
+        -------
+        tag : str
+            Object type tag, e.g. 'mset'.
+        df : pandas.DataFrame
+            Tidy DataFrame with data and metadata in attrs['attrs'].
+        """
         import json
 
         import pandas as pd

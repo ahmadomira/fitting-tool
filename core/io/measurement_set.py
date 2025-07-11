@@ -1,3 +1,22 @@
+"""
+Canonical representation and interface for measurement data in the fitting-tool.
+
+This module defines the MeasurementSet dataclass, which stores plate or plate-series data
+as an xarray.Dataset and associated metadata. Provides methods for conversion to DataFrame
+and xarray.Dataset, and for constructing from stored formats.
+
+Classes
+-------
+MeasurementSet : Serializable
+    Stores measurement data and provides serialization helpers.
+
+Examples
+--------
+>>> ms = MeasurementSet(ds, meta)
+>>> df = ms.to_dataframe()
+>>> ds2 = ms.to_dataset()
+"""
+
 import json
 from dataclasses import dataclass
 
@@ -7,22 +26,22 @@ import xarray as xr
 
 from .base import Serializable
 
-
 # channel: only one channel in our current use case (FI), can be extended to, e.g., multiple wavelengths
 # time_s: for kinetic assays
 REQUIRED_COLS = {"well_row", "well_col", "channel", "time_s", "signal"}
+
 
 @dataclass
 class MeasurementSet(Serializable):
     """
     Canonical representation of one plate (or plate-series) worth of data.
-      - self.ds : xarray.Dataset, dims: well_row, well_col, channel, time_s
-      - self.meta : dict, any (meta-)data that is *not* necessarily numeric
+
+    See module docstring for usage examples.
     """
 
     ds: xr.Dataset
     meta: dict
-    
+
     # data structure version
     SCHEMA_VERSION: int = 1
 
@@ -33,32 +52,86 @@ class MeasurementSet(Serializable):
 
         if "schema_version" not in self.meta:
             self.meta["schema_version"] = self.SCHEMA_VERSION
-        
+
         self.ds.attrs.update(self.meta)
 
     # handy aliases
     @property
     def data(self) -> xr.Dataset:
+        """
+        Return the underlying xarray.Dataset.
+
+        Returns
+        -------
+        xarray.Dataset
+            The measurement data as a dataset.
+        """
         return self.ds
 
     @property
     def tidy(self) -> pd.DataFrame:
-        """Return a long DataFrame (one row per point)."""
+        """
+        Return a long-format DataFrame (one row per point).
+
+        Returns
+        -------
+        pandas.DataFrame
+            Long-format table of measurement data.
+        """
         return self.ds.to_dataframe().reset_index()
 
     # --- Serializable interface -------------------------------------------
     def tag(self) -> str:
+        """
+        Return the object type tag for this measurement set.
+
+        Returns
+        -------
+        str
+            The string 'mset'.
+        """
         return "mset"
 
     def to_dataframe(self) -> pd.DataFrame:
+        """
+        Return the measurement data as a long-format DataFrame.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Long-format table of measurement data.
+        """
         return self.tidy
 
     def to_dataset(self) -> xr.Dataset:
+        """
+        Return the measurement data as an xarray.Dataset.
+
+        Returns
+        -------
+        xarray.Dataset
+            The measurement data as a dataset.
+        """
         return self.ds
 
     # ---------- factory helpers -------------------------------------------
     @classmethod
     def from_dataframe(cls, df: pd.DataFrame, meta: dict):
+        """
+        Construct a MeasurementSet from a DataFrame and metadata.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            DataFrame containing measurement data.
+        meta : dict
+            Metadata dictionary.
+
+        Returns
+        -------
+        MeasurementSet
+            New MeasurementSet instance.
+        """
         missing = REQUIRED_COLS - set(df.columns)
         if missing:
             raise ValueError(f"Missing columns: {', '.join(sorted(missing))}")
@@ -79,11 +152,42 @@ class MeasurementSet(Serializable):
 
     @classmethod
     def from_dataset(cls, ds: xr.Dataset):
+        """
+        Construct a MeasurementSet from an xarray.Dataset.
+
+        Parameters
+        ----------
+        ds : xarray.Dataset
+            Dataset containing measurement data and metadata.
+
+        Returns
+        -------
+        MeasurementSet
+            New MeasurementSet instance.
+        """
         meta = dict(ds.attrs)
         return cls(ds, meta)
 
     @classmethod
     def from_serialisable(cls, payload):
+        """
+        Construct a MeasurementSet from a serializable payload (DataFrame or Dataset).
+
+        Parameters
+        ----------
+        payload : pandas.DataFrame or xarray.Dataset
+            Serializable measurement data.
+
+        Returns
+        -------
+        MeasurementSet
+            New MeasurementSet instance.
+
+        Raises
+        ------
+        TypeError
+            If the payload is neither a DataFrame nor a Dataset.
+        """
         if isinstance(payload, pd.DataFrame):
             return cls.from_dataframe(payload, json.loads(payload.attrs["attrs"]))
         elif isinstance(payload, xr.Dataset):

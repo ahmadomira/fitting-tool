@@ -1,8 +1,20 @@
 """
-Global registries for serialisation plug-ins.
+Global registries and entry points for serialization plug-ins in the fitting-tool.
 
-   (tag, ext) → writer      e.g. ('mset', '.parquet')
-        ext   → reader      e.g. '.parquet'
+This module manages the registration and lookup of file readers and writers for different
+object types and file formats. It provides decorators for registering new plug-ins and
+entry points for saving and loading domain objects.
+
+Functions
+---------
+register_writer(tag, ext)
+    Decorator to register a Writer for a given object type and file extension.
+register_reader(ext)
+    Decorator to register a Reader for a given file extension.
+save(obj, path)
+    Save a Serializable object to the specified path using the appropriate writer.
+load(path)
+    Load a Serializable object from the specified path using the appropriate reader.
 """
 
 import warnings
