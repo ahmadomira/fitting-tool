@@ -7,12 +7,15 @@ and use by the core I/O system.
 
 Supported formats
 -----------------
+
 Readers:
+
 - Parquet (.parquet): ParquetReader
 - NetCDF (.nc): NetcdfReader
 - XLSX (.xlsx): ClarioStarXlsxReader
 
 Writers:
+
 - Parquet (.parquet):
     - MsetParquetWriter (MeasurementSet)
     - FitParquetWriter (FitResult)
@@ -21,6 +24,7 @@ Writers:
 
 Usage
 -----
+
 Plug-ins are registered automatically on import. To add support for a new format,
 implement a Reader or Writer and decorate it with `@register_reader` or `@register_writer`.
 
