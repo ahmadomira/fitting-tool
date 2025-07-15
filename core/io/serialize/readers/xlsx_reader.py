@@ -15,7 +15,8 @@ from pathlib import Path
 from ...base import Reader
 from ...registry import register_reader
 
-
+# TODO: implement an XLSX writer for measurement & fit data and expand this reader to support it
+#       (currently only reads ClarioStar plate reader exports)
 # ── XLSX reader ------------------------------------------------------------
 @register_reader(".xlsx")
 class ClarioStarXlsxReader(Reader):
@@ -23,7 +24,7 @@ class ClarioStarXlsxReader(Reader):
     Reader for BMG Labtech's ClarioStar plate reader .xlsx files, returning a tidy DataFrame and metadata of the well plate.
     """
 
-    def read_raw(self, path: Path):
+    def read(self, path: Path):
         """
         Parse a ClarioStar .xlsx file and return its tag and data as a DataFrame.
 

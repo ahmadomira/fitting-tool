@@ -2,12 +2,6 @@
 Base interfaces for serialization in the fitting-tool core.io module.
 
 Defines abstract base classes for objects that can be saved/loaded, and for file readers/writers.
-
-Classes
--------
-Serializable : Abstract base class for serializable objects.
-Reader : Abstract base class for file readers.
-Writer : Abstract base class for file writers.
 """
 
 from __future__ import annotations
@@ -87,7 +81,7 @@ class Reader(ABC):
     """
 
     @abstractmethod
-    def read_raw(self, path: Path) -> Tuple[Tag, Payload]:
+    def read(self, path: Path) -> Tuple[Tag, Payload]:
         """
         Parse *path* and return (tag, payload).
 

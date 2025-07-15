@@ -139,6 +139,16 @@ class MeasurementSet(Serializable):
         df = df.copy()
         df["signal"] = pd.to_numeric(df["signal"], errors="coerce")
 
+        # pull out optional concentration column
+        conc_col = None
+        if "concentration" in df.columns:
+            conc_col = (
+                df[["well_col", "concentration"]]
+                .drop_duplicates("well_col")
+                .sort_values("well_col")["concentration"]
+                .values
+            )
+
         da = (
             df.set_index(["well_row", "well_col", "channel", "time_s"])
             .sort_index()["signal"]
@@ -147,6 +157,16 @@ class MeasurementSet(Serializable):
         )
         meta = {**meta, "object_type": "mset"}
         ds = xr.Dataset({"signal": da})
+        if conc_col is not None:
+            R, C = ds.sizes["well_row"], ds.sizes["well_col"]
+            conc_2d = np.broadcast_to(conc_col, (R, C))
+            ds = ds.assign_coords(
+                concentration=(
+                    ("well_row", "well_col"),
+                    conc_2d,
+                    {"unit": meta.get("concentration_unit", "µM")},
+                )
+            )
         ds.attrs.update(meta)
         return cls(ds, meta)
 
@@ -198,66 +218,90 @@ class MeasurementSet(Serializable):
     # ----------------------------------------------------------------------
     #   Concentration handling
     # ----------------------------------------------------------------------
-    def with_concentration(self, values, name: str = "concentration", unit: str = "µM"):
+    def set_concentration(self, values, unit: str = "µM"):
         """
-        Return a *new* MeasurementSet with a concentration coordinate attached.
+        Attach or overwrite the 'concentration' coordinate.
 
         Parameters
         ----------
-        values : scalar, 1‑D or 2‑D array‑like
-            • scalar                       → broadcast to every well
-            • length‑12 1‑D array/Series   → one value per column (well_col)
-            • 8×12 2‑D array/DataFrame     → one value per well
-            • xarray.DataArray            → must be broadcast‑compatible
-        name : str, optional
-            Coordinate name to use (default: "concentration").
-            Useful when multiple titrations exist.
-        unit : str, optional
-            Saved in ``da.attrs["unit"]`` for reference.
+        values : scalar, 1‑D, 2‑D array‑like or xarray.DataArray
+            Scalar          – broadcast to all wells  
+            1‑D length C    – one value per column  
+            2‑D R×C         – one value per well  
+            DataArray       – must be broadcast‑compatible
+        unit : str
+            Stored in ``coord.attrs["unit"]`` (default 'µM').
 
         Returns
         -------
         MeasurementSet
-            A *new* instance containing the extra coordinate.
+            ``self`` (fluent interface)
         """
+        arr = values if isinstance(values, np.ndarray) else np.asarray(values)
+        R = self.ds.sizes["well_row"]
+        C = self.ds.sizes["well_col"]
 
-        # ---- normalise input to xarray.DataArray --------------------------------
-        if isinstance(values, xr.DataArray):
-            da = values
+        # normalise to 2‑D array R×C
+        if arr.ndim == 0:                       # scalar
+            arr = np.broadcast_to(arr, (R, C))
+        elif arr.ndim == 1:                     # per‑column
+            if arr.size != C:
+                raise ValueError("1‑D concentration vector length ≠ number of columns")
+            arr = np.broadcast_to(arr, (R, C))
+        elif arr.ndim == 2:
+            if arr.shape != (R, C):
+                raise ValueError("2‑D concentration matrix shape mismatch")
         else:
-            arr = np.asarray(values)
+            raise ValueError("values must be 0‑, 1‑, or 2‑D")
 
-            if arr.ndim == 0:
-                # scalar: broadcast later
-                da = xr.DataArray(arr)
-            elif arr.ndim == 1:
-                if arr.size != 12:
-                    raise ValueError(
-                        "1‑D concentration vector must have length 12 (one per column)."
-                    )
-                da = xr.DataArray(
-                    arr,
-                    dims=("well_col",),
-                    coords={"well_col": self.ds.coords["well_col"]},
-                )
-            elif arr.ndim == 2:
-                if arr.shape != (8, 12):
-                    raise ValueError("2‑D concentration matrix must be shape (8, 12).")
-                da = xr.DataArray(
-                    arr,
-                    dims=("well_row", "well_col"),
-                    coords={
-                        "well_row": self.ds.coords["well_row"],
-                        "well_col": self.ds.coords["well_col"],
-                    },
-                )
-            else:
-                raise ValueError("`values` must be scalar, 1‑D or 2‑D.")
-        da.attrs["unit"] = unit
+        da = xr.DataArray(
+            arr,
+            dims=("well_row", "well_col"),
+            coords={
+                "well_row": self.ds.coords["well_row"],
+                "well_col": self.ds.coords["well_col"],
+            },
+            attrs={"unit": unit},
+        )
+        self.ds = self.ds.assign_coords(concentration=da)
+        return self
 
-        # ---- attach as coordinate (auto‑broadcast) ------------------------------
-        new_ds = self.ds.assign_coords({name: da})
-        return MeasurementSet(new_ds, self.meta)
+    def concentration(self, well_row: str | None = None, well_col: int | None = None):
+        """
+        Access the concentration coordinate.
+
+        Returns
+        -------
+        xarray.DataArray or float
+            Full 2‑D array, 1‑D vector, or scalar depending on arguments.
+        """
+        if "concentration" not in self.ds.coords:
+            raise ValueError("No concentration coordinate set.")
+        da = self.ds.coords["concentration"]
+        if well_row is not None:
+            da = da.sel(well_row=well_row)
+        if well_col is not None:
+            da = da.sel(well_col=well_col)
+        return da
+
+    def has_concentration(self, complete: bool = True) -> bool:
+        """
+        Check if a concentration coordinate exists (and is complete).
+
+        Parameters
+        ----------
+        complete : bool, optional
+            If True, also require that the coordinate contains no NaN.
+
+        Returns
+        -------
+        bool
+        """
+        if "concentration" not in self.ds.coords:
+            return False
+        if complete:
+            return not np.isnan(self.ds.coords["concentration"].values).any()
+        return True
 
     # ---- convenience ----------------------------------------------------
     def row(self, label: str, channel="FI", time_s=0):
@@ -285,83 +329,3 @@ class MeasurementSet(Serializable):
             .sel(channel="FI", time_s=0)
             .sortby(["well_row", "well_col"])
         )
-
-    #   In‑place mutator for concentration
-    def add_concentration(self, values, name: str = "concentration", unit: str = "µM"):
-        """
-        Mutating wrapper around :py:meth:`with_concentration`.
-
-        Alters *this* MeasurementSet by attaching the concentration coordinate
-        and returns ``self`` so you can chain calls.
-
-        Examples
-        --------
-        >>> mset.add_concentration([0, 1, 2, 4, 8, 16, 32, 50, 65, 80, 90, 100])
-        >>> mset.concentration("A3")
-        2.0
-        """
-        # delegate to functional version, then replace the internal Dataset
-        self.ds = self.with_concentration(values, name, unit).ds
-        return self
-
-    # ----------------------------------------------------------------------
-    #   Accessors for concentration
-    # ----------------------------------------------------------------------
-    def concentration(self, well_label: str, name: str = "concentration"):
-        """
-        Return the *scalar* concentration for an individual well (e.g. 'B7').
-
-        Works whether the coordinate was supplied as:
-
-        * scalar                    (broadcast to all wells)
-        * 1‑D per‑column vector     (dims: well_col)
-        * 2‑D 8×12 matrix           (dims: well_row, well_col)
-
-        Parameters
-        ----------
-        well_label : str
-            Row‑column label such as 'A3', 'H12'.
-        name : str, optional
-            Coordinate name (default "concentration").
-
-        Returns
-        -------
-        float
-        """
-        row, col = well_label[0], int(well_label[1:])
-        coord = self.ds.coords[name]
-
-        # Try the most specific selection possible given the coordinate's dims
-        sel_kwargs = {}
-        if "well_row" in coord.dims:
-            sel_kwargs["well_row"] = row
-        if "well_col" in coord.dims:
-            sel_kwargs["well_col"] = col
-
-        return coord.sel(**sel_kwargs).item()
-
-    def row_concentration(self, row_label: str, name: str = "concentration"):
-        """
-        Return the 1‑D concentration vector (length‑12) for an entire row.
-
-        This is typically the X‑axis for a replica series.
-
-        Parameters
-        ----------
-        row_label : str
-            'A' … 'H'
-        name : str, optional
-            Coordinate name (default "concentration").
-
-        Returns
-        -------
-        xarray.DataArray
-            dims: well_col
-        """
-        coord = self.ds.coords[name]
-
-        if "well_row" in coord.dims:
-            return coord.sel(well_row=row_label).sortby("well_col")
-        else:
-            # coord is 1‑D → identical for every row
-            return coord.sortby("well_col")

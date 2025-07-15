@@ -1,0 +1,135 @@
+# <<<meta>>>
+{
+  "Measurement type": "Fluorescence (FI)",
+  "Microplate name": "PE OptiPlate 96",
+  "No. of flashes per well": "20",
+  "Presetname": "<user defined settings>",
+  "Excitation": "371-15",
+  "Dichroic filter": "396.2",
+  "Emission": "424-20",
+  "Gain obtained by": "manually entered",
+  "Gain": "1312",
+  "Focal height obtained by": "previous focal height (manually entered)",
+  "Focal height [mm]": "7.5",
+  "Well used for focus adjustment": "-",
+  "Spoon type": "-",
+  "Injection needle holder type": "-",
+  "Settling time [s]": "0.5",
+  "Reading direction": "bidirectional, horizontal left to right, top to bottom",
+  "Target temperature [\u00b0C]": "25",
+  "Target concentration O2 [%]": "set off",
+  "object_type": "mset",
+  "schema_version": 1
+}
+# <<<data>>>
+var	signal
+0	208319
+1	163967
+2	127277
+3	110603
+4	97634
+5	88662
+6	80584
+7	74999
+8	57714
+9	56544
+10	55611
+11	44899
+# <<<data>>>
+var	signal
+0	206164
+1	175454
+2	137776
+3	116583
+4	109147
+5	88698
+6	72362
+7	72234
+8	60276
+9	55116
+10	57767
+11	50021
+# <<<data>>>
+var	signal
+0	219047
+1	169211
+2	129622
+3	121413
+4	117796
+5	89451
+6	75952
+7	72079
+8	61109
+9	59514
+10	58547
+11	51018
+# <<<data>>>
+var	signal
+0	208703
+1	160252
+2	140711
+3	121798
+4	85374
+5	93305
+6	75083
+7	67784
+8	59793
+9	57350
+10	57504
+11	49768
+# <<<data>>>
+var	signal
+0	207967
+1	150407
+2	122893
+3	105200
+4	97610
+5	83361
+6	78066
+7	76392
+8	62588
+9	52949
+10	57047
+11	50889
+# <<<data>>>
+var	signal
+0	210961
+1	168136
+2	133085
+3	109383
+4	99939
+5	93090
+6	81675
+7	78006
+8	59106
+9	62013
+10	57037
+11	50158
+# <<<data>>>
+var	signal
+0	206024
+1	163167
+2	134170
+3	115848
+4	99393
+5	92795
+6	86309
+7	73943
+8	61224
+9	54919
+10	57830
+11	50135
+# <<<data>>>
+var	signal
+0	214022
+1	161580
+2	126092
+3	117170
+4	95734
+5	93647
+6	82071
+7	67085
+8	61159
+9	54316
+10	53131
+11	45058

@@ -62,7 +62,7 @@ def save(obj: Serializable, path: Path):
 def load(path: Path):
     ext = Path(path).suffix.lower()
     try:
-        tag, payload = _readers[ext].read_raw(path)  # returns (tag, df|ds|...)
+        tag, payload = _readers[ext].read(path)  # returns (tag, df|ds|...)
     except KeyError as err:
         raise ValueError(f"No reader for *{ext} files") from err
 

@@ -21,6 +21,8 @@ Examples
 
 """
 
+import pandas
+
 from ...base import Reader
 from ...registry import register_reader
 
@@ -34,7 +36,7 @@ class ParquetReader(Reader):
     See module docstring for usage examples.
     """
 
-    def read_raw(self, path):
+    def read(self, path) -> tuple[str, pandas.DataFrame]:
         """
         Parse a .parquet file and return its tag and data as a DataFrame.
 

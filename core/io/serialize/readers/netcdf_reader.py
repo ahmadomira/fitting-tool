@@ -22,7 +22,7 @@ class NetcdfReader(Reader):
     Returns an xarray.Dataset and metadata from a .nc file.
     """
 
-    def read_raw(self, path):
+    def read(self, path):
         """
         Parse a .nc (NetCDF) file and return its tag and data as an xarray.Dataset.
 
