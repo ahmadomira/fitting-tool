@@ -20,6 +20,8 @@ class IDAFittingAlgorithm(BaseFittingAlgorithm):
         replicas = split_replicas(data_lines)
         print(f"Number of replicas detected: {len(replicas)}")
         figures = []
+        plt.close('all')  # Close any previous plots
+        
         for replica_index, replica_data in enumerate(replicas, start=1):
             g0_values = replica_data[:, 0] * 1e6
             Signal_observed = replica_data[:, 1]

@@ -18,6 +18,8 @@ def run_gda_fitting(file_path, results_file_path, Kd_in_M, h0_in_M, g0_in_M, num
     replicas = split_replicas(data_lines)
     print(f"Number of replicas detected: {len(replicas)}")
     figures = []
+    plt.close('all')  # Close any previous plots
+    
     for replica_index, replica_data in enumerate(replicas, start=1):
         d0_values = replica_data[:, 0] * 1e6
         Signal_observed = replica_data[:, 1]

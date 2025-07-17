@@ -18,6 +18,8 @@ def run_dba_dye_to_host_fitting(file_path, results_file_path, h0_in_M, rmse_thre
     replicas = split_replicas(data_lines)
     print(f"Number of replicas detected: {len(replicas)}")
     figures = []
+    plt.close('all')  # Close any previous plots
+    
     for replica_index, replica_data in enumerate(replicas, start=1):
         print(f"Processing replica {replica_index}, data length: {len(replica_data)}")
         d0_values = replica_data[:, 0] * 1e6
