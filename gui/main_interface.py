@@ -4,14 +4,14 @@ import matplotlib
 
 matplotlib.use("TkAgg")
 
-from interface_DBA_dye_to_host_fitting import DBAFittingAppDtoH
-from interface_DBA_host_to_dye_fitting import DBAFittingAppHtoD
-from interface_dba_merge_fits import DBAMergeFitsApp
-from interface_DyeAlone_fitting import DyeAloneFittingApp
-from interface_GDA_fitting import GDAFittingApp
-from interface_gda_merge_fits import GDAMergeFitsApp
-from interface_IDA_fitting import IDAFittingApp
-from interface_ida_merge_fits import IDAMergeFitsApp
+from gui.interface_DBA_dye_to_host_fitting import DBAFittingAppDtoH
+from gui.interface_DBA_host_to_dye_fitting import DBAFittingAppHtoD
+from gui.interface_dba_merge_fits import DBAMergeFitsApp
+from gui.interface_DyeAlone_fitting import DyeAloneFittingApp
+from gui.interface_GDA_fitting import GDAFittingApp
+from gui.interface_gda_merge_fits import GDAMergeFitsApp
+from gui.interface_IDA_fitting import IDAFittingApp
+from gui.interface_ida_merge_fits import IDAMergeFitsApp
 
 from utils.bmg_to_txt import BMGToTxtConverter
 from utils.plot_replica import PlotReplica
