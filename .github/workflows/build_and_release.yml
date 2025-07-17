@@ -29,8 +29,17 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-tk
+    
     - name: Build with PyInstaller
-      run: pyinstaller --clean -y --distpath ./dist --workpath ./build FittingApp.spec
+      run: |
+        # Increase recursion limit for complex dependency trees
+        python -c "import sys; sys.setrecursionlimit(sys.getrecursionlimit() * 5)"
+        pyinstaller --clean -y --distpath ./dist --workpath ./build FittingApp.spec
 
     - name: Zip artifact (Windows)
       if: runner.os == 'Windows'
