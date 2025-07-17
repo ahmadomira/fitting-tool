@@ -1,5 +1,6 @@
 import os
 import tkinter as tk
+import traceback
 from tkinter import filedialog
 
 from core.fitting.gda_merge import run_gda_merge_fits
@@ -31,6 +32,17 @@ class GDAMergeFitsApp:
         self.save_plots_var.set(False)
         self.display_plots_var.set(True)
         self.save_results_var.set(False)
+
+        # for testing
+        self.results_dir_var.set("/Users/ahmadomira/git/App Test/gda-test")
+        self.plot_title_var.set("GDA Merge Fits")
+
+        self.save_plots_var.set(True)
+        self.display_plots_var.set(True)
+        self.save_results_var.set(True)
+
+        self.save_results_entry_var.set(self.results_dir_var.get())
+        self.save_plots_entry_var.set(self.results_dir_var.get())
 
         # Padding
         pad_x = 10
@@ -216,8 +228,9 @@ class GDAMergeFitsApp:
             self.show_message("Merging fits completed successfully.")
 
         except Exception as e:
-            # Show error message
-            self.show_message(f"Error: {e}", is_error=True)
+            tb = traceback.format_exc()
+            self.show_message(f"Error: {e}\n{tb}", is_error=True)
+            print(f"Error: {e}\n{tb}")
 
 
 if __name__ == "__main__":

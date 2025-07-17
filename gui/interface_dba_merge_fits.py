@@ -31,6 +31,18 @@ class DBAMergeFitsApp:
         self.save_plots_var.set(False)
         self.display_plots_var.set(True)
         self.save_results_var.set(False)
+        
+        # for testing
+        self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-test")
+        self.plot_title_var.set("DBA Merge Fits")
+        
+        self.save_plots_var.set(True)
+        self.display_plots_var.set(True)
+        self.save_results_var.set(True)
+        
+        self.save_results_entry_var.set(self.results_dir_var.get())
+        self.save_plots_entry_var.set(self.results_dir_var.get())
+        
 
         # Padding
         pad_x = 10
@@ -184,39 +196,35 @@ class DBAMergeFitsApp:
         self.info_label.grid(row=9, column=0, columnspan=3, pady=10)
 
     def run_merge_fits(self):
-        try:
-            results_dir = self.results_dir_var.get()
-            outlier_relative_threshold = self.outlier_threshold_var.get()
-            rmse_threshold_factor = self.rmse_threshold_factor_var.get()
-            kd_threshold_factor = self.kd_threshold_factor_var.get()
-            save_plots = self.save_plots_var.get()
-            display_plots = self.display_plots_var.get()
-            save_results = self.save_results_var.get()
-            results_save_dir = self.results_dir_entry.get()
-            plot_title = self.plot_title_var.get()
+        results_dir = self.results_dir_var.get()
+        outlier_relative_threshold = self.outlier_threshold_var.get()
+        rmse_threshold_factor = self.rmse_threshold_factor_var.get()
+        kd_threshold_factor = self.kd_threshold_factor_var.get()
+        save_plots = self.save_plots_var.get()
+        display_plots = self.display_plots_var.get()
+        save_results = self.save_results_var.get()
+        results_save_dir = self.results_dir_entry.get()
+        plot_title = self.plot_title_var.get()
 
-            # Show a progress indicator
-            with ProgressWindow(
-                self.root,
-                "Merging Fits in Progress",
-                "Merging fits in progress, please wait...",
-            ) as progress_window:
-                # Call the function to merge fits
-                run_dba_merge_fits(
-                    results_dir,
-                    outlier_relative_threshold,
-                    rmse_threshold_factor,
-                    kd_threshold_factor,
-                    save_plots,
-                    display_plots,
-                    save_results,
-                    results_save_dir,
-                    plot_title,
-                )
-            self.show_message("Merging fits completed!", is_error=False)
-
-        except Exception as e:
-            self.show_message(f"Error: {str(e)}", is_error=True)
+        # Show a progress indicator
+        with ProgressWindow(
+            self.root,
+            "Merging Fits in Progress",
+            "Merging fits in progress, please wait...",
+        ) as progress_window:
+            # Call the function to merge fits
+            run_dba_merge_fits(
+                results_dir,
+                outlier_relative_threshold,
+                rmse_threshold_factor,
+                kd_threshold_factor,
+                save_plots,
+                display_plots,
+                save_results,
+                results_save_dir,
+                plot_title,
+            )
+        self.show_message("Merging fits completed!", is_error=False)
 
 
 if __name__ == "__main__":
