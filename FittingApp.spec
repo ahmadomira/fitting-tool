@@ -10,10 +10,22 @@ if os.path.exists('MyIcon.icns'):
 elif os.path.exists('MyIcon.ico'):
     icon_file = 'MyIcon.ico'
 
+# Find Python shared library for conda environments
+python_lib_path = None
+if hasattr(sys, 'base_prefix'):
+    potential_lib = os.path.join(sys.base_prefix, 'lib', f'libpython{sys.version_info.major}.{sys.version_info.minor}.dylib')
+    if os.path.exists(potential_lib):
+        python_lib_path = potential_lib
+
+# Prepare binaries list
+binaries_list = []
+if python_lib_path and sys.platform == 'darwin':
+    binaries_list.append((python_lib_path, 'Frameworks'))
+
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=binaries_list,
     datas=[],
     hiddenimports=[],
     hookspath=[],
@@ -52,7 +64,7 @@ coll = COLLECT(
 # Only create macOS app bundle on macOS
 if sys.platform == 'darwin' and icon_file:
     app = BUNDLE(
-        exe,
+        coll,
         name='FittingApp.app',
         icon=icon_file,
         bundle_identifier=None,
