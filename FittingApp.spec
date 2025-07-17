@@ -1,5 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-import sys ; sys.setrecursionlimit(sys.getrecursionlimit() * 5)
+import sys
+import os
+sys.setrecursionlimit(sys.getrecursionlimit() * 5)
+
+# Cross-platform icon handling
+icon_file = None
+if os.path.exists('MyIcon.icns'):
+    icon_file = 'MyIcon.icns'
+elif os.path.exists('MyIcon.ico'):
+    icon_file = 'MyIcon.ico'
 
 a = Analysis(
     ['main.py'],
@@ -28,7 +37,7 @@ exe = EXE(
     upx=True,
     console=False,
     disable_windowed_traceback=False,
-    icon=['MyIcon.icns'],
+    icon=icon_file,
 )
 coll = COLLECT(
     exe,
@@ -39,9 +48,12 @@ coll = COLLECT(
     upx_exclude=[],
     name='FittingApp',
 )
-app = BUNDLE(
-    exe,
-    name='FittingApp.app',
-    icon='MyIcon.icns',
-    bundle_identifier=None,
-)
+
+# Only create macOS app bundle on macOS
+if sys.platform == 'darwin' and icon_file:
+    app = BUNDLE(
+        exe,
+        name='FittingApp.app',
+        icon=icon_file,
+        bundle_identifier=None,
+    )
