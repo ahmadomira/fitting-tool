@@ -20,7 +20,7 @@ if hasattr(sys, 'base_prefix'):
 # Prepare binaries list
 binaries_list = []
 if python_lib_path and sys.platform == 'darwin':
-    binaries_list.append((python_lib_path, 'Frameworks'))
+    binaries_list.append((python_lib_path, '.'))
 
 a = Analysis(
     ['main.py'],
