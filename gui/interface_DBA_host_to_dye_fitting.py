@@ -12,8 +12,8 @@ class DBAFittingAppHtoD:
         
         # Variables
         self.file_path_var = tk.StringVar()
-        self.use_results_file_var = tk.BooleanVar()
-        self.results_file_path_var = tk.StringVar()
+        self.use_dye_alone_results = tk.BooleanVar()
+        self.dye_alone_results_var = tk.StringVar()
         self.d0_var = tk.DoubleVar()
         self.fit_trials_var = tk.IntVar()
         self.rmse_threshold_var = tk.DoubleVar()
@@ -26,11 +26,22 @@ class DBAFittingAppHtoD:
 
         # Set default values
         self.d0_var.set(6e-6)
-        self.fit_trials_var.set(200)
+        self.fit_trials_var.set(10)
         self.rmse_threshold_var.set(2)
         self.r2_threshold_var.set(0.9)
         self.display_plots_var.set(True)
 
+        
+        # for testing
+        self.file_path_var.set("/Users/ahmadomira/git/App Test/dba-test/DBA_system_host_to_dye.txt")
+        self.use_dye_alone_results.set(True)
+        self.save_plots_var.set(True)
+        self.save_results_var.set(True)
+
+        self.dye_alone_results_var.set("/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt")
+        self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-test/")
+        self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-test/")
+        
         # Padding
         pad_x = 10
         pad_y = 5
@@ -41,12 +52,12 @@ class DBAFittingAppHtoD:
         self.file_path_entry.grid(row=0, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
         tk.Button(self.root, text="Browse", command=self.browse_input_file).grid(row=0, column=2, padx=pad_x, pady=pad_y)
 
-        tk.Checkbutton(self.root, text="Read Boundaries from File: ", variable=self.use_results_file_var, command=self.update_use_results_widgets).grid(row=1, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
-        self.results_file_path_entry = tk.Entry(self.root, textvariable=self.results_file_path_var, width=40, justify='left', state=tk.DISABLED)
-        self.results_file_path_entry.grid(row=1, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
-        self.results_file_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_file(self.results_file_path_entry), state=tk.DISABLED)
-        self.results_file_button.grid(row=1, column=2, padx=pad_x, pady=pad_y)
-        self.use_results_file_var.trace_add('write', lambda *args: self.update_use_results_widgets())
+        tk.Checkbutton(self.root, text="Read Boundaries from File: ", variable=self.use_dye_alone_results, command=self.update_use_results_widgets).grid(row=1, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.dye_alone_results_entry = tk.Entry(self.root, textvariable=self.dye_alone_results_var, width=40, justify='left', state=tk.DISABLED)
+        self.dye_alone_results_entry.grid(row=1, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.dye_alone_browse_button = tk.Button(self.root, text="Browse", command=lambda: self.browse_file(self.dye_alone_results_entry), state=tk.DISABLED)
+        self.dye_alone_browse_button.grid(row=1, column=2, padx=pad_x, pady=pad_y)
+        self.use_dye_alone_results.trace_add('write', lambda *args: self.update_use_results_widgets())
 
         tk.Label(self.root, text="D₀ (M):").grid(row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
         self.d0_entry = tk.Entry(self.root, textvariable=self.d0_var, justify='left')
@@ -108,9 +119,9 @@ class DBAFittingAppHtoD:
             entry.insert(0, directory_path)
 
     def update_use_results_widgets(self):
-        state = tk.NORMAL if self.use_results_file_var.get() else tk.DISABLED
-        self.results_file_path_entry.config(state=state)
-        self.results_file_button.config(state=state)
+        state = tk.NORMAL if self.use_dye_alone_results.get() else tk.DISABLED
+        self.dye_alone_results_entry.config(state=state)
+        self.dye_alone_browse_button.config(state=state)
 
     def update_save_plot_widgets(self):
         state = tk.NORMAL if self.save_plots_var.get() else tk.DISABLED
@@ -132,7 +143,7 @@ class DBAFittingAppHtoD:
     def run_fitting(self):
         try:
             file_path = self.file_path_entry.get()
-            results_dir = os.path.dirname(self.results_file_path_entry.get()) if self.use_results_file_var.get() else None
+            dye_alone_results = self.dye_alone_results_entry.get() if self.use_dye_alone_results.get() else None
             d0_in_M = self.d0_var.get()
             rmse_threshold_factor = self.rmse_threshold_var.get()
             r2_threshold = self.r2_threshold_var.get()
@@ -149,7 +160,7 @@ class DBAFittingAppHtoD:
             self.root.update_idletasks()
             run_dba_host_to_dye_fitting(
                 file_path=file_path,
-                results_file_path=results_dir,
+                results_file_path=dye_alone_results,
                 d0_in_M=d0_in_M,
                 rmse_threshold_factor=rmse_threshold_factor,
                 r2_threshold=r2_threshold,
