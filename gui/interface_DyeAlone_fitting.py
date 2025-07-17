@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import filedialog
 
 from core.fitting.dye_alone import DyeAloneFittingAlgorithm
+from core.progress_window import ProgressWindow
 
 
 class DyeAloneFittingApp:
@@ -116,10 +117,15 @@ class DyeAloneFittingApp:
             return
 
         try:
-            algorithm = DyeAloneFittingAlgorithm()
-            algorithm.perform_fitting(
-                input_path, output_path, save_plots, display_plots, plots_dir
-            )
+            with ProgressWindow(
+                self.root,
+                "Fitting in Progress",
+                "Dye-alone fitting in progress, please wait...",
+            ) as progress_window:
+                algorithm = DyeAloneFittingAlgorithm()
+                algorithm.perform_fitting(
+                    input_path, output_path, save_plots, display_plots, plots_dir
+                )
             self.show_message(f"Results saved to: {output_path}")
         except Exception as e:
             self.show_message(f"Error: {str(e)}", is_error=True)

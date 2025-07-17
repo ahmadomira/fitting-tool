@@ -4,6 +4,7 @@ import traceback
 from tkinter import filedialog
 
 from core.fitting.ida import run_ida_fitting
+from core.progress_window import ProgressWindow
 
 
 class IDAFittingApp:
@@ -278,31 +279,24 @@ class IDAFittingApp:
             results_save_dir = self.results_save_dir_entry.get()
 
             # Show a progress indicator
-            progress_window = tk.Toplevel(self.root)
-            progress_window.title("Fitting in Progress")
-            progress_label = tk.Label(
-                progress_window, text="Fitting in progress, please wait..."
-            )
-            progress_label.pack(padx=20, pady=20)
-            self.root.update_idletasks()
-
-            run_ida_fitting(
-                file_path,
-                dye_alone_results,
-                Kd_in_M,
-                h0_in_M,
-                g0_in_M,
-                number_of_fit_trials,
-                rmse_threshold_factor,
-                r2_threshold,
-                save_plots,
-                display_plots,
-                plots_dir,
-                save_results_bool,
-                results_save_dir,
-            )
-
-            progress_window.destroy()
+            with ProgressWindow(
+                self.root, "Fitting in Progress", "Fitting in progress, please wait..."
+            ) as progress_window:
+                run_ida_fitting(
+                    file_path,
+                    dye_alone_results,
+                    Kd_in_M,
+                    h0_in_M,
+                    g0_in_M,
+                    number_of_fit_trials,
+                    rmse_threshold_factor,
+                    r2_threshold,
+                    save_plots,
+                    display_plots,
+                    plots_dir,
+                    save_results_bool,
+                    results_save_dir,
+                )
 
             self.show_message(f"Fitting completed!", is_error=False)
 

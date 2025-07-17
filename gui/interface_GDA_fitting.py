@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import filedialog
 
 from core.fitting.gda import run_gda_fitting
+from core.progress_window import ProgressWindow
 
 
 class GDAFittingApp:
@@ -24,7 +25,7 @@ class GDAFittingApp:
         self.display_plots_var = tk.BooleanVar()
         self.save_results_var = tk.BooleanVar()
         self.results_dir_var = tk.StringVar()
-        
+
         self.Kd_var.set(1.68e7)
         self.h0_var.set(4.3e-6)
         self.g0_var.set(6e-6)
@@ -32,14 +33,16 @@ class GDAFittingApp:
         self.rmse_threshold_var.set(2)
         self.r2_threshold_var.set(0.9)
         self.display_plots_var.set(True)
-        
+
         # for testing
         self.file_path_var.set("/Users/ahmadomira/git/App Test/gda-test/GDA_system.txt")
         self.use_dye_alone_results.set(True)
         self.save_plots_var.set(True)
         self.save_results_var.set(True)
 
-        self.dye_alone_results_var.set("/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt")
+        self.dye_alone_results_var.set(
+            "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
+        )
         self.results_dir_var.set("/Users/ahmadomira/git/App Test/gda-test/")
         self.plots_dir_var.set("/Users/ahmadomira/git/App Test/gda-test/")
 
@@ -251,21 +254,26 @@ class GDAFittingApp:
             plots_dir = self.plots_dir_entry.get()
             save_results = self.save_results_var.get()
             results_save_dir = self.results_save_dir_entry.get()
-            run_gda_fitting(
-                file_path,
-                dye_alone_results,
-                Kd_in_M,
-                h0_in_M,
-                g0_in_M,
-                number_of_fit_trials,
-                rmse_threshold_factor,
-                r2_threshold,
-                save_plots,
-                display_plots,
-                plots_dir,
-                save_results,
-                results_save_dir,
-            )
+            with ProgressWindow(
+                self.root,
+                "Fitting in Progress",
+                "GDA fitting in progress, please wait...",
+            ) as progress_window:
+                run_gda_fitting(
+                    file_path,
+                    dye_alone_results,
+                    Kd_in_M,
+                    h0_in_M,
+                    g0_in_M,
+                    number_of_fit_trials,
+                    rmse_threshold_factor,
+                    r2_threshold,
+                    save_plots,
+                    display_plots,
+                    plots_dir,
+                    save_results,
+                    results_save_dir,
+                )
             self.show_message(f"Fitting completed!", is_error=False)
         except Exception as e:
             self.show_message(f"Error: {str(e)}", is_error=True)

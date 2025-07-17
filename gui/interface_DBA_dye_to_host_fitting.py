@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import filedialog
 
 from core.fitting.dba_dye_to_host import run_dba_dye_to_host_fitting
+from core.progress_window import ProgressWindow
 
 
 class DBAFittingAppDtoH:
@@ -33,12 +34,16 @@ class DBAFittingAppDtoH:
         self.display_plots_var.set(True)
 
         # for testing
-        self.file_path_var.set("/Users/ahmadomira/git/App Test/dba-test/DBA_system_host_to_dye.txt")
+        self.file_path_var.set(
+            "/Users/ahmadomira/git/App Test/dba-test/DBA_system_host_to_dye.txt"
+        )
         self.use_dye_alone_results.set(True)
         self.save_plots_var.set(True)
         self.save_results_var.set(True)
 
-        self.dye_alone_results_var.set("/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt")
+        self.dye_alone_results_var.set(
+            "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
+        )
         self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-test/")
         self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-test/")
 
@@ -253,27 +258,23 @@ class DBAFittingAppDtoH:
             save_results = self.save_results_var.get()
             results_save_dir = self.results_save_dir_entry.get()
             number_of_fit_trials = self.fit_trials_var.get()
-            progress_window = tk.Toplevel(self.root)
-            progress_window.title("Fitting in Progress")
-            progress_label = tk.Label(
-                progress_window, text="Fitting in progress, please wait..."
-            )
-            progress_label.pack(padx=20, pady=20)
-            self.root.update_idletasks()
-            run_dba_dye_to_host_fitting(
-                file_path=file_path,
-                results_file_path=dye_alone_results,
-                h0_in_M=h0_in_M,
-                rmse_threshold_factor=rmse_threshold_factor,
-                r2_threshold=r2_threshold,
-                save_plots=save_plots,
-                display_plots=display_plots,
-                plots_dir=plots_dir,
-                save_results_bool=save_results,
-                results_save_dir=results_save_dir,
-                number_of_fit_trials=number_of_fit_trials,
-            )
-            progress_window.destroy()
+            # Show a progress indicator
+            with ProgressWindow(
+                self.root, "Fitting in Progress", "Fitting in progress, please wait..."
+            ) as progress_window:
+                run_dba_dye_to_host_fitting(
+                    file_path=file_path,
+                    results_file_path=dye_alone_results,
+                    h0_in_M=h0_in_M,
+                    rmse_threshold_factor=rmse_threshold_factor,
+                    r2_threshold=r2_threshold,
+                    save_plots=save_plots,
+                    display_plots=display_plots,
+                    plots_dir=plots_dir,
+                    save_results_bool=save_results,
+                    results_save_dir=results_save_dir,
+                    number_of_fit_trials=number_of_fit_trials,
+                )
             self.show_message("Fitting complete!", is_error=False)
         except Exception as e:
             if "progress_window" in locals():
