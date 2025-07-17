@@ -30,17 +30,17 @@ class IDAFittingApp:
         self.results_dir_var = tk.StringVar()
 
         # Set default values
-        # for testing
-        self.file_path_var.set("/Users/ahmadomira/git/App Test/ida-test/IDA_system.txt")
-        self.use_dye_alone_results.set(True)
-        self.save_plots_var.set(True)
-        self.save_results_var.set(True)
+        # # for testing
+        # self.file_path_var.set("/Users/ahmadomira/git/App Test/ida-test/IDA_system.txt")
+        # self.use_dye_alone_results.set(True)
+        # self.save_plots_var.set(True)
+        # self.save_results_var.set(True)
 
-        self.dye_alone_results_var.set(
-            "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
-        )
-        self.results_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
-        self.plots_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
+        # self.dye_alone_results_var.set(
+        #     "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
+        # )
+        # self.results_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
+        # self.plots_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
 
         self.Kd_var.set(1.68e7)
         self.h0_var.set(4.3e-6)

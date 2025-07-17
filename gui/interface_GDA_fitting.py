@@ -34,17 +34,17 @@ class GDAFittingApp:
         self.r2_threshold_var.set(0.9)
         self.display_plots_var.set(True)
 
-        # for testing
-        self.file_path_var.set("/Users/ahmadomira/git/App Test/gda-test/GDA_system.txt")
-        self.use_dye_alone_results.set(True)
-        self.save_plots_var.set(True)
-        self.save_results_var.set(True)
+        # # for testing
+        # self.file_path_var.set("/Users/ahmadomira/git/App Test/gda-test/GDA_system.txt")
+        # self.use_dye_alone_results.set(True)
+        # self.save_plots_var.set(True)
+        # self.save_results_var.set(True)
 
-        self.dye_alone_results_var.set(
-            "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
-        )
-        self.results_dir_var.set("/Users/ahmadomira/git/App Test/gda-test/")
-        self.plots_dir_var.set("/Users/ahmadomira/git/App Test/gda-test/")
+        # self.dye_alone_results_var.set(
+        #     "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
+        # )
+        # self.results_dir_var.set("/Users/ahmadomira/git/App Test/gda-test/")
+        # self.plots_dir_var.set("/Users/ahmadomira/git/App Test/gda-test/")
 
         pad_x = 10
         pad_y = 5
