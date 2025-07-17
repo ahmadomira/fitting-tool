@@ -59,7 +59,7 @@ def unique_filename(file):
 
 def load_bounds_from_results_file(results_file_path):
     r"""Tries to load boundaries from previous fit results. If unsuccessful, sets default boundaries. Returns bounds in µM⁻¹."""
-    if results_file_path and os.path.exists(results_file_path):
+    if results_file_path:
         try:
             with open(results_file_path, 'r') as f:
                 lines = f.readlines()
@@ -80,10 +80,7 @@ def load_bounds_from_results_file(results_file_path):
                 I0_lower = 0.5 * average_I0
                 I0_upper = 2.0 * average_I0
         except Exception as e:
-            # TODO: redirect this to interface
-            print(f"Error parsing boundaries from the results file: {e}")
-            Id_lower, Id_upper = 1e3, 1e18
-            I0_lower, I0_upper = 0, np.inf
+            raise ValueError(f"Error loading dye-alone results from file: {e}")
     else:
         Id_lower, Id_upper = 1e3, 1e18
         I0_lower, I0_upper = 0, np.inf
