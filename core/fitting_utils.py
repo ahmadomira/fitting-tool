@@ -109,12 +109,8 @@ def load_bounds_from_results_file(results_file_path):
         except Exception as e:
             raise ValueError(f"Error loading dye-alone results from file: {e}")
     else:
-        Id_lower, Id_upper = 1e3, 1e18
-        I0_lower, I0_upper = 0, np.inf
-
-    # Convert bounds to µM⁻¹ for fitting
-    Id_lower /= 1e6
-    Id_upper /= 1e6
+        Id_lower, Id_upper = 1e3 / 1e6, 1e18 / 1e6  # default Id bounds in µM⁻¹
+        I0_lower, I0_upper = 0, np.inf  # default I0 bounds in AU
 
     # TODO: ask frank about this Ihd
     Ihd_lower = 0.001
