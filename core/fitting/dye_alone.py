@@ -17,11 +17,22 @@ from utils.stats_utils import prediction_interval
 
 class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
     def fit(
-        self, input_file_path, output_file_path, save_plots, display_plots, plots_dir
+        self,
+        input_file_path,
+        output_file_path,
+        save_plots,
+        display_plots,
+        plots_dir,
+        custom_x_label=None,
     ):
         """Implements the abstract fit method by calling perform_fitting."""
         return self.perform_fitting(
-            input_file_path, output_file_path, save_plots, display_plots, plots_dir
+            input_file_path,
+            output_file_path,
+            save_plots,
+            display_plots,
+            plots_dir,
+            custom_x_label,
         )
 
     def export_results(self, *args, **kwargs):
@@ -89,7 +100,13 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         )
 
     def perform_fitting(
-        self, input_file_path, output_file_path, save_plots, display_plots, plots_dir
+        self,
+        input_file_path,
+        output_file_path,
+        save_plots,
+        display_plots,
+        plots_dir,
+        custom_x_label=None,
     ):
         if not output_file_path.endswith(".txt"):
             output_file_path += ".txt"
@@ -168,6 +185,15 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         )
         ax.set_title("Linear Fit of Signal vs. Concentration for Multiple Replicas")
         ax.legend(loc="best")
+
+        # Set x-axis label
+        if custom_x_label:
+            ax.set_xlabel(custom_x_label + r" $\rm{[\mu M]}$")
+        else:
+            ax.set_xlabel(r"Concentration $\rm{[\mu M]}$")
+
+        # Set y-axis label
+        ax.set_ylabel("Signal Intensity [AU]")
 
         param_text = (
             rf"$I_d (µM⁻¹): {formatter(Id_mean)}$"
