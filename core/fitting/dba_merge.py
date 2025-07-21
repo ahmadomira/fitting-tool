@@ -3,13 +3,18 @@ DBA Merge Fits logic extracted from the GUI for reuse and testing.
 """
 
 import os
-from datetime import datetime
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-from core.fitting_utils import load_replica_file
-from utils.plot_utils import create_plots, format_value
+from core.fitting_utils import (
+    calculate_fit_metrics,
+    export_merge_results,
+    load_replica_file,
+)
+from core.forward_model import compute_signal_dba
+from utils.plot_utils import create_plots, format_value, save_plot
+from utils.stats_utils import detect_outliers_per_point
 
 
 def load_replica_data(file_path, assay_type="dba_HtoD"):
@@ -35,94 +40,6 @@ def load_replica_data(file_path, assay_type="dba_HtoD"):
         "r_squared": data["r_squared"],
     }
 
-
-def compute_signal(params, h0_values, d0, kd):
-    I0, Kd, Id, Ihd = params
-    Signal_values = []
-    for h0 in h0_values:
-        delta = h0 - d0
-        a = Kd
-        b = Kd * delta + 1
-        c = -d0
-        discriminant = b**2 - 4 * a * c
-        if discriminant < 0:
-            Signal_values.append(np.nan)
-            continue
-        sqrt_discriminant = np.sqrt(discriminant)
-        d1 = (-b + sqrt_discriminant) / (2 * a)
-        d2 = (-b - sqrt_discriminant) / (2 * a)
-        d = d1 if d1 >= 0 else d2 if d2 >= 0 else np.nan
-        if np.isnan(d):
-            Signal_values.append(np.nan)
-            continue
-        h = d + delta
-        hd = Kd * h * d
-        Signal = I0 + Id * d + Ihd * hd
-        Signal_values.append(Signal)
-    return np.array(Signal_values)
-
-
-def save_plot(fig, filename, results_dir):
-    plot_file = os.path.join(results_dir, filename)
-    fig.savefig(plot_file, bbox_inches="tight")
-    print(f"Plot saved to {plot_file}")
-
-
-def calculate_fit_metrics(observed, computed):
-    rmse = np.sqrt(np.nanmean((observed - computed) ** 2))
-    ss_res = np.nansum((observed - computed) ** 2)
-    ss_tot = np.nansum((observed - np.nanmean(observed)) ** 2)
-    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else np.nan
-    return rmse, r_squared
-
-
-def detect_outliers_per_point(data, reference, relative_threshold):
-    deviations = np.abs(data - reference)
-    outlier_indices = np.where(deviations > relative_threshold * reference)[0]
-    return outlier_indices
-
-
-def export_averaged_data(
-    avg_concentrations,
-    avg_signals,
-    avg_fitting_curve_x,
-    avg_fitting_curve_y,
-    avg_params,
-    stdev_params,
-    rmse,
-    r_squared,
-    results_dir,
-    input_values,
-    retained_replicas_info,
-):
-    averaged_data_file = os.path.join(results_dir, "averaged_fit_results.txt")
-    with open(averaged_data_file, "w") as f:
-        f.write("Input:\n")
-        for key, value in input_values.items():
-            f.write(f"{key}: {value}\n")
-        f.write("\nRetained Replicas:\n")
-        f.write("Replica\tKd (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
-        for replica_info in retained_replicas_info:
-            original_index, params, fit_rmse, fit_r2 = replica_info
-            f.write(
-                f"{original_index}\t{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n"
-            )
-        f.write("\nOutput:\nAveraged Parameters:\n")
-        f.write(f"Kd: {avg_params[1]:.2e} M^-1 (STDEV: {stdev_params[1]:.2e})\n")
-        f.write(f"I0: {avg_params[0]:.2e} (STDEV: {stdev_params[0]:.2e})\n")
-        f.write(f"Id: {avg_params[2]:.2e} signal/M (STDEV: {stdev_params[2]:.2e})\n")
-        f.write(f"Ihd: {avg_params[3]:.2e} signal/M (STDEV: {stdev_params[3]:.2e})\n")
-        f.write(f"RMSE: {rmse:.3f}\nR²: {r_squared:.3f}\n")
-        f.write("\nAveraged Data:\nConcentration (M)\tSignal\n")
-        for conc, signal in zip(avg_concentrations, avg_signals):
-            f.write(f"{conc:.6e}\t{signal:.6e}\n")
-        f.write(
-            "\nAveraged Fitting Curve:\nSimulated Concentration (M)\tSimulated Signal\n"
-        )
-        for x_fit, y_fit in zip(avg_fitting_curve_x, avg_fitting_curve_y):
-            f.write(f"{x_fit:.6e}\t{y_fit:.6e}\n")
-        f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-    print(f"Averaged data and fitting results saved to {averaged_data_file}")
 
 
 def run_dba_merge_fits(
@@ -190,18 +107,16 @@ def run_dba_merge_fits(
             extra_points = np.linspace(concentrations[i], concentrations[i + 1], 21)
             fitting_curve_x.extend(extra_points)
             if assay_type == "dba_HtoD":
-                fitting_curve_y.extend(
-                    compute_signal(median_params, extra_points, d0, Kd)
-                )
+                # Host-to-Dye: titrated = H0 (extra_points), fixed = D0
+                fitting_curve_y.extend(compute_signal_dba(median_params, extra_points, d0))
             else:  # dba_DtoH
-                fitting_curve_y.extend(
-                    compute_signal(median_params, extra_points, d0, Kd)
-                )
+                # Dye-to-Host: titrated = D0 (extra_points), fixed = H0
+                fitting_curve_y.extend(compute_signal_dba(median_params, extra_points, h0))
 
         if assay_type == "dba_HtoD":
-            last_signal = compute_signal(median_params, [concentrations[-1]], d0, Kd)[0]
+            last_signal = compute_signal_dba(median_params, [concentrations[-1]], d0)[0]
         else:  # dba_DtoH
-            last_signal = compute_signal(median_params, [concentrations[-1]], d0, Kd)[0]
+            last_signal = compute_signal_dba(median_params, [concentrations[-1]], h0)[0]
 
         fitting_curve_x.append(concentrations[-1])
         fitting_curve_y.append(last_signal)
@@ -234,8 +149,9 @@ def run_dba_merge_fits(
 
     ax1.legend(loc="best")
     fig1.tight_layout()
+    fig1.set_label("all_replicas_fitting_plot_with_outliers")
     if save_plots:
-        save_plot(fig1, "all_replicas_fitting_plot_with_outliers.png", results_dir)
+        save_plot(fig1, results_dir)
 
     valid_replicas = []
     for idx, replica in enumerate(replicas):
@@ -247,18 +163,14 @@ def run_dba_merge_fits(
         ]
 
         if assay_type == "dba_HtoD":
-            computed_signals = compute_signal(
-                median_params,
-                replica["concentrations"],
-                replica["d0"],
-                replica["median_params"]["Kd"],
+            # For Host-to-Dye: titrated = H0 (concentrations), fixed = D0
+            computed_signals = compute_signal_dba(
+                median_params, replica["concentrations"], replica["d0"]
             )
         else:  # dba_DtoH
-            computed_signals = compute_signal(
-                median_params,
-                replica["concentrations"],
-                replica["d0"],
-                replica["median_params"]["Kd"],
+            # For Dye-to-Host: titrated = D0 (concentrations), fixed = H0
+            computed_signals = compute_signal_dba(
+                median_params, replica["concentrations"], replica["h0"]
             )
 
         rmse, r_squared = calculate_fit_metrics(replica["signals"], computed_signals)
@@ -306,36 +218,20 @@ def run_dba_merge_fits(
         avg_fitting_curve_x.extend(extra_points)
         if assay_type == "dba_HtoD":
             avg_fitting_curve_y.extend(
-                compute_signal(
-                    avg_params,
-                    extra_points,
-                    retained_replicas[0][1]["d0"],
-                    retained_replicas[0][1]["median_params"]["Kd"],
-                )
+                compute_signal_dba(avg_params, extra_points, retained_replicas[0][1]["d0"])
             )
         else:  # dba_DtoH
             avg_fitting_curve_y.extend(
-                compute_signal(
-                    avg_params,
-                    extra_points,
-                    retained_replicas[0][1]["d0"],
-                    retained_replicas[0][1]["median_params"]["Kd"],
-                )
+                compute_signal_dba(avg_params, extra_points, retained_replicas[0][1]["h0"])
             )
 
     if assay_type == "dba_HtoD":
-        computed_signals_at_avg_conc = compute_signal(
-            avg_params,
-            avg_concentrations,
-            retained_replicas[0][1]["d0"],
-            retained_replicas[0][1]["median_params"]["Kd"],
+        computed_signals_at_avg_conc = compute_signal_dba(
+            avg_params, avg_concentrations, retained_replicas[0][1]["d0"]
         )
     else:  # dba_DtoH
-        computed_signals_at_avg_conc = compute_signal(
-            avg_params,
-            avg_concentrations,
-            retained_replicas[0][1]["d0"],
-            retained_replicas[0][1]["median_params"]["Kd"],
+        computed_signals_at_avg_conc = compute_signal_dba(
+            avg_params, avg_concentrations, retained_replicas[0][1]["h0"]
         )
 
     rmse, r_squared = calculate_fit_metrics(avg_signals, computed_signals_at_avg_conc)
@@ -347,7 +243,7 @@ def run_dba_merge_fits(
         if retained_replicas[0][1]["median_params"]["Kd"] is not None:
             input_values["Kd (M^-1)"] = retained_replicas[0][1]["median_params"]["Kd"]
 
-        export_averaged_data(
+        export_merge_results(
             avg_concentrations,
             avg_signals,
             avg_fitting_curve_x,
@@ -362,6 +258,7 @@ def run_dba_merge_fits(
                 (original_index, params, rmse, r2)
                 for original_index, _, params, rmse, r2 in retained_replicas
             ],
+            assay_type,
         )
 
     # Use appropriate variable label for final plot
@@ -408,8 +305,9 @@ def run_dba_merge_fits(
     )
     ax2.legend()
     fig2.tight_layout()
+    fig2.set_label("averaged_fitting_plot")
     if save_plots:
-        save_plot(fig2, "averaged_fitting_plot.png", results_dir)
+        save_plot(fig2, results_dir)
     if display_plots:
         plt.show()
     else:

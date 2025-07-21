@@ -240,8 +240,8 @@ def load_replica_file(file_path, assay):
     data = {
         # Input parameters
         mapping["constant"]: None,
-        "h0": None if assay in ["ida", "gda"] else None,
-        "Kd": None if assay in ["ida", "gda"] else None,
+        "h0": None,
+        "Kd": None,
         "Id_lower": None,
         "Id_upper": None,
         "I0_lower": None,
@@ -498,6 +498,84 @@ def load_replica_file(file_path, assay):
     data["fitting_curve_y"] = np.array(data["fitting_curve_y"])
 
     return data
+
+
+def export_merge_results(
+    avg_concentrations,
+    avg_signals,
+    avg_fitting_curve_x,
+    avg_fitting_curve_y,
+    avg_params,
+    stdev_params,
+    rmse,
+    r_squared,
+    results_dir,
+    input_values,
+    retained_replicas_info,
+    assay_type="dba_HtoD",
+):
+    """
+    Export averaged merge results to a text file.
+
+    Parameters:
+    avg_concentrations: Averaged concentration data
+    avg_signals: Averaged signal data
+    avg_fitting_curve_x, avg_fitting_curve_y: Fitted curve data
+    avg_params: Averaged fitting parameters [I0, K, Id, Ihd]
+    stdev_params: Standard deviations of parameters
+    rmse: Root mean square error
+    r_squared: Coefficient of determination
+    results_dir: Directory to save results
+    input_values: Dictionary of input parameters
+    retained_replicas_info: Information about retained replicas
+    assay_type: Type of assay ('dba_HtoD', 'dba_DtoH', 'gda', 'ida')
+    """
+    # Determine parameter names based on assay type
+    param_names = {
+        "dba_HtoD": {"K": "Kd", "K_unit": "M^-1"},
+        "dba_DtoH": {"K": "Kd", "K_unit": "M^-1"},
+        "gda": {"K": "Kg", "K_unit": "M^-1"},
+        "ida": {"K": "Kg", "K_unit": "M^-1"},
+    }.get(assay_type, {"K": "K", "K_unit": "M^-1"})
+
+    averaged_data_file = os.path.join(results_dir, "averaged_fit_results.txt")
+    with open(averaged_data_file, "w") as f:
+        f.write("Input:\n")
+        for key, value in input_values.items():
+            f.write(f"{key}: {value}\n")
+
+        f.write("\nRetained Replicas:\n")
+        f.write(
+            f"Replica\t{param_names['K']} ({param_names['K_unit']})\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n"
+        )
+        for replica_info in retained_replicas_info:
+            original_index, params, fit_rmse, fit_r2 = replica_info
+            f.write(
+                f"{original_index}\t{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n"
+            )
+
+        f.write("\nOutput:\nAveraged Parameters:\n")
+        f.write(
+            f"{param_names['K']}: {avg_params[1]:.2e} {param_names['K_unit']} (STDEV: {stdev_params[1]:.2e})\n"
+        )
+        f.write(f"I0: {avg_params[0]:.2e} (STDEV: {stdev_params[0]:.2e})\n")
+        f.write(f"Id: {avg_params[2]:.2e} signal/M (STDEV: {stdev_params[2]:.2e})\n")
+        f.write(f"Ihd: {avg_params[3]:.2e} signal/M (STDEV: {stdev_params[3]:.2e})\n")
+        f.write(f"RMSE: {rmse:.3f}\nR²: {r_squared:.3f}\n")
+
+        f.write("\nAveraged Data:\nConcentration (M)\tSignal\n")
+        for conc, signal in zip(avg_concentrations, avg_signals):
+            f.write(f"{conc:.6e}\t{signal:.6e}\n")
+
+        f.write(
+            "\nAveraged Fitting Curve:\nSimulated Concentration (M)\tSimulated Signal\n"
+        )
+        for x_fit, y_fit in zip(avg_fitting_curve_x, avg_fitting_curve_y):
+            f.write(f"{x_fit:.6e}\t{y_fit:.6e}\n")
+
+        f.write(f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+
+    print(f"Averaged data and fitting results saved to {averaged_data_file}")
 
 
 def run_fitting_routine():
