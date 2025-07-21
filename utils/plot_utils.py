@@ -102,7 +102,7 @@ def format_value(value):
     return f"{value:.0f}" if value > 10 else f"{value:.3f}"
 
 
-def plot_fitting_results(fitting_params, median_params, assay):
+def plot_fitting_results(fitting_params, median_params, assay, custom_x_label=None):
     x_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index = (
         fitting_params
     )
@@ -110,7 +110,11 @@ def plot_fitting_results(fitting_params, median_params, assay):
     plot_title = f"Replica {replica_index}"
 
     config = plot_config.get(assay)
-    x_label = config.get("x_label", plot_config["x_label"])
+    # Use custom x_label if provided, otherwise use automatic selection
+    if custom_x_label:
+        x_label = custom_x_label + r" $\rm{[\mu M]}$"
+    else:
+        x_label = config.get("x_label", plot_config["x_label"])
     y_label = config.get("y_label", plot_config["y_label"])
 
     fig, ax = create_plots(x_label=x_label, y_label=y_label)

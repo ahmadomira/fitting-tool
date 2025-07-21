@@ -31,6 +31,7 @@ def run_dba_dye_to_host_fitting(
     results_save_dir,
     number_of_fit_trials,
     assay="dba_DtoH",
+    custom_x_label=None,
 ):
     Id_lower, Id_upper, I0_lower, I0_upper, _, _ = load_bounds_from_results_file(
         results_file_path
@@ -132,7 +133,7 @@ def run_dba_dye_to_host_fitting(
             fitting_curve_y,
             replica_index,
         )
-        fig = plot_fitting_results(fitting_params, median_params, assay)
+        fig = plot_fitting_results(fitting_params, median_params, assay, custom_x_label)
         figures.append(fig)
         if save_results_bool:
             save_replica_file(
