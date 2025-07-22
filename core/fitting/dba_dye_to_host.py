@@ -32,6 +32,7 @@ def run_dba_dye_to_host_fitting(
     number_of_fit_trials,
     assay="dba_DtoH",
     custom_x_label=None,
+    custom_plot_title=None,
 ):
     Id_lower, Id_upper, I0_lower, I0_upper, _, _ = load_bounds_from_results_file(
         results_file_path
@@ -39,11 +40,11 @@ def run_dba_dye_to_host_fitting(
 
     # convert to µM
     h0 = h0_in_M * 1e6
-    
+
     print(
         f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]"
     )
-    
+
     data_lines = load_data(file_path)
     replicas = split_replicas(data_lines)
     print(f"Number of replicas detected: {len(replicas)}")
@@ -136,7 +137,9 @@ def run_dba_dye_to_host_fitting(
             fitting_curve_y,
             replica_index,
         )
-        fig = plot_fitting_results(fitting_params, median_params, assay, custom_x_label)
+        fig = plot_fitting_results(
+            fitting_params, median_params, assay, custom_x_label, custom_plot_title
+        )
         figures.append(fig)
         if save_results_bool:
             save_replica_file(

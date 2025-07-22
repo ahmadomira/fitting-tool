@@ -111,6 +111,7 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         display_plots,
         plots_dir,
         custom_x_label=None,
+        custom_plot_title=None,
     ):
         if not output_file_path.endswith(".txt"):
             output_file_path += ".txt"
@@ -180,7 +181,11 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
             linewidth=2,
             label=rf"Average Fit: $Y = {formatter(avg_slope)}X + {formatter(avg_intercept)}$",
         )
-        ax.set_title("Linear Fit of Signal vs. Concentration for Multiple Replicas")
+        # Set plot title
+        if custom_plot_title:
+            ax.set_title(f"{custom_plot_title}")
+        else:
+            ax.set_title("Linear Fit of Signal vs. Concentration for Multiple Replicas")
         ax.legend(loc="best")
 
         # Set x-axis label

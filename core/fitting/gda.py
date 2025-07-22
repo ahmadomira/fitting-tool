@@ -34,6 +34,7 @@ def run_gda_fitting(
     results_save_dir,
     assay="gda",
     custom_x_label=None,
+    custom_plot_title=None,
 ):
     Id_lower, Id_upper, I0_lower, I0_upper, Ihd_lower, Ihd_upper = (
         load_bounds_from_results_file(results_file_path)
@@ -148,7 +149,9 @@ def run_gda_fitting(
             fitting_curve_y,
             replica_index,
         )
-        fig = plot_fitting_results(fitting_params, median_params, assay, custom_x_label)
+        fig = plot_fitting_results(
+            fitting_params, median_params, assay, custom_x_label, custom_plot_title
+        )
         figures.append(fig)
         if save_results_bool:
             save_replica_file(

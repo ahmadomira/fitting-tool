@@ -14,7 +14,8 @@ def run_gda_merge_fits(
     display_plots,
     save_results,
     results_save_dir,
-    plot_title,
+    custom_plot_title=None,
+    custom_x_label=None,
 ):
     """
     Run GDA merge fits using the unified merge framework.
@@ -29,6 +30,6 @@ def run_gda_merge_fits(
         display_plots=display_plots,
         save_results=save_results,
         results_save_dir=results_save_dir,
-        plot_title=plot_title,
+        plot_title=custom_plot_title,
+        custom_x_label=custom_x_label,
     )
-

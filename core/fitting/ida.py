@@ -37,6 +37,7 @@ class IDAFittingAlgorithm(BaseFittingAlgorithm):
         results_save_dir,
         assay="ida",
         custom_x_label=None,
+        custom_plot_title=None,
     ):
         Id_lower, Id_upper, I0_lower, I0_upper, Ihd_lower, Ihd_upper = (
             load_bounds_from_results_file(results_file_path)
@@ -154,7 +155,7 @@ class IDAFittingAlgorithm(BaseFittingAlgorithm):
                 replica_index,
             )
             fig = plot_fitting_results(
-                fitting_params, median_params, assay, custom_x_label
+                fitting_params, median_params, assay, custom_x_label, custom_plot_title
             )
             figures.append(fig)
             if save_results_bool:

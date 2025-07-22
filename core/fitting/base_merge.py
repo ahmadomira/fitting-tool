@@ -176,7 +176,9 @@ def generate_fitting_curve(
     return np.array(fitting_curve_x), np.array(fitting_curve_y)
 
 
-def plot_replicas_with_outliers(replicas, assay_type, plot_title, outlier_threshold):
+def plot_replicas_with_outliers(
+    replicas, assay_type, plot_title, outlier_threshold, custom_x_label=None
+):
     """
     Plot all replicas with their fits, marking outliers.
 
@@ -191,8 +193,13 @@ def plot_replicas_with_outliers(replicas, assay_type, plot_title, outlier_thresh
     """
     config = ASSAY_CONFIGS[assay_type]
 
+    # Use custom x_label if provided, otherwise use default from config
+    x_label = (
+        custom_x_label + r" $\rm{[\mu M]}$" if custom_x_label else config["x_label"]
+    )
+
     fig, ax = create_plots(
-        x_label=config["x_label"],
+        x_label=x_label,
         y_label=r"Signal $\rm{[AU]}$",
         plot_title=plot_title,
     )
@@ -290,6 +297,7 @@ def plot_averaged_fit(
     assay_type,
     assay_params,
     plot_title,
+    custom_x_label=None,
 ):
     """
     Plot averaged data with fitting curve and parameter annotations.
@@ -310,8 +318,13 @@ def plot_averaged_fit(
     """
     config = ASSAY_CONFIGS[assay_type]
 
+    # Use custom x_label if provided, otherwise use default from config
+    x_label = (
+        custom_x_label + r" $\rm{[\mu M]}$" if custom_x_label else config["x_label"]
+    )
+
     fig, ax = create_plots(
-        x_label=config["x_label"],
+        x_label=x_label,
         y_label=r"Signal $\rm{[AU]}$",
         plot_title=plot_title,
     )
@@ -367,6 +380,7 @@ def run_merge_fits(
     save_results=False,
     results_save_dir=None,
     plot_title="",
+    custom_x_label=None,
 ):
     """
     Run the complete merge fits workflow for any assay type.
@@ -420,7 +434,7 @@ def run_merge_fits(
 
     # Plot all replicas with outliers marked
     fig1, ax1 = plot_replicas_with_outliers(
-        replicas, assay_type, plot_title, outlier_relative_threshold
+        replicas, assay_type, plot_title, outlier_relative_threshold, custom_x_label
     )
 
     if save_plots:
@@ -570,6 +584,7 @@ def run_merge_fits(
         assay_type,
         avg_assay_params,
         plot_title,
+        custom_x_label,
     )
 
     if save_plots:

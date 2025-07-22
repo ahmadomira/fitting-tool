@@ -14,8 +14,9 @@ def run_dba_merge_fits(
     display_plots,
     save_results,
     results_save_dir,
-    plot_title,
+    custom_plot_title=None,
     assay_type="dba_HtoD",
+    custom_x_label=None,
 ):
     """
     Run DBA merge fits with configurable assay type.
@@ -33,5 +34,6 @@ def run_dba_merge_fits(
         display_plots=display_plots,
         save_results=save_results,
         results_save_dir=results_save_dir,
-        plot_title=plot_title,
+        plot_title=custom_plot_title,
+        custom_x_label=custom_x_label,
     )
