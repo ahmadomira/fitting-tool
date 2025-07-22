@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.transforms import Bbox
 
-from . import pltstyle
+from . import plot_utils
 from .bmg_to_txt import extract_concentration_vector, read_bmg_xlsx
 
 
@@ -202,7 +202,7 @@ def plot_all_replica(raw_data_path: str, robot_file_path: str, save_dir: str):
     concentration_vector = extract_concentration_vector(robot_file_path)
     data, info = read_bmg_xlsx(raw_data_path)
 
-    fig, ax = pltstyle.create_plots(plot_title=plot_title)
+    fig, ax = plot_utils.create_plots(plot_title=plot_title)
     # ax.boxplot(data, tick_labels=concentration_vector, patch_artist=True)
     ax.plot(
         concentration_vector,
@@ -253,7 +253,7 @@ def plot_avg_over_replicas(
     plot_title = " ".join(plot_title.split("_"))
 
     concentration_vector = extract_concentration_vector(robot_file_path)
-    fig, ax = pltstyle.create_plots(plot_title=plot_title)
+    fig, ax = plot_utils.create_plots(plot_title=plot_title)
 
     for file_ph in files:
         data, info = read_bmg_xlsx(file_ph)
@@ -277,7 +277,7 @@ def plot_analytes_over_ph(
     robot_file_path, save_dir = Path(robot_file_path), Path(save_dir)
 
     concentration_vector = extract_concentration_vector(robot_file_path)
-    fig, ax = pltstyle.create_plots(plot_title=plot_title)
+    fig, ax = plot_utils.create_plots(plot_title=plot_title)
 
     for file_ph in files:
         data, info = read_bmg_xlsx(file_ph)
