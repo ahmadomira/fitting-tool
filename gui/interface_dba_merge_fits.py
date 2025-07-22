@@ -38,16 +38,16 @@ class DBAMergeFitsApp:
         self.display_plots_var.set(True)
         self.save_results_var.set(False)
 
-        # for testing
-        self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-h2d-test")
-        self.plot_title_var.set("DBA H2D Merged Fits")
+        # # for testing
+        # self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-h2d-test")
+        # self.plot_title_var.set("DBA H2D Merged Fits")
 
-        self.save_plots_var.set(True)
-        self.display_plots_var.set(True)
-        self.save_results_var.set(True)
+        # self.save_plots_var.set(True)
+        # self.display_plots_var.set(True)
+        # self.save_results_var.set(True)
 
-        self.save_results_entry_var.set(self.results_dir_var.get())
-        self.save_plots_entry_var.set(self.results_dir_var.get())
+        # self.save_results_entry_var.set(self.results_dir_var.get())
+        # self.save_plots_entry_var.set(self.results_dir_var.get())
 
         # Padding
         pad_x = 10

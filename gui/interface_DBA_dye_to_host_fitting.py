@@ -31,25 +31,26 @@ class DBAFittingAppDtoH:
         self.custom_plot_title_text_var = tk.StringVar()
 
         # Set default values
-        self.h0_var.set(8e-7)
-        self.fit_trials_var.set(10)
+        self.fit_trials_var.set(200)
         self.rmse_threshold_var.set(2)
         self.r2_threshold_var.set(0.9)
         self.display_plots_var.set(True)
 
-        # for testing
-        self.file_path_var.set(
-            "/Users/ahmadomira/git/App Test/dba-d2h-test/R_DBA_d2h.txt"
-        )
-        self.use_dye_alone_results.set(True)
-        self.save_plots_var.set(True)
-        self.save_results_var.set(True)
+        # # for testing
+        # self.h0_var.set(8e-7)
+        # self.fit_trials_var.set(5)
+        # self.file_path_var.set(
+        #     "/Users/ahmadomira/git/App Test/dba-d2h-test/R_DBA_d2h.txt"
+        # )
+        # self.use_dye_alone_results.set(True)
+        # self.save_plots_var.set(True)
+        # self.save_results_var.set(True)
 
-        self.dye_alone_results_var.set(
-            "/Users/ahmadomira/git/App Test/dba-d2h-test/dye_alone_results.txt"
-        )
-        self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
-        self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
+        # self.dye_alone_results_var.set(
+        #     "/Users/ahmadomira/git/App Test/dba-d2h-test/dye_alone_results.txt"
+        # )
+        # self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
+        # self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
 
         # Padding
         pad_x = 10

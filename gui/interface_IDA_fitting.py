@@ -34,25 +34,28 @@ class IDAFittingApp:
         self.custom_plot_title_text_var = tk.StringVar()
 
         # Set default values
-        # for testing
-        self.file_path_var.set("/Users/ahmadomira/git/App Test/ida-test/IDA_system.txt")
-        self.use_dye_alone_results.set(True)
-        self.save_plots_var.set(True)
-        self.save_results_var.set(True)
-
-        self.dye_alone_results_var.set(
-            "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
-        )
-        self.results_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
-        self.plots_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
-
-        self.Kd_var.set(1.68e7)
-        self.h0_var.set(4.3e-6)
-        self.g0_var.set(6e-6)
-        self.fit_trials_var.set(2)
+        self.fit_trials_var.set(200)
         self.rmse_threshold_var.set(2)
         self.r2_threshold_var.set(0.9)
         self.display_plots_var.set(True)
+        
+        # # for testing
+        # self.file_path_var.set("/Users/ahmadomira/git/App Test/ida-test/IDA_system.txt")
+        # self.use_dye_alone_results.set(True)
+        # self.save_plots_var.set(True)
+        # self.save_results_var.set(True)
+
+        # self.dye_alone_results_var.set(
+        #     "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
+        # )
+        # self.results_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
+        # self.plots_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
+
+        # self.Kd_var.set(1.68e7)
+        # self.h0_var.set(4.3e-6)
+        # self.g0_var.set(6e-6)
+        # self.fit_trials_var.set(2)
+
 
         # Padding
         pad_x = 10
