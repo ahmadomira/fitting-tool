@@ -38,7 +38,7 @@ class DBAFittingAppHtoD:
 
         # # for testing
         self.file_path_var.set(
-            "/Users/ahmadomira/git/App Test/dba-test/DBA_system_host_to_dye.txt"
+            "/Users/ahmadomira/git/App Test/dba-h2d-test/DBA_system_host_to_dye.txt"
         )
         self.use_dye_alone_results.set(True)
         self.save_plots_var.set(True)
@@ -47,8 +47,8 @@ class DBAFittingAppHtoD:
         self.dye_alone_results_var.set(
             "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
         )
-        self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-test/")
-        self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-test/")
+        self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-h2d-test/")
+        self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-h2d-test/")
 
         # Padding
         pad_x = 10

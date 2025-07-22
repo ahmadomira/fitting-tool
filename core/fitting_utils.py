@@ -4,6 +4,22 @@ from datetime import datetime
 import numpy as np
 
 
+# Unified assay mappings consistent with load_replica_file
+assay_mappings = {
+    "dba_HtoD": {
+        "constant": "d0",
+        "variable": "h0",
+        "k_param": "Kd",
+    },
+    "dba_DtoH": {
+        "constant": "h0",
+        "variable": "d0",
+        "k_param": "Kd",
+    },
+    "ida": {"constant": "d0", "variable": "g0", "k_param": "Kg"},
+    "gda": {"constant": "g0", "variable": "d0", "k_param": "Kg"},
+}
+
 def load_data(file_path):
     try:
         with open(file_path, "r") as f:
@@ -127,14 +143,11 @@ def save_replica_file(
     fitting_params,
     assay,
 ):
-    analytes = {
-        "dba_HtoD": {"constant": "d0", "variable": "h0", "K_d": "K_d"},
-        "dba_DtoH": {"constant": "h0", "variable": "d0", "K_d": "K_d"},
-        "ida": {"constant": "d0", "variable": "g0"},
-        "gda": {"constant": "g0", "variable": "d0"},
-    }[assay]
+    if assay not in assay_mappings:
+        raise ValueError(f"Unknown assay type: {assay}")
 
-    K_text = analytes.get("K_d", "K_g")
+    mapping = assay_mappings[assay]
+    K_param = mapping["k_param"]
 
     constant_analyte_in_M, h0_in_M, Kd_in_M, Id_lower, Id_upper, I0_lower, I0_upper = (
         input_params
@@ -152,7 +165,7 @@ def save_replica_file(
     replica_file = os.path.join(results_save_dir, replica_filename)
     with open(replica_file, "w") as f:
         f.write("Input:\n")
-        f.write(f"{analytes['constant']} (M): {constant_analyte_in_M:.6e}\n")
+        f.write(f"{mapping['constant']} (M): {constant_analyte_in_M:.6e}\n")
         if h0_in_M:
             f.write(f"h0 (M): {h0_in_M:.6e}\n")
         if Kd_in_M:
@@ -163,7 +176,7 @@ def save_replica_file(
         f.write(f"I0 upper bound: {I0_upper:.3e}\n")
 
         f.write("\nOutput:\nMedian parameters:\n")
-        f.write(f"{K_text} (M^-1): {k * 1e6:.2e}\n")
+        f.write(f"{K_param} (M^-1): {k * 1e6:.2e}\n")
         f.write(f"I_0: {I0:.2e}\n")
         f.write(f"I_d (signal/M): {I_d * 1e6:.2e}\n")
         f.write(f"I_hd (signal/M): {I_hd * 1e6:.2e}\n")
@@ -171,7 +184,7 @@ def save_replica_file(
         f.write(f"R²: {r_squared:.3f}\n")
 
         f.write("\nAcceptable Fit Parameters:\n")
-        f.write(f"{K_text} (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
+        f.write(f"{K_param} (M^-1)\tI0\tId (signal/M)\tIhd (signal/M)\tRMSE\tR²\n")
         for params, fit_rmse, fit_r2 in filtered_results:
             f.write(
                 f"{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n"
@@ -189,12 +202,12 @@ def save_replica_file(
             Kg_std = I0_std = Id_std = Ihd_std = np.nan
 
         f.write("\nStandard Deviations:\n")
-        f.write(f"{K_text} Std Dev (M^-1): {Kg_std:.2e}\n")
+        f.write(f"{K_param} Std Dev (M^-1): {Kg_std:.2e}\n")
         f.write(f"I_0 Std Dev: {I0_std:.2e}\n")
         f.write(f"I_d Std Dev (signal/M): {Id_std:.2e}\n")
         f.write(f"I_hd Std Dev (signal/M): {Ihd_std:.2e}\n")
 
-        f.write(f"\nOriginal Data:\nConcentration {analytes['variable']} (M)\tSignal\n")
+        f.write(f"\nOriginal Data:\nConcentration {mapping['variable']} (M)\tSignal\n")
         for titration_step, signal in zip(
             variable_analyte_values / 1e6, Signal_observed
         ):
@@ -222,14 +235,6 @@ def load_replica_file(file_path, assay):
           median parameters, concentrations, signals, and fit metrics
     """
     import re
-
-    # Define assay-specific parameter mappings
-    assay_mappings = {
-        "dba_HtoD": {"constant": "d0", "variable": "h0", "k_param": "Kd"},
-        "dba_DtoH": {"constant": "h0", "variable": "d0", "k_param": "Kd"},
-        "ida": {"constant": "d0", "variable": "g0", "k_param": "Kg"},
-        "gda": {"constant": "g0", "variable": "d0", "k_param": "Kg"},
-    }
 
     if assay not in assay_mappings:
         raise ValueError(f"Unknown assay type: {assay}")
@@ -333,13 +338,13 @@ def load_replica_file(file_path, assay):
                     )
                 except:
                     pass
-            elif "h0 (M):" in line and assay in ["dba_HtoD", "dba_DtoH"]:
+            elif "h0 (M):" in line:
                 try:
                     value_str = line.split(":")[1].strip()
                     data["h0"] = float(re.sub(r"[^\d.eE+-]", "", value_str))
                 except:
                     pass
-            elif "Kd (M^-1):" in line and assay in ["dba_HtoD", "dba_DtoH"]:
+            elif "Kd (M^-1):" in line:
                 try:
                     value_str = line.split(":")[1].strip()
                     data["Kd"] = float(re.sub(r"[^\d.eE+-]", "", value_str))
@@ -391,7 +396,7 @@ def load_replica_file(file_path, assay):
                     )
                 except:
                     pass
-            elif "I_d (signal/M):" in line or "Id (signal/M):" in line:
+            elif "I_d" in line or "Id" in line:
                 try:
                     value_str = line.split(":")[1].strip()
                     data["median_params"]["Id"] = float(
@@ -399,7 +404,7 @@ def load_replica_file(file_path, assay):
                     )
                 except:
                     pass
-            elif "I_hd (signal/M):" in line or "Ihd (signal/M):" in line:
+            elif "I_hd" in line or "Ihd" in line:
                 try:
                     value_str = line.split(":")[1].strip()
                     data["median_params"]["Ihd"] = float(
@@ -407,13 +412,13 @@ def load_replica_file(file_path, assay):
                     )
                 except:
                     pass
-            elif "RMSE:" in line:
+            elif "RMSE" in line:
                 try:
                     value_str = line.split(":")[1].strip()
                     data["rmse"] = float(re.sub(r"[^\d.eE+-]", "", value_str))
                 except:
                     pass
-            elif "R²:" in line:
+            elif "R²" in line:
                 try:
                     value_str = line.split(":")[1].strip()
                     data["r_squared"] = float(re.sub(r"[^\d.eE+-]", "", value_str))

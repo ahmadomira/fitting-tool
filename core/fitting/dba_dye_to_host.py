@@ -37,10 +37,13 @@ def run_dba_dye_to_host_fitting(
         results_file_path
     )
 
+    # convert to µM
     h0 = h0_in_M * 1e6
+    
     print(
         f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]"
     )
+    
     data_lines = load_data(file_path)
     replicas = split_replicas(data_lines)
     print(f"Number of replicas detected: {len(replicas)}")

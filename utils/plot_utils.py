@@ -59,7 +59,7 @@ plot_config = {
     # defaults
     "x_label": r"Concentration $\rm{[\mu M]}$",
     "y_label": r"Signal $\rm{[AU]}$",
-    "K_g": "K_{a (G)}",
+    "K_g": "K_{a(G)}",
     # specific configurations
     "dba_HtoD": {"x_label": r"$H_0$ $\rm{[\mu M]}$", "K_d": "K_{a(D)}"},
     "dba_DtoH": {"x_label": r"$D_0$ $\rm{[\mu M]}$", "K_d": "K_{a(D)}"},
@@ -70,6 +70,14 @@ plot_config = {
         "x_label": r"$D_0$ $\rm{[\mu M]}$",
     },
 }
+
+
+def scientific_notation(val, pos=0):
+    if val == 0:
+        return "0"
+    exponent = int(np.floor(np.log10(abs(val))))
+    coeff = val / 10**exponent
+    return r"{:.2f} \times 10^{{{}}}".format(coeff, exponent)
 
 
 def create_plots(
@@ -160,7 +168,7 @@ def save_plot(fig, plots_dir):
 
 
 def place_legend_and_annotation_safely(
-    ax, annotation_text, annotation_fontsize=font_size - 2, min_distance=10
+    ax, annotation_text, annotation_fontsize=font_size - 2, min_distance=20
 ):
     """
     Optimized placement to avoid overlapping data points.

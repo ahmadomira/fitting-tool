@@ -11,7 +11,11 @@ from scipy.stats import linregress, ttest_1samp
 
 from core.fitting.base import BaseFittingAlgorithm
 from core.fitting_utils import load_data, split_replicas, unique_filename
-from utils.plot_utils import create_plots, place_legend_and_annotation_safely
+from utils.plot_utils import (
+    create_plots,
+    place_legend_and_annotation_safely,
+    scientific_notation,
+)
 from utils.stats_utils import prediction_interval
 
 
@@ -147,13 +151,6 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         # I0_stdev = round_to_sigfigs(I0_stdev)
         fig, ax = create_plots()
         colors = plt.cm.jet(np.linspace(0, 1, len(replicas)))
-
-        def scientific_notation(val, pos=0):
-            if val == 0:
-                return "0"
-            exponent = int(np.floor(np.log10(abs(val))))
-            coeff = val / 10**exponent
-            return r"{:.2f} \cdot 10^{{{}}}".format(coeff, exponent)
 
         formatter = scientific_notation
         for i, replica in enumerate(replicas):
