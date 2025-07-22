@@ -3,8 +3,6 @@ import os
 import matplotlib
 import numpy as np
 
-from utils.pltstyle import font_size
-
 matplotlib.use("TkAgg")
 
 import matplotlib.pyplot as plt
@@ -59,7 +57,7 @@ plot_config = {
     # defaults
     "x_label": r"Concentration $\rm{[\mu M]}$",
     "y_label": r"Signal $\rm{[AU]}$",
-    "K_g": "K_{a (G)}",
+    "K_g": "K_{a(G)}",
     # specific configurations
     "dba_HtoD": {"x_label": r"$H_0$ $\rm{[\mu M]}$", "K_d": "K_{a(D)}"},
     "dba_DtoH": {"x_label": r"$D_0$ $\rm{[\mu M]}$", "K_d": "K_{a(D)}"},
@@ -70,6 +68,14 @@ plot_config = {
         "x_label": r"$D_0$ $\rm{[\mu M]}$",
     },
 }
+
+
+def scientific_notation(val, pos=0):
+    if val == 0:
+        return "0"
+    exponent = int(np.floor(np.log10(abs(val))))
+    coeff = val / 10**exponent
+    return r"{:.2f} \times 10^{{{}}}".format(coeff, exponent)
 
 
 def create_plots(
@@ -102,15 +108,28 @@ def format_value(value):
     return f"{value:.0f}" if value > 10 else f"{value:.3f}"
 
 
-def plot_fitting_results(fitting_params, median_params, assay):
+def plot_fitting_results(
+    fitting_params, median_params, assay, custom_x_label=None, custom_plot_title=None
+):
     x_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index = (
         fitting_params
     )
     I_0, k, I_d, I_hd, rmse, r_squared = median_params
-    plot_title = f"Replica {replica_index}"
+
+    # Use custom plot title if provided, otherwise use default
+    if custom_plot_title:
+        full_plot_title = f"{custom_plot_title} - Replica {replica_index}"
+    else:
+        full_plot_title = (
+            f"Observed vs. Simulated Fitting Curve (Replica {replica_index})"
+        )
 
     config = plot_config.get(assay)
-    x_label = config.get("x_label", plot_config["x_label"])
+    # Use custom x_label if provided, otherwise use automatic selection
+    if custom_x_label:
+        x_label = custom_x_label + r" $\rm{[\mu M]}$"
+    else:
+        x_label = config.get("x_label", plot_config["x_label"])
     y_label = config.get("y_label", plot_config["y_label"])
 
     fig, ax = create_plots(x_label=x_label, y_label=y_label)
@@ -125,9 +144,7 @@ def plot_fitting_results(fitting_params, median_params, assay):
         label="Simulated Fitting Curve",
     )
 
-    plot_title = f"Observed vs. Simulated Fitting Curve ({plot_title})"
-
-    ax.set_title(plot_title)
+    ax.set_title(full_plot_title)
 
     K_text = config.get("K_d", plot_config["K_g"])
     param_text = (
@@ -156,7 +173,7 @@ def save_plot(fig, plots_dir):
 
 
 def place_legend_and_annotation_safely(
-    ax, annotation_text, annotation_fontsize=font_size - 2, min_distance=10
+    ax, annotation_text, annotation_fontsize=font_size - 2, min_distance=20
 ):
     """
     Optimized placement to avoid overlapping data points.

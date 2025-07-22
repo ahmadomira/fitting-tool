@@ -25,27 +25,32 @@ class DBAFittingAppDtoH:
         self.display_plots_var = tk.BooleanVar()
         self.save_results_var = tk.BooleanVar()
         self.results_save_dir_var = tk.StringVar()
+        self.custom_x_label_var = tk.BooleanVar()
+        self.custom_x_label_text_var = tk.StringVar()
+        self.custom_plot_title_var = tk.BooleanVar()
+        self.custom_plot_title_text_var = tk.StringVar()
 
         # Set default values
-        self.h0_var.set(6e-6)
-        self.fit_trials_var.set(10)
+        self.fit_trials_var.set(200)
         self.rmse_threshold_var.set(2)
         self.r2_threshold_var.set(0.9)
         self.display_plots_var.set(True)
 
         # # for testing
+        # self.h0_var.set(8e-7)
+        # self.fit_trials_var.set(5)
         # self.file_path_var.set(
-        #     "/Users/ahmadomira/git/App Test/dba-test/DBA_system_host_to_dye.txt"
+        #     "/Users/ahmadomira/git/App Test/dba-d2h-test/R_DBA_d2h.txt"
         # )
         # self.use_dye_alone_results.set(True)
         # self.save_plots_var.set(True)
         # self.save_results_var.set(True)
 
         # self.dye_alone_results_var.set(
-        #     "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
+        #     "/Users/ahmadomira/git/App Test/dba-d2h-test/dye_alone_results.txt"
         # )
-        # self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-test/")
-        # self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-test/")
+        # self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
+        # self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
 
         # Padding
         pad_x = 10
@@ -179,10 +184,50 @@ class DBAFittingAppDtoH:
         )
 
         tk.Checkbutton(
+            self.root,
+            text="Custom Plot Title:",
+            variable=self.custom_plot_title_var,
+            command=self.update_custom_plot_title_widgets,
+        ).grid(row=9, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.custom_plot_title_entry = tk.Entry(
+            self.root,
+            textvariable=self.custom_plot_title_text_var,
+            width=30,
+            state=tk.DISABLED,
+            justify="left",
+        )
+        self.custom_plot_title_entry.grid(
+            row=9, column=1, columnspan=2, padx=pad_x, pady=pad_y, sticky=tk.W
+        )
+        self.custom_plot_title_var.trace_add(
+            "write", lambda *args: self.update_custom_plot_title_widgets()
+        )
+
+        tk.Checkbutton(
+            self.root,
+            text="Custom X-axis Label:",
+            variable=self.custom_x_label_var,
+            command=self.update_custom_x_label_widgets,
+        ).grid(row=10, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.custom_x_label_entry = tk.Entry(
+            self.root,
+            textvariable=self.custom_x_label_text_var,
+            width=30,
+            state=tk.DISABLED,
+            justify="left",
+        )
+        self.custom_x_label_entry.grid(
+            row=10, column=1, columnspan=2, padx=pad_x, pady=pad_y, sticky=tk.W
+        )
+        self.custom_x_label_var.trace_add(
+            "write", lambda *args: self.update_custom_x_label_widgets()
+        )
+
+        tk.Checkbutton(
             self.root, text="Display Plots", variable=self.display_plots_var
-        ).grid(row=9, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=11, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
         tk.Button(self.root, text="Run Fitting", command=self.run_fitting).grid(
-            row=10, column=0, columnspan=3, pady=10, padx=pad_x
+            row=12, column=0, columnspan=3, pady=10, padx=pad_x
         )
 
         # Bring the window to the front
@@ -234,12 +279,20 @@ class DBAFittingAppDtoH:
         self.results_save_dir_entry.config(state=state)
         self.results_save_dir_button.config(state=state)
 
+    def update_custom_x_label_widgets(self):
+        state = tk.NORMAL if self.custom_x_label_var.get() else tk.DISABLED
+        self.custom_x_label_entry.config(state=state)
+
+    def update_custom_plot_title_widgets(self):
+        state = tk.NORMAL if self.custom_plot_title_var.get() else tk.DISABLED
+        self.custom_plot_title_entry.config(state=state)
+
     def show_message(self, message, is_error=False):
         if self.info_label:
             self.info_label.destroy()
         fg_color = "red" if is_error else "green"
         self.info_label = tk.Label(self.root, text=message, fg=fg_color)
-        self.info_label.grid(row=11, column=0, columnspan=3, pady=10)
+        self.info_label.grid(row=13, column=0, columnspan=3, pady=10)
 
     def run_fitting(self):
         try:
@@ -258,6 +311,23 @@ class DBAFittingAppDtoH:
             save_results = self.save_results_var.get()
             results_save_dir = self.results_save_dir_entry.get()
             number_of_fit_trials = self.fit_trials_var.get()
+
+            # Get custom x-label if enabled, otherwise None for automatic selection
+            custom_x_label = (
+                self.custom_x_label_text_var.get().strip()
+                if self.custom_x_label_var.get()
+                and self.custom_x_label_text_var.get().strip()
+                else None
+            )
+
+            # Get custom plot title if enabled, otherwise None for automatic selection
+            custom_plot_title = (
+                self.custom_plot_title_text_var.get().strip()
+                if self.custom_plot_title_var.get()
+                and self.custom_plot_title_text_var.get().strip()
+                else None
+            )
+
             # Show a progress indicator
             with ProgressWindow(
                 self.root, "Fitting in Progress", "Fitting in progress, please wait..."
@@ -274,6 +344,8 @@ class DBAFittingAppDtoH:
                     save_results_bool=save_results,
                     results_save_dir=results_save_dir,
                     number_of_fit_trials=number_of_fit_trials,
+                    custom_x_label=custom_x_label,
+                    custom_plot_title=custom_plot_title,
                 )
             self.show_message("Fitting complete!", is_error=False)
         except Exception as e:

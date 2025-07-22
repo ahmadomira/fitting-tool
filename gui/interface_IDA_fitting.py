@@ -28,8 +28,17 @@ class IDAFittingApp:
         self.display_plots_var = tk.BooleanVar()
         self.save_results_var = tk.BooleanVar()
         self.results_dir_var = tk.StringVar()
+        self.custom_x_label_var = tk.BooleanVar()
+        self.custom_x_label_text_var = tk.StringVar()
+        self.custom_plot_title_var = tk.BooleanVar()
+        self.custom_plot_title_text_var = tk.StringVar()
 
         # Set default values
+        self.fit_trials_var.set(200)
+        self.rmse_threshold_var.set(2)
+        self.r2_threshold_var.set(0.9)
+        self.display_plots_var.set(True)
+        
         # # for testing
         # self.file_path_var.set("/Users/ahmadomira/git/App Test/ida-test/IDA_system.txt")
         # self.use_dye_alone_results.set(True)
@@ -42,13 +51,11 @@ class IDAFittingApp:
         # self.results_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
         # self.plots_dir_var.set("/Users/ahmadomira/git/App Test/ida-test/")
 
-        self.Kd_var.set(1.68e7)
-        self.h0_var.set(4.3e-6)
-        self.g0_var.set(6e-6)
-        self.fit_trials_var.set(2)
-        self.rmse_threshold_var.set(2)
-        self.r2_threshold_var.set(0.9)
-        self.display_plots_var.set(True)
+        # self.Kd_var.set(1.68e7)
+        # self.h0_var.set(4.3e-6)
+        # self.g0_var.set(6e-6)
+        # self.fit_trials_var.set(2)
+
 
         # Padding
         pad_x = 10
@@ -196,10 +203,50 @@ class IDAFittingApp:
         )
 
         tk.Checkbutton(
+            self.root,
+            text="Custom Plot Title:",
+            variable=self.custom_plot_title_var,
+            command=self.update_custom_plot_title_widgets,
+        ).grid(row=11, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.custom_plot_title_entry = tk.Entry(
+            self.root,
+            textvariable=self.custom_plot_title_text_var,
+            width=30,
+            state=tk.DISABLED,
+            justify="left",
+        )
+        self.custom_plot_title_entry.grid(
+            row=11, column=1, columnspan=2, padx=pad_x, pady=pad_y, sticky=tk.W
+        )
+        self.custom_plot_title_var.trace_add(
+            "write", lambda *args: self.update_custom_plot_title_widgets()
+        )
+
+        tk.Checkbutton(
+            self.root,
+            text="Custom X-axis Label:",
+            variable=self.custom_x_label_var,
+            command=self.update_custom_x_label_widgets,
+        ).grid(row=12, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        self.custom_x_label_entry = tk.Entry(
+            self.root,
+            textvariable=self.custom_x_label_text_var,
+            width=30,
+            state=tk.DISABLED,
+            justify="left",
+        )
+        self.custom_x_label_entry.grid(
+            row=12, column=1, columnspan=2, padx=pad_x, pady=pad_y, sticky=tk.W
+        )
+        self.custom_x_label_var.trace_add(
+            "write", lambda *args: self.update_custom_x_label_widgets()
+        )
+
+        tk.Checkbutton(
             self.root, text="Display Plots", variable=self.display_plots_var
-        ).grid(row=11, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=13, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
         tk.Button(self.root, text="Run Fitting", command=self.run_fitting).grid(
-            row=12, column=0, columnspan=3, pady=10, padx=pad_x
+            row=14, column=0, columnspan=3, pady=10, padx=pad_x
         )
 
         # Bring the window to the front
@@ -251,12 +298,20 @@ class IDAFittingApp:
         self.results_save_dir_entry.config(state=state)
         self.results_save_dir_button.config(state=state)
 
+    def update_custom_x_label_widgets(self):
+        state = tk.NORMAL if self.custom_x_label_var.get() else tk.DISABLED
+        self.custom_x_label_entry.config(state=state)
+
+    def update_custom_plot_title_widgets(self):
+        state = tk.NORMAL if self.custom_plot_title_var.get() else tk.DISABLED
+        self.custom_plot_title_entry.config(state=state)
+
     def show_message(self, message, is_error=False):
         if self.info_label:
             self.info_label.destroy()
         fg_color = "red" if is_error else "green"
         self.info_label = tk.Label(self.root, text=message, fg=fg_color)
-        self.info_label.grid(row=13, column=0, columnspan=3, pady=10)
+        self.info_label.grid(row=15, column=0, columnspan=3, pady=10)
 
     def run_fitting(self):
         try:
@@ -278,6 +333,22 @@ class IDAFittingApp:
             save_results_bool = self.save_results_var.get()
             results_save_dir = self.results_save_dir_entry.get()
 
+            # Get custom x-label if enabled, otherwise None for automatic selection
+            custom_x_label = (
+                self.custom_x_label_text_var.get().strip()
+                if self.custom_x_label_var.get()
+                and self.custom_x_label_text_var.get().strip()
+                else None
+            )
+
+            # Get custom plot title if enabled, otherwise None for automatic selection
+            custom_plot_title = (
+                self.custom_plot_title_text_var.get().strip()
+                if self.custom_plot_title_var.get()
+                and self.custom_plot_title_text_var.get().strip()
+                else None
+            )
+
             # Show a progress indicator
             with ProgressWindow(
                 self.root, "Fitting in Progress", "Fitting in progress, please wait..."
@@ -296,6 +367,8 @@ class IDAFittingApp:
                     plots_dir,
                     save_results_bool,
                     results_save_dir,
+                    custom_x_label=custom_x_label,
+                    custom_plot_title=custom_plot_title,
                 )
 
             self.show_message(f"Fitting completed!", is_error=False)

@@ -10,18 +10,33 @@ import numpy as np
 from scipy.stats import linregress, ttest_1samp
 
 from core.fitting.base import BaseFittingAlgorithm
-from core.fitting_utils import unique_filename
-from utils.plot_utils import create_plots, place_legend_and_annotation_safely
-from utils.stats_utils import prediction_interval, round_to_sigfigs
+from core.fitting_utils import load_data, split_replicas, unique_filename
+from utils.plot_utils import (
+    create_plots,
+    place_legend_and_annotation_safely,
+    scientific_notation,
+)
+from utils.stats_utils import prediction_interval
 
 
 class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
     def fit(
-        self, input_file_path, output_file_path, save_plots, display_plots, plots_dir
+        self,
+        input_file_path,
+        output_file_path,
+        save_plots,
+        display_plots,
+        plots_dir,
+        custom_x_label=None,
     ):
         """Implements the abstract fit method by calling perform_fitting."""
         return self.perform_fitting(
-            input_file_path, output_file_path, save_plots, display_plots, plots_dir
+            input_file_path,
+            output_file_path,
+            save_plots,
+            display_plots,
+            plots_dir,
+            custom_x_label,
         )
 
     def export_results(self, *args, **kwargs):
@@ -30,57 +45,21 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         pass
 
     def load_data(self, file_path):
-        try:
-            with open(file_path, "r", encoding="utf-8") as file:
-                self.data_lines = file.readlines()
-            return self.data_lines
-        except Exception as e:
-            print(f"Error reading file: {e}")
-            self.data_lines = None
-            return None
+        self.data_lines = load_data(file_path)
+        return self.data_lines
 
     def split_replicas(self, data):
-        if data is None:
-            print("Data is None. Cannot split replicas.")
-            return None
-        replicas = []
-        current_replica = []
-        use_var_signal_split = False
-        for line in data:
-            if "var" in line.lower():
-                use_var_signal_split = True
-                break
-        for line in data:
-            if "var" in line.lower():
-                if current_replica:
-                    replicas.append(np.array(current_replica))
-                    current_replica = []
-            else:
-                try:
-                    x, y = map(float, line.split())
-                    if use_var_signal_split:
-                        current_replica.append((x, y))
-                    else:
-                        if x == 0.0 and current_replica:
-                            replicas.append(np.array(current_replica))
-                            current_replica = []
-                        current_replica.append((x, y))
-                except ValueError:
-                    continue
-        if current_replica:
-            replicas.append(np.array(current_replica))
-        if not replicas:
-            print("No replicas detected.")
-            return None
-        # Only multiply the x-values (first column) by 1e6, not the y-values
-        scaled_replicas = []
-        for replica in replicas:
-            scaled = np.copy(replica)
-            scaled[:, 0] = scaled[:, 0] * 1e6
-            scaled_replicas.append(scaled)
-        return scaled_replicas
+        replicas = np.array(split_replicas(data))
+
+        # conver conc to µM (for fitting)
+        # important: this makes the resulted Id value in µM⁻¹!
+        replicas[:, :, 0] *= 1e6
+
+        return replicas
 
     def fit_replicas(self, replicas):
+        # I = I0 + Id * C
+        # intercept = I0, slope = Id
         slopes = []
         intercepts = []
         retained_results = []
@@ -125,7 +104,14 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         )
 
     def perform_fitting(
-        self, input_file_path, output_file_path, save_plots, display_plots, plots_dir
+        self,
+        input_file_path,
+        output_file_path,
+        save_plots,
+        display_plots,
+        plots_dir,
+        custom_x_label=None,
+        custom_plot_title=None,
     ):
         if not output_file_path.endswith(".txt"):
             output_file_path += ".txt"
@@ -158,21 +144,14 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
             I0_upper_bound = "not applicable"
             Id_stdev = "not applicable"
             I0_stdev = "not applicable"
-        Id_lower_bound = round_to_sigfigs(Id_lower_bound)
-        Id_upper_bound = round_to_sigfigs(Id_upper_bound)
-        Id_stdev = round_to_sigfigs(Id_stdev)
-        I0_lower_bound = round_to_sigfigs(I0_lower_bound)
-        I0_upper_bound = round_to_sigfigs(I0_upper_bound)
-        I0_stdev = round_to_sigfigs(I0_stdev)
+        # Id_lower_bound = round_to_sigfigs(Id_lower_bound)
+        # Id_upper_bound = round_to_sigfigs(Id_upper_bound)
+        # Id_stdev = round_to_sigfigs(Id_stdev)
+        # I0_lower_bound = round_to_sigfigs(I0_lower_bound)
+        # I0_upper_bound = round_to_sigfigs(I0_upper_bound)
+        # I0_stdev = round_to_sigfigs(I0_stdev)
         fig, ax = create_plots()
         colors = plt.cm.jet(np.linspace(0, 1, len(replicas)))
-
-        def scientific_notation(val, pos=0):
-            if val == 0:
-                return "0"
-            exponent = int(np.floor(np.log10(abs(val))))
-            coeff = val / 10**exponent
-            return r"{:.2f} \cdot 10^{{{}}}".format(coeff, exponent)
 
         formatter = scientific_notation
         for i, replica in enumerate(replicas):
@@ -202,11 +181,26 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
             linewidth=2,
             label=rf"Average Fit: $Y = {formatter(avg_slope)}X + {formatter(avg_intercept)}$",
         )
-        ax.set_title("Linear Fit of Signal vs. Concentration for Multiple Replicas")
+        # Set plot title
+        if custom_plot_title:
+            ax.set_title(f"{custom_plot_title}")
+        else:
+            ax.set_title("Linear Fit of Signal vs. Concentration for Multiple Replicas")
         ax.legend(loc="best")
 
+        # Set x-axis label
+        if custom_x_label:
+            ax.set_xlabel(custom_x_label + r" $\rm{[\mu M]}$")
+        else:
+            ax.set_xlabel(r"Concentration $\rm{[\mu M]}$")
+
+        # Set y-axis label
+        ax.set_ylabel("Signal Intensity [AU]")
+
         param_text = (
-            rf"$I_d: {formatter(Id_mean)}$" + "\n" + rf"$I_0: {formatter(I0_mean)}$"
+            rf"$I_d (µM⁻¹): {formatter(Id_mean)}$"
+            + "\n"
+            + rf"$I_0 (AU): {formatter(I0_mean)}$"
         )
         place_legend_and_annotation_safely(ax, param_text)
 
@@ -221,12 +215,12 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         )
         with open(unique_filename(output_file_path), "w") as f:
             f.write("Linear Fit Results\n")
-            f.write(f"Average Id\t{Id_mean:.3e}\n")
+            f.write(f"Average Id\t{Id_mean:.3e} (in µM⁻¹) \n")
             f.write(
                 f"Id prediction interval (95%) at least 25% above and below average value: [{Id_lower_bound}, {Id_upper_bound}]\n"
             )
             f.write(f"Id Stdev: {Id_stdev}\n")
-            f.write(f"Average I0\t{I0_mean:.3e}\n")
+            f.write(f"Average I0\t{I0_mean:.3e} (in AU)\n")
             f.write(
                 f"I0 prediction interval (95%) at least 25% above and below average value: [{I0_lower_bound}, {I0_upper_bound}]\n"
             )
