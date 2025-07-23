@@ -38,18 +38,16 @@ class DBAFittingAppHtoD:
         self.display_plots_var.set(True)
 
         # # for testing
-        # self.fit_trials_var.set(10)
-        # self.d0_var.set(6e-6)
-        # self.file_path_var.set(
-        #     "/Users/ahmadomira/git/App Test/dba-h2d-test/DBA_system_host_to_dye.txt"
-        # )
-        # self.use_dye_alone_results.set(True)
+        self.fit_trials_var.set(10)
+        self.d0_var.set(12.7e-6)
+        self.file_path_var.set("/Users/ahmadomira/Desktop/hanna/replica_no_header.txt")
+        self.use_dye_alone_results.set(True)
         # self.save_plots_var.set(True)
         # self.save_results_var.set(True)
 
-        # self.dye_alone_results_var.set(
-        #     "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
-        # )
+        self.dye_alone_results_var.set(
+            "/Users/ahmadomira/Desktop/hanna/dye_alone_single_replica.txt"
+        )
         # self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-h2d-test/")
         # self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-h2d-test/")
 
