@@ -9,7 +9,7 @@ from core.progress_window import ProgressWindow
 class DyeAloneFittingApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("IDA Fitting Replica Dye Alone")
+        self.root.title("Dye Alone Fitting")
 
         # Variables
         self.file_path_var = tk.StringVar()

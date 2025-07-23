@@ -43,7 +43,7 @@ class IDAFittingAlgorithm(BaseFittingAlgorithm):
             load_bounds_from_results_file(results_file_path)
         )
         print(
-            f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]"
+            f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M^-1\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]"
         )
         Kd = Kd_in_M / 1e6
         h0 = h0_in_M * 1e6

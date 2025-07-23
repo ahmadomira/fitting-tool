@@ -42,7 +42,7 @@ def run_dba_host_to_dye_fitting(
     d0 = d0_in_M * 1e6
 
     print(
-        f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M⁻¹\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]"
+        f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M^-1\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]"
     )
     data_lines = load_data(file_path)
     replicas = split_replicas(data_lines)

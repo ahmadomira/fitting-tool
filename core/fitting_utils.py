@@ -3,7 +3,6 @@ from datetime import datetime
 
 import numpy as np
 
-
 # Unified assay mappings consistent with load_replica_file
 assay_mappings = {
     "dba_HtoD": {
@@ -20,6 +19,7 @@ assay_mappings = {
     "gda": {"constant": "g0", "variable": "d0", "k_param": "Kg"},
 }
 
+
 def load_data(file_path):
     try:
         with open(file_path, "r") as f:
@@ -34,6 +34,8 @@ def load_data(file_path):
 
 def split_replicas(data):
     replicas, current_replica = [], []
+    # remove empty lines and strip whitespace
+    data = [line.strip() for line in data if line.strip()]
     for line in data:
         if "var" in line.lower():
             if current_replica:
@@ -47,7 +49,9 @@ def split_replicas(data):
                     current_replica = []
                 current_replica.append((x, y))
             except ValueError:
-                continue
+                raise ValueError(
+                    f"Invalid line in your input data. Line number: {data.index(line) + 1} (empty lines don't count). Line content: {line}. Please double-check your data.\n\n"
+                )
     if current_replica:
         replicas.append(np.array(current_replica))
     if not replicas:
@@ -100,8 +104,10 @@ def load_bounds_from_results_file(results_file_path):
                 average_Id = float(
                     next(line for line in lines if "Average Id" in line)
                     .split("\t")[-1]
+                    .split()[0]
                     .strip()
                 )
+                # TODO: ask frank bounds for average Id
                 Id_lower = 0.5 * average_Id
                 Id_upper = 2.0 * average_Id
             i0_prediction_line = next(
@@ -118,8 +124,10 @@ def load_bounds_from_results_file(results_file_path):
                 average_I0 = float(
                     next(line for line in lines if "Average I0" in line)
                     .split("\t")[-1]
+                    .split()[0]
                     .strip()
                 )
+                # TODO: ask frank bounds for average I0
                 I0_lower = 0.5 * average_I0
                 I0_upper = 2.0 * average_I0
         except Exception as e:

@@ -198,7 +198,7 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         ax.set_ylabel("Signal Intensity [AU]")
 
         param_text = (
-            rf"$I_d (µM⁻¹): {formatter(Id_mean)}$"
+            rf"$I_d (\mu M^{{-1}}): {formatter(Id_mean)}$"
             + "\n"
             + rf"$I_0 (AU): {formatter(I0_mean)}$"
         )
@@ -215,7 +215,7 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         )
         with open(unique_filename(output_file_path), "w") as f:
             f.write("Linear Fit Results\n")
-            f.write(f"Average Id\t{Id_mean:.3e} (in µM⁻¹) \n")
+            f.write(f"Average Id\t{Id_mean:.3e} (in µM^-1) \n")
             f.write(
                 f"Id prediction interval (95%) at least 25% above and below average value: [{Id_lower_bound}, {Id_upper_bound}]\n"
             )
