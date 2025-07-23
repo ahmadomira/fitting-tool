@@ -24,15 +24,15 @@ class DyeAloneFittingApp:
         self.custom_plot_title_text_var = tk.StringVar()
 
         # Set default values
-        # For testing
-        self.file_path_var.set(
-            "/Users/ahmadomira/Desktop/hanna/543 nm.txt"
-        )
-        self.save_path_var.set(
-            "/Users/ahmadomira/Desktop/hanna/543 nm results.txt"
-        )
-        self.plots_dir_var.set("/Users/ahmadomira/Desktop/hanna/")
-        self.save_plots_var.set(True)
+        # # For testing
+        # self.file_path_var.set(
+        #     "/Users/ahmadomira/git/App Test/dye-alone-test/Dye_alone.txt"
+        # )
+        # self.save_path_var.set(
+        #     "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
+        # )
+        # self.plots_dir_var.set("/Users/ahmadomira/git/App Test/dye-alone-test/")
+        # self.save_plots_var.set(True)
         self.display_plots_var.set(True)
 
         tk.Label(root, text="Input File:").grid(row=0, column=0, sticky=tk.W)
