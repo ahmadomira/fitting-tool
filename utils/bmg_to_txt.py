@@ -445,7 +445,9 @@ class BMGToTxtConverter:
         )
         self.plot_type_var = tk.StringVar(value="individual")
         plot_type_frame = ttk.Frame(plot_frame)
-        plot_type_frame.grid(row=1, column=1, columnspan=3, sticky=(tk.W, tk.E), padx=(0, 6))
+        plot_type_frame.grid(
+            row=1, column=1, columnspan=3, sticky=(tk.W, tk.E), padx=(0, 6)
+        )
 
         # Create radiobuttons with tooltips
         individual_rb = ttk.Radiobutton(
@@ -565,7 +567,7 @@ class BMGToTxtConverter:
             style="Gray.TLabel",
             font=("TkDefaultFont", 11),
         ).grid(row=4, column=1, columnspan=2, sticky=tk.W, pady=(0, 0), padx=(3, 0))
-        
+
         # Plot buttons
         plot_btn_frame = ttk.Frame(plot_frame)  # Use ttk.Frame for consistency
         plot_btn_frame.grid(row=5, column=1, sticky=(tk.W, tk.E), pady=(8, 0))
@@ -581,16 +583,14 @@ class BMGToTxtConverter:
         ).grid(row=0, column=1, sticky=tk.W)
 
         # Convert Files section (moved below plotting)
-        convert_frame = ttk.LabelFrame(
-            self.mainframe, padding="6"
-        )
-        
+        convert_frame = ttk.LabelFrame(self.mainframe, padding="6")
+
         ttk.Label(
             convert_frame,
             text="Convert BMG Files to Text",
             font=("TkDefaultFont", 14, "bold"),
         ).grid(row=0, column=0, columnspan=4, sticky=tk.W, pady=(0, 8))
-        
+
         convert_frame.grid(
             row=row, column=0, sticky=(tk.W, tk.E), pady=(0, pad_listbox_y)
         )
@@ -747,7 +747,7 @@ class BMGToTxtConverter:
 
     # --- File list management ---
     def add_files(self):
-        files = filedialog.askopenfilenames(parent=self.root)
+        files = filedialog.askopenfilenames(parent=self.root, initialdir=Path.cwd())
         for f in files:
             if f not in self.file_list:
                 self.file_list.append(f)
@@ -941,7 +941,7 @@ class BMGToTxtConverter:
             return
 
         concentration_vector = self.get_current_concentration_vector()
-        if not concentration_vector:
+        if concentration_vector is None:
             return
 
         save_dir = None
@@ -955,7 +955,7 @@ class BMGToTxtConverter:
             if len(selections) < 2:
                 self.update_status(
                     "Grouping requires at least two files; select multiple files to group.",
-                    "orange"
+                    "orange",
                 )
                 return
             files = [self.file_list[idx] for idx in selections]
@@ -969,9 +969,13 @@ class BMGToTxtConverter:
             try:
                 self.update_status(f"Plotting {Path(file_path).name}...", "blue")
                 if self.plot_type_var.get() == "individual":
-                    output = plot_single_file_replicas(file_path, concentration_vector, save_dir)
+                    output = plot_single_file_replicas(
+                        file_path, concentration_vector, save_dir
+                    )
                 elif self.plot_type_var.get() == "average":
-                    output = plot_file_average(file_path, concentration_vector, save_dir)
+                    output = plot_file_average(
+                        file_path, concentration_vector, save_dir
+                    )
                 plotted_count += 1
             except Exception as e:
                 self.update_status(f"Error plotting {Path(file_path).name}: {e}", "red")
@@ -1036,9 +1040,7 @@ class BMGToTxtConverter:
                         "green",
                     )
                 else:
-                    self.update_status(
-                        f"Ready", "blue"
-                    )
+                    self.update_status(f"Ready", "blue")
 
             elif plot_type in ["group_analyte", "group_ph"]:
                 # Group files and plot
@@ -1056,8 +1058,8 @@ class BMGToTxtConverter:
                     )
                 else:
                     self.update_status(
-                        f"Ready", "blue"
-                        "green",
+                        f"Ready",
+                        "blue" "green",
                     )
 
         except Exception as e:
