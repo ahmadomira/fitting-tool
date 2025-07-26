@@ -203,20 +203,15 @@ def plot_all_replica(raw_data_path: str, robot_file_path: str, save_dir: str):
     data, info = read_bmg_xlsx(raw_data_path)
 
     fig, ax = plot_utils.create_plots(plot_title=plot_title)
-    # ax.boxplot(data, tick_labels=concentration_vector, patch_artist=True)
     ax.plot(
         concentration_vector,
         data.values.T,
         label=[f"Replica {i+1}" for i in range(data.shape[0])],
-    )  #
+    )
     ax.legend(loc="best")
 
-    # save plot of different analytes to separate folders
-    save_dir_analyte = save_dir / " ".join(raw_data_path.stem.split("_")[1:4])
-    if not save_dir_analyte.exists():
-        save_dir_analyte.mkdir(parents=False, exist_ok=True)
-
-    output_file = save_dir_analyte / f"{raw_data_path.stem}_plot.png"
+    # Save plot directly to the selected folder (no subfolders)
+    output_file = save_dir / f"{raw_data_path.stem}_all_replicas.png"
     fig.savefig(output_file, bbox_inches="tight")
     plt.close("all")
 
@@ -261,11 +256,8 @@ def plot_avg_over_replicas(
         ax.plot(concentration_vector, data.values, label=file_ph.stem.split("_")[-1])
 
     ax.legend()
-    save_dir_analyte = save_dir / " ".join(plot_title.split("_"))
-    if not save_dir_analyte.exists():
-        save_dir_analyte.mkdir(parents=False, exist_ok=True)
-
-    output_file = save_dir_analyte / f"{'_'.join(plot_title.split(' '))}_pH_plot.png"
+    # Save plot directly to the selected folder (no subfolders)
+    output_file = save_dir / f"{'_'.join(plot_title.split(' '))}_grouped_by_pH.png"
     fig.savefig(output_file, bbox_inches="tight")
     plt.close("all")
 
@@ -289,12 +281,9 @@ def plot_analytes_over_ph(
         )
 
     ax.legend()
-    save_dir_analyte = save_dir / "grouped_by_pH"
-    if not save_dir_analyte.exists():
-        save_dir_analyte.mkdir(parents=False, exist_ok=True)
-
-    output_file = save_dir_analyte / f"all_analytes_{plot_title}_plot.png"
-    fig.savefig(output_file, bbox_inches="tight")
+    if files:
+        output_file = save_dir / f"{files[0].stem}_avg_over_pH.png"
+        fig.savefig(output_file, bbox_inches="tight")
     plt.close("all")
 
 
@@ -306,6 +295,7 @@ class PlotReplica:
         self.save_dir = ""
 
         self.root.title("Plot Data")
+        self.root.geometry("800x600")  # Make window wider and taller
 
         self.mainframe = ttk.Frame(root, padding="3 3 12 12")
         self.mainframe.grid(column=0, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))
@@ -313,11 +303,24 @@ class PlotReplica:
         # Configure the column to expand and center content
         self.mainframe.columnconfigure(0, weight=1)
 
-        # info button
-        info_button = tk.Button(
-            self.mainframe, text="How to Use This?", command=self.show_info
+        # Stylish round info button with 'i' icon
+        info_canvas = tk.Canvas(
+            self.mainframe,
+            width=32,
+            height=32,
+            highlightthickness=0,
+            bg=self.root.cget("bg"),
         )
-        info_button.grid(row=0, column=0, sticky=(tk.E, tk.W))
+        # Draw a blue circle
+        info_canvas.create_oval(4, 4, 28, 28, fill="#3498db", outline="")
+        # Draw the 'i' in white, bold
+        info_canvas.create_text(
+            16, 16, text="i", fill="white", font=("TkDefaultFont", 16, "bold")
+        )
+        info_canvas.grid(row=0, column=0, sticky=(tk.W), padx=(0, 0), pady=(0, 0))
+        info_canvas.bind("<Button-1>", lambda e: self.show_info())
+        info_canvas.bind("<Enter>", lambda e: info_canvas.config(cursor="hand2"))
+        info_canvas.bind("<Leave>", lambda e: info_canvas.config(cursor=""))
 
         self.files_button = tk.Button(
             self.mainframe, text="1. Select Excel Files", command=self.catch_files
@@ -333,10 +336,27 @@ class PlotReplica:
         self.robot_file_button.grid(row=2, column=0, sticky=(tk.E, tk.W))
         self.save_dir_button.grid(row=3, column=0, sticky=(tk.E, tk.W))
 
+        # Show selected files/paths with color and bold headers
+        self.selected_info = tk.Text(
+            self.mainframe,
+            height=4,
+            width=80,  # Wider
+            relief=tk.FLAT,
+            bg=self.root.cget("bg"),
+            borderwidth=0,
+            highlightthickness=0,
+        )
+        self.selected_info.grid(row=4, column=0, sticky=(tk.W, tk.E))
+        self.selected_info.tag_configure(
+            "header", foreground="blue", font=("TkDefaultFont", 10, "bold")
+        )
+        self.selected_info.tag_configure("value", font=("TkDefaultFont", 10, "normal"))
+        self.selected_info.config(state=tk.DISABLED)
+
         # Create a text widget for status messages with scrollbar
         self.status_frame = ttk.Frame(self.mainframe)
         self.status_frame.grid(
-            row=4, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S)
+            row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S)
         )
 
         self.status_scrollbar = ttk.Scrollbar(self.status_frame)
@@ -344,8 +364,8 @@ class PlotReplica:
 
         self.status_text = tk.Text(
             self.status_frame,
-            height=5,
-            width=40,
+            height=16,  # Make logging part longer
+            width=80,  # Wider
             yscrollcommand=self.status_scrollbar.set,
         )
         self.status_text.pack(fill=tk.BOTH, expand=True)
@@ -357,23 +377,98 @@ class PlotReplica:
         process_button = tk.Button(
             self.mainframe, text="Process", command=self.process_and_display_status
         )
-        process_button.grid(row=5, column=0, columnspan=3, sticky=(tk.E, tk.W))
+        process_button.grid(row=6, column=0, columnspan=3, sticky=(tk.E, tk.W))
 
+        # Remove extra expansion below the process button
+        self.mainframe.rowconfigure(7, weight=0)
+        self.mainframe.rowconfigure(8, weight=0)
+        # Only expand the status frame (row 5) and mainframe (row 0)
+        self.mainframe.rowconfigure(5, weight=1)
+        self.mainframe.rowconfigure(6, weight=0)
+        # Remove extra padding if any
         for child in self.mainframe.winfo_children():
-            child.grid_configure(padx=10, pady=10)
+            child.grid_configure(padx=10, pady=5)
 
-        # Make the main window expandable
+        # Make the main window expandable only for main content
         root.columnconfigure(0, weight=1)
         root.rowconfigure(0, weight=1)
 
+    def update_selected_label(self):
+        self.selected_info.config(state=tk.NORMAL)
+        self.selected_info.delete("1.0", tk.END)
+        # Excel files
+        self.selected_info.insert(tk.END, "Excel files: ", "header")
+        if self.files:
+            self.selected_info.insert(
+                tk.END, f"{', '.join([Path(f).name for f in self.files])}\n", "value"
+            )
+        else:
+            self.selected_info.insert(tk.END, "None\n", "value")
+        # Robot file
+        self.selected_info.insert(tk.END, "Robot file: ", "header")
+        self.selected_info.insert(
+            tk.END,
+            f"{Path(self.robot_file).name if self.robot_file else 'None'}\n",
+            "value",
+        )
+        # Save dir
+        self.selected_info.insert(tk.END, "Save dir: ", "header")
+        self.selected_info.insert(
+            tk.END, f"{self.save_dir if self.save_dir else 'None'}\n", "value"
+        )
+        self.selected_info.config(state=tk.DISABLED)
+
     def catch_files(self):
-        self.files = list(filedialog.askopenfilenames())
+        files = list(filedialog.askopenfilenames())
+        if files:
+            self.files = files
+            self.update_status(f"Selected {len(files)} Excel files.", "blue")
+            self.update_selected_label()
+            # Try to set default save dir if not set
+            if not self.save_dir:
+                self.save_dir = str(Path(self.files[0]).parent)
+                self.update_status(
+                    f"Default save directory set to {self.save_dir}", "blue"
+                )
+                self.update_selected_label()
+            # Try to set default robot file if not set
+            if not self.robot_file:
+                parent = Path(self.files[0]).parent
+                robot_candidates = list(parent.glob("*robot*.xlsx")) + list(
+                    parent.glob("*robot*.txt")
+                )
+                if robot_candidates:
+                    self.robot_file = str(robot_candidates[0])
+                    self.update_status(
+                        f"Default robot file set to {self.robot_file}", "blue"
+                    )
+                    self.update_selected_label()
+        else:
+            self.update_status("No Excel files selected.", "red")
+        # Optionally, auto-open robot file dialog if not set
+        # if not self.robot_file:
+        #     self.catch_robot_file()
 
     def catch_robot_file(self):
-        self.robot_file = filedialog.askopenfilename()
+        robot_file = filedialog.askopenfilename()
+        if robot_file:
+            self.robot_file = robot_file
+            self.update_status(f"Selected robot file: {Path(robot_file).name}", "blue")
+            self.update_selected_label()
+        else:
+            self.update_status("No robot file selected.", "red")
+        # Optionally, auto-open save dir dialog if not set
+        # if not self.save_dir:
+        #     self.catch_save_dir()
 
     def catch_save_dir(self):
-        self.save_dir = filedialog.askdirectory()
+        save_dir = filedialog.askdirectory()
+        if save_dir:
+            self.save_dir = save_dir
+            self.update_status(f"Selected save directory: {save_dir}", "blue")
+            self.update_selected_label()
+        else:
+            self.update_status("No save directory selected.", "red")
 
     def update_status(self, message, color="black"):
         """Update the status text widget with a new message"""

@@ -32,28 +32,25 @@ def main():
     )
     preprocess_data_label.pack(pady=5)
 
-    def plot_replica():
-        # Function to handle plot replica button click
-        # Implement the functionality here or open a new window
-        new_window = tk.Toplevel(root)
-        new_window.title("Plot Raw Replica")
-        PlotReplica(new_window)  # Call the PlotReplica class for implementation
+    # def plot_replica():
+    #     # Function to handle plot replica button click
+    #     # Implement the functionality here or open a new window
+    #     new_window = tk.Toplevel(root)
+    #     new_window.title("Plot Raw Replica")
+    #     PlotReplica(new_window)  # Call the PlotReplica class for implementation
 
-    plot_replica_button = tk.Button(root, text="Plot Raw Replica", command=plot_replica)
-    plot_replica_button.pack(pady=10, padx=15, fill=tk.X)
+    # plot_replica_button = tk.Button(root, text="Plot Raw Replica", command=plot_replica)
+    # plot_replica_button.pack(pady=10, padx=15, fill=tk.X)
 
     def open_bmg_to_txt_converter():
         new_window = tk.Toplevel(root)
-        new_window.title("Convert BMG to TXT")
+        new_window.title("Preprocess BMG Data")
         BMGToTxtConverter(new_window)
 
     bmg_to_txt_button = tk.Button(
-        root, text="Convert BMG to TXT", command=open_bmg_to_txt_converter
+        root, text="BMG Data (*.xlsx)", command=open_bmg_to_txt_converter
     )
-    bmg_to_txt_button.pack(pady=10, padx=15, fill=tk.X)
-
-    # Add extra vertical space before the next section
-    tk.Label(root, text="").pack(pady=5)
+    bmg_to_txt_button.pack(pady=(10, 20), padx=15, fill=tk.X)
 
     # Fitting Section
     fitting_label = tk.Label(root, text="Fitting", font=("Arial", 16, "bold"))
@@ -120,12 +117,9 @@ def main():
     gda_fitting_button = tk.Button(root, text="GDA Fitting", command=open_gda_fitting)
     gda_fitting_button.pack(pady=10, padx=20, fill=tk.X)
 
-    # Add extra vertical space before the next section
-    tk.Label(root, text="").pack(pady=5)
-
     # Merging Results Section
     merging_label = tk.Label(root, text="Merging Results", font=("Arial", 16, "bold"))
-    merging_label.pack(pady=5)
+    merging_label.pack(pady=(20, 5))
 
     dba_merge_fits_button = tk.Button(
         root, text="DBA Merge Fits", command=open_dba_merge_fits
