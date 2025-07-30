@@ -471,14 +471,19 @@ class BMGToTxtConverter:
         annotation_template = ""
         self.annotation_text.insert("1.0", annotation_template)
 
-        # Add plot title entry
+        # Add plot title entry with toggle
         plot_title_frame = ttk.Frame(plot_frame)
         plot_title_frame.grid(
             row=7, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(8, 0)
         )
-        ttk.Label(plot_title_frame, text="Plot Title:").grid(
-            row=0, column=0, sticky=tk.W
+        self.use_custom_title_var = tk.BooleanVar(value=True)
+        self.use_custom_title_check = ttk.Checkbutton(
+            plot_title_frame,
+            text="Custom Title:",
+            variable=self.use_custom_title_var,
+            command=self.toggle_plot_title_entry,
         )
+        self.use_custom_title_check.grid(row=0, column=0, sticky=tk.W)
         self.plot_title_var = tk.StringVar(value="Rhodamin")
         self.plot_title_entry = ttk.Entry(
             plot_title_frame, textvariable=self.plot_title_var, width=30
@@ -742,6 +747,21 @@ class BMGToTxtConverter:
             self.update_status("Invalid concentration values", "red")
             return None
 
+    def toggle_plot_title_entry(self):
+        if self.use_custom_title_var.get():
+            self.plot_title_entry.state(["!disabled"])
+        else:
+            self.plot_title_entry.state(["disabled"])
+
+    def sanitize_title_from_filename(self, file_path):
+        import os
+
+        name = os.path.basename(file_path)
+        name = os.path.splitext(name)[0]
+        name = name.replace("_", " ")
+        name = " ".join(w.capitalize() for w in name.split())
+        return name
+
     def plot_selected_file(self):
         selections = self.file_listbox.curselection()
         if not selections:
@@ -756,7 +776,6 @@ class BMGToTxtConverter:
             Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
             save_dir = plot_save_dir
         annotation = self.annotation_text.get("1.0", tk.END).strip()
-        plot_title = self.plot_title_var.get().strip() or "Rhodamin"
         plotted_count = 0
         plot_reference = self.plot_reference_var.get()
         reference_file = (
@@ -771,6 +790,11 @@ class BMGToTxtConverter:
                 reference_data = None
         for idx in selections:
             file_path = self.file_list[idx]
+            # Determine plot title
+            if self.use_custom_title_var.get():
+                plot_title = self.plot_title_var.get().strip() or "Rhodamin"
+            else:
+                plot_title = self.sanitize_title_from_filename(file_path)
             try:
                 self.update_status(f"Plotting {Path(file_path).name}...", "blue")
                 fig, ax = plot_utils.create_plots(plot_title=plot_title)
@@ -815,6 +839,7 @@ class BMGToTxtConverter:
                     plot_title=plot_title,
                     fig=fig,
                     ax=ax,
+                    reference_data=reference_data,
                 )
                 plotted_count += 1
             except Exception as e:
@@ -842,7 +867,6 @@ class BMGToTxtConverter:
             Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
             save_dir = plot_save_dir
         annotation = self.annotation_text.get("1.0", tk.END).strip()
-        plot_title = self.plot_title_var.get().strip() or "Rhodamin"
         plot_reference = self.plot_reference_var.get()
         reference_file = (
             self.reference_file_var.get().strip() if plot_reference else None
@@ -856,6 +880,11 @@ class BMGToTxtConverter:
                 reference_data = None
         plotted_count = 0
         for file_path in self.file_list:
+            # Determine plot title
+            if self.use_custom_title_var.get():
+                plot_title = self.plot_title_var.get().strip() or "Rhodamin"
+            else:
+                plot_title = self.sanitize_title_from_filename(file_path)
             self.update_status(f"Plotting {Path(file_path).name}...", "blue")
             try:
                 fig, ax = plot_utils.create_plots(plot_title=plot_title)
@@ -899,6 +928,7 @@ class BMGToTxtConverter:
                     plot_title=plot_title,
                     fig=fig,
                     ax=ax,
+                    reference_data=reference_data,
                 )
                 plotted_count += 1
             except Exception as e:
@@ -916,7 +946,15 @@ class BMGToTxtConverter:
             self.update_status(f"Ready", "blue")
 
     def plot_main_on_axes(
-        self, file_path, concentration_vector, save_dir, annotation, plot_title, fig, ax
+        self,
+        file_path,
+        concentration_vector,
+        save_dir,
+        annotation,
+        plot_title,
+        fig,
+        ax,
+        reference_data=None,
     ):
         # This is a copy of plot_single_file_replicas, but draws on provided fig, ax
         file_path = Path(file_path)
@@ -941,14 +979,32 @@ class BMGToTxtConverter:
             if std_15ul.size > 1
             else float("nan")
         )
-        std_text = f"STD (steps 2-6, 5µL): {std_5ul_val:.4g}\nSTD (steps 7-12, 15µL): {std_15ul_val:.4g}\n\n"
-        if annotation:
-            annotation = std_text + annotation
-        else:
-            annotation = std_text.strip()
+        std_text = f"STD (steps 2-6, 5µL): {std_5ul_val:.4g}\nSTD (steps 7-12, 15µL): {std_15ul_val:.4g}"
+        # If reference_data is provided, compute its STDs
+        ref_std_text = ""
+        if reference_data is not None:
+            ref_std_5ul = reference_data.iloc[:, 1:6].values.flatten()
+            ref_std_15ul = reference_data.iloc[:, 6:12].values.flatten()
+            ref_std_5ul_val = (
+                float(pd.Series(ref_std_5ul).std(ddof=1))
+                if ref_std_5ul.size > 1
+                else float("nan")
+            )
+            ref_std_15ul_val = (
+                float(pd.Series(ref_std_15ul).std(ddof=1))
+                if ref_std_15ul.size > 1
+                else float("nan")
+            )
+            ref_std_text = f"\nRef. STD (steps 2-6, 5µL): {ref_std_5ul_val:.4g}\nRef. STD (steps 7-12, 15µL): {ref_std_15ul_val:.4g}"
+        stds_combined = std_text + ref_std_text
         # Only show annotation if enabled
         if not self.enable_annotation_var.get():
-            annotation = None
+            annotation = stds_combined
+        else:
+            if annotation:
+                annotation = stds_combined + "\n\n" + annotation
+            else:
+                annotation = stds_combined
         lower_err = avg_vals - min_vals
         upper_err = max_vals - avg_vals
         yerr = [lower_err, upper_err]
