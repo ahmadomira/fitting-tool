@@ -13,6 +13,7 @@ from core.fitting_utils import (
     residuals,
     save_replica_file,
     split_replicas,
+    to_uM,
 )
 from core.forward_model import compute_signal_gda
 from utils.plot_utils import plot_fitting_results, save_plot
@@ -40,21 +41,29 @@ def run_gda_fitting(
         load_bounds_from_results_file(results_file_path)
     )
     print(
-        f"Loaded boundaries:\nId: [{Id_lower * 1e6:.3e}, {Id_upper * 1e6:.3e}] M^-1\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]"
+        f"Loaded boundaries:\nId: [{Id_lower:.3e}, {Id_upper:.3e}] M^-1\nI0: [{I0_lower:.3e}, {I0_upper:.3e}]"
     )
-    Kd = Kd_in_M / 1e6
-    h0 = h0_in_M * 1e6
-    g0 = g0_in_M * 1e6
+
+    # Convert all concentrations to µM
+    Kd_uM = Kd_in_M / to_uM(1.0)
+    h0_uM = to_uM(h0_in_M)
+    g0_uM = to_uM(g0_in_M)
+    Id_lower /= to_uM(1.0)
+    Id_upper /= to_uM(1.0)
+    Ihd_lower /= to_uM(1.0)
+    Ihd_upper /= to_uM(1.0)
+
     data_lines = load_data(file_path)
     replicas = split_replicas(data_lines)
     print(f"Number of replicas detected: {len(replicas)}")
     figures = []
+    fit_found = False
     plt.close("all")  # Close any previous plots
 
     for replica_index, replica_data in enumerate(replicas, start=1):
-        d0_values = replica_data[:, 0] * 1e6
+        d0_uM_vector = to_uM(replica_data[:, 0])
         Signal_observed = replica_data[:, 1]
-        if len(d0_values) < 2:
+        if len(d0_uM_vector) < 2:
             print(f"Replica {replica_index} has insufficient data. Skipping.")
             continue
         I0_upper = (
@@ -66,7 +75,7 @@ def run_gda_fitting(
         initial_params_list = []
         for _ in range(number_of_fit_trials):
             I0_guess = np.random.uniform(I0_lower, I0_upper)
-            Kg_guess = 10 ** np.random.uniform(np.log10(Kd) - 5, np.log10(Kd) + 5)
+            Kg_guess = 10 ** np.random.uniform(np.log10(Kd_uM) - 5, np.log10(Kd_uM) + 5)
             if Ihd_guess_smaller:
                 Id_guess = 10 ** np.random.uniform(
                     np.log10(Id_lower), np.log10(Id_upper)
@@ -87,10 +96,10 @@ def run_gda_fitting(
                         Signal_observed,
                         compute_signal_gda,
                         params,
-                        d0_values,
-                        Kd,
-                        h0,
-                        g0,
+                        d0_uM_vector,
+                        Kd_uM,
+                        h0_uM,
+                        g0_uM,
                     )
                     ** 2
                 ),
@@ -103,7 +112,9 @@ def run_gda_fitting(
                     (Ihd_lower, Ihd_upper),
                 ],
             )
-            Signal_computed = compute_signal_gda(result.x, d0_values, Kd, h0, g0)
+            Signal_computed = compute_signal_gda(
+                result.x, d0_uM_vector, Kd_uM, h0_uM, g0_uM
+            )
             rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
             fit_results.append((result.x, result.fun, rmse, r_squared))
             if result.fun < best_cost:
@@ -123,19 +134,21 @@ def run_gda_fitting(
         else:
             print("Warning: No fits meet the filtering criteria.")
             continue
-        Signal_computed = compute_signal_gda(median_params, d0_values, Kd, h0, g0)
+        Signal_computed = compute_signal_gda(
+            median_params, d0_uM_vector, Kd_uM, h0_uM, g0_uM
+        )
         rmse, r_squared = calculate_fit_metrics(Signal_observed, Signal_computed)
-        fitting_curve_x, fitting_curve_y = [], []
-        for i in range(len(d0_values) - 1):
-            extra_points = np.linspace(d0_values[i], d0_values[i + 1], 21)
-            fitting_curve_x.extend(extra_points)
+        fitting_curve_x_uM, fitting_curve_y = [], []
+        for i in range(len(d0_uM_vector) - 1):
+            extra_points = np.linspace(d0_uM_vector[i], d0_uM_vector[i + 1], 21)
+            fitting_curve_x_uM.extend(extra_points)
             fitting_curve_y.extend(
-                compute_signal_gda(median_params, extra_points, Kd, h0, g0)
+                compute_signal_gda(median_params, extra_points, Kd_uM, h0_uM, g0_uM)
             )
         input_params = (
-            g0_in_M,
-            h0_in_M,
-            Kd_in_M,
+            g0_uM,
+            h0_uM,
+            Kd_uM,
             Id_lower,
             Id_upper,
             I0_lower,
@@ -143,9 +156,9 @@ def run_gda_fitting(
         )
         median_params = (*median_params, rmse, r_squared)
         fitting_params = (
-            d0_values,
+            d0_uM_vector,
             Signal_observed,
-            fitting_curve_x,
+            fitting_curve_x_uM,
             fitting_curve_y,
             replica_index,
         )
@@ -162,8 +175,10 @@ def run_gda_fitting(
                 fitting_params,
                 assay,
             )
+        fit_found = True
     if save_plots:
         for fig in figures:
             save_plot(fig, plots_dir)
     if display_plots:
         plt.show()
+    return fit_found

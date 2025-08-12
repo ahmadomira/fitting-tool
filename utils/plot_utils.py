@@ -7,6 +7,8 @@ matplotlib.use("TkAgg")
 
 import matplotlib.pyplot as plt
 
+from core.fitting_utils import to_M
+
 font_size = 11
 plt.rcParams.update(
     {
@@ -109,12 +111,13 @@ def format_value(value):
 
 
 def plot_fitting_results(
-    fitting_params, median_params, assay, custom_x_label=None, custom_plot_title=None
+    fitting_params, median_params_uM, assay, custom_x_label=None, custom_plot_title=None
 ):
-    x_values, Signal_observed, fitting_curve_x, fitting_curve_y, replica_index = (
+    x_values_uM, Signal_observed, fitting_curve_x_uM, fitting_curve_y, replica_index = (
         fitting_params
     )
-    I_0, k, I_d, I_hd, rmse, r_squared = median_params
+
+    I_0, k, I_d, I_hd, rmse, r_squared = median_params_uM  # in µM⁻¹ from fitting step
 
     # Use custom plot title if provided, otherwise use default
     if custom_plot_title:
@@ -134,9 +137,9 @@ def plot_fitting_results(
 
     fig, ax = create_plots(x_label=x_label, y_label=y_label)
 
-    ax.plot(x_values, Signal_observed, "o", label="Observed Signal")
+    ax.plot(x_values_uM, Signal_observed, "o", label="Observed Signal")
     ax.plot(
-        fitting_curve_x,
+        fitting_curve_x_uM,
         fitting_curve_y,
         "--",
         color="blue",
@@ -148,10 +151,11 @@ def plot_fitting_results(
 
     K_text = config.get("K_d", plot_config["K_g"])
     param_text = (
-        f"${K_text}$: {k * 1e6:.2e} $M^{{-1}}$\n"
+        # k, Id, Ihd are in µM⁻¹
+        f"${K_text}$: {k / to_M(1.0):.2e} $M^{{-1}}$\n"
         f"$I_0$: {I_0:.2e}\n"
-        f"$I_d$: {I_d * 1e6:.2e} $M^{{-1}}$\n"
-        f"$I_{{hd}}$: {I_hd * 1e6:.2e} $M^{{-1}}$\n"
+        f"$I_d$: {I_d / to_M(1.0):.2e} $M^{{-1}}$\n"
+        f"$I_{{hd}}$: {I_hd / to_M(1.0):.2e} $M^{{-1}}$\n"
         # f"$RMSE$: {format_value(rmse)}\n"
         f"$R^2$: {r_squared:.3f}"
     )
