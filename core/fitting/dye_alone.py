@@ -10,7 +10,7 @@ import numpy as np
 from scipy.stats import linregress, ttest_1samp
 
 from core.fitting.base import BaseFittingAlgorithm
-from core.fitting_utils import load_data, split_replicas, unique_filename
+from core.fitting_utils import load_data, split_replicas, unique_filename, to_uM, to_M
 from utils.plot_utils import (
     create_plots,
     place_legend_and_annotation_safely,
@@ -20,24 +20,6 @@ from utils.stats_utils import prediction_interval
 
 
 class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
-    def fit(
-        self,
-        input_file_path,
-        output_file_path,
-        save_plots,
-        display_plots,
-        plots_dir,
-        custom_x_label=None,
-    ):
-        """Implements the abstract fit method by calling perform_fitting."""
-        return self.perform_fitting(
-            input_file_path,
-            output_file_path,
-            save_plots,
-            display_plots,
-            plots_dir,
-            custom_x_label,
-        )
 
     def export_results(self, *args, **kwargs):
         """Implements the abstract export_results method. For this algorithm, results are exported in perform_fitting."""
@@ -50,11 +32,6 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
 
     def split_replicas(self, data):
         replicas = np.array(split_replicas(data))
-
-        # conver conc to µM (for fitting)
-        # important: this makes the resulted Id value in µM⁻¹!
-        replicas[:, :, 0] *= 1e6
-
         return replicas
 
     def fit_replicas(self, replicas):
@@ -103,7 +80,7 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
             retained_indices,
         )
 
-    def perform_fitting(
+    def fit(
         self,
         input_file_path,
         output_file_path,
@@ -121,6 +98,11 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         replicas = self.split_replicas(data_lines)
         if replicas is None:
             raise ValueError("No replicas detected.")
+        
+        # convert conc to µM (for fitting)
+        # important: this makes the resulted Id value in µM⁻¹!
+        replicas[:, :, 0] *= 1e6
+
         fit_results = self.fit_replicas(replicas)
         (
             avg_slope,
@@ -144,12 +126,13 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
             I0_upper_bound = "not applicable"
             Id_stdev = "not applicable"
             I0_stdev = "not applicable"
-        # Id_lower_bound = round_to_sigfigs(Id_lower_bound)
-        # Id_upper_bound = round_to_sigfigs(Id_upper_bound)
-        # Id_stdev = round_to_sigfigs(Id_stdev)
-        # I0_lower_bound = round_to_sigfigs(I0_lower_bound)
-        # I0_upper_bound = round_to_sigfigs(I0_upper_bound)
-        # I0_stdev = round_to_sigfigs(I0_stdev)
+        else:
+            # convert back to M^-1
+            Id_lower_bound /= to_M(1.0)
+            Id_upper_bound /= to_M(1.0)
+            Id_stdev /= to_M(1.0)
+        Id_mean /= to_M(1.0)
+
         fig, ax = create_plots()
         colors = plt.cm.jet(np.linspace(0, 1, len(replicas)))
 
@@ -159,7 +142,7 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
             y_values = replica[:, 1]
             slope, intercept = fit_results[i]
             ax.plot(
-                x_values, y_values, "o", color=colors[i], label=f"Replica {i+1} Data"
+                x_values, y_values, "o", color=colors[i], label=f"Replica {i+1}"
             )
             y_fit = slope * x_values + intercept
             ax.plot(
@@ -198,7 +181,7 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         ax.set_ylabel("Signal Intensity [AU]")
 
         param_text = (
-            rf"$I_d (\mu M^{{-1}}): {formatter(Id_mean)}$"
+            rf"$I_d (M^{{-1}}): {formatter(Id_mean)}$"
             + "\n"
             + rf"$I_0 (AU): {formatter(I0_mean)}$"
         )
@@ -215,20 +198,21 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
         )
         with open(unique_filename(output_file_path), "w") as f:
             f.write("Linear Fit Results\n")
-            f.write(f"Average Id\t{Id_mean:.3e} (in µM^-1) \n")
+            f.write(f"Average Id\t{Id_mean:.3e} (in M^-1) \n")
             f.write(
                 f"Id prediction interval (95%) at least 25% above and below average value: [{Id_lower_bound}, {Id_upper_bound}]\n"
             )
-            f.write(f"Id Stdev: {Id_stdev}\n")
+            f.write(f"Id Stdev: {Id_stdev} (in M^-1)\n")
             f.write(f"Average I0\t{I0_mean:.3e} (in AU)\n")
             f.write(
                 f"I0 prediction interval (95%) at least 25% above and below average value: [{I0_lower_bound}, {I0_upper_bound}]\n"
             )
-            f.write(f"I0 Stdev: {I0_stdev}\n")
+            f.write(f"I0 Stdev (in M^-1): {I0_stdev}\n")
             f.write("\nRetained Individual Fits:\n")
             for i, (slope, intercept) in enumerate(
                 zip(retained_slopes, retained_intercepts)
             ):
+                slope /= to_M(1.0)
                 f.write(f"Replica {i+1}\tId: {slope:.3e}\tI0: {intercept:.3e}\n")
             f.write(
                 f"\nDate of Export: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
