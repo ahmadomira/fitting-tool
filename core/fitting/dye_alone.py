@@ -200,14 +200,14 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
             f.write("Linear Fit Results\n")
             f.write(f"Average Id\t{Id_mean:.3e} (in M^-1) \n")
             f.write(
-                f"Id prediction interval (95%) at least 25% above and below average value: [{Id_lower_bound}, {Id_upper_bound}]\n"
+                f"Id prediction interval (95%) at least 25% above and below average value: [{Id_lower_bound:.3e}, {Id_upper_bound:.3e}]\n"
             )
-            f.write(f"Id Stdev: {Id_stdev} (in M^-1)\n")
+            f.write(f"Id Stdev: {Id_stdev:.3e} (in M^-1)\n")
             f.write(f"Average I0\t{I0_mean:.3e} (in AU)\n")
             f.write(
-                f"I0 prediction interval (95%) at least 25% above and below average value: [{I0_lower_bound}, {I0_upper_bound}]\n"
+                f"I0 prediction interval (95%) at least 25% above and below average value: [{I0_lower_bound:.3e}, {I0_upper_bound:.3e}]\n"
             )
-            f.write(f"I0 Stdev (in M^-1): {I0_stdev}\n")
+            f.write(f"I0 Stdev (in AU): {I0_stdev:.3e}\n")
             f.write("\nRetained Individual Fits:\n")
             for i, (slope, intercept) in enumerate(
                 zip(retained_slopes, retained_intercepts)
