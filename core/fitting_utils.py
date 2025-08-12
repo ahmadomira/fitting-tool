@@ -90,7 +90,7 @@ def unique_filename(file):
 
 
 def load_bounds_from_results_file(results_file_path):
-    r"""Tries to load boundaries from previous fit results. If unsuccessful, sets default boundaries. Returns bounds in µM⁻¹."""
+    r"""Tries to load boundaries from previous fit results. If unsuccessful, sets default boundaries. Returns bounds in M⁻¹."""
     if results_file_path:
         try:
             with open(results_file_path, "r") as f:
@@ -112,7 +112,7 @@ def load_bounds_from_results_file(results_file_path):
                     .split()[0]
                     .strip()
                 )
-                # TODO: ask frank bounds for average Id
+
                 Id_lower = 0.5 * average_Id
                 Id_upper = 2.0 * average_Id
             i0_prediction_line = next(
@@ -132,19 +132,20 @@ def load_bounds_from_results_file(results_file_path):
                     .split()[0]
                     .strip()
                 )
-                # TODO: ask frank bounds for average I0
+
                 I0_lower = 0.5 * average_I0
                 I0_upper = 2.0 * average_I0
         except Exception as e:
             raise ValueError(f"Error loading dye-alone results from file: {e}")
     else:
-        Id_lower, Id_upper = 1e3 / 1e6, 1e18 / 1e6  # default Id bounds in µM⁻¹
+        Id_lower, Id_upper = 1e3, 1e18  # default Id bounds in M⁻¹
         I0_lower, I0_upper = 0, np.inf  # default I0 bounds in AU
 
     # TODO: ask frank about this Ihd
-    Ihd_lower = 0.001
+    Ihd_lower = 0.001 # in M⁻¹
     Ihd_upper = 1e12
 
+    # return all in M⁻¹
     return Id_lower, Id_upper, I0_lower, I0_upper, Ihd_lower, Ihd_upper
 
 
