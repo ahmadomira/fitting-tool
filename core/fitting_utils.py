@@ -19,6 +19,11 @@ assay_mappings = {
     "gda": {"constant": "g0", "variable": "d0", "k_param": "Kg"},
 }
 
+def to_uM(M):
+    return M * 1e6
+
+def to_M(uM):
+    return uM * 1e-6
 
 def load_data(file_path):
     try:
