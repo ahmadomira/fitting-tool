@@ -212,7 +212,7 @@ def plot_all_replica(raw_data_path: str, robot_file_path: str, save_dir: str):
 
     # Save plot directly to the selected folder (no subfolders)
     output_file = save_dir / f"{raw_data_path.stem}_all_replicas.png"
-    fig.savefig(output_file, bbox_inches="tight")
+    fig.savefig(output_file, bbox_inches="tight", dpi=300)
     plt.close("all")
 
 
@@ -258,7 +258,7 @@ def plot_avg_over_replicas(
     ax.legend()
     # Save plot directly to the selected folder (no subfolders)
     output_file = save_dir / f"{'_'.join(plot_title.split(' '))}_grouped_by_pH.png"
-    fig.savefig(output_file, bbox_inches="tight")
+    fig.savefig(output_file, bbox_inches="tight", dpi=300)
     plt.close("all")
 
 
@@ -283,7 +283,7 @@ def plot_analytes_over_ph(
     ax.legend()
     if files:
         output_file = save_dir / f"{files[0].stem}_avg_over_pH.png"
-        fig.savefig(output_file, bbox_inches="tight")
+        fig.savefig(output_file, bbox_inches="tight", dpi=300)
     plt.close("all")
 
 

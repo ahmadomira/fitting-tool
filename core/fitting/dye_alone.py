@@ -189,7 +189,7 @@ class DyeAloneFittingAlgorithm(BaseFittingAlgorithm):
 
         if save_plots:
             plot_file = os.path.join(plots_dir, "dye_alone_fit_plot.png")
-            fig.savefig(unique_filename(plot_file), bbox_inches="tight")
+            fig.savefig(unique_filename(plot_file), bbox_inches="tight", dpi=300)
             print(f"Plot saved to {plot_file}")
         total_replicas = len(fit_results)
         retained_replicas_count = len(retained_indices)

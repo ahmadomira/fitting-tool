@@ -443,7 +443,7 @@ def run_merge_fits(
         plot_file = os.path.join(
             results_dir, "all_replicas_fitting_plot_with_outliers.png"
         )
-        fig1.savefig(plot_file, bbox_inches="tight")
+        fig1.savefig(plot_file, bbox_inches="tight", dpi=300)
 
     # Filter outliers and prepare data for averaging
     for replica in replicas:
@@ -592,7 +592,7 @@ def run_merge_fits(
 
     if save_plots:
         plot_file = os.path.join(results_dir, "averaged_fitting_plot.png")
-        fig2.savefig(plot_file, bbox_inches="tight")
+        fig2.savefig(plot_file, bbox_inches="tight", dpi=300)
 
     # Handle plot display
     if display_plots:

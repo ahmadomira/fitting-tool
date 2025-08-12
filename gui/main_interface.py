@@ -14,7 +14,6 @@ from gui.interface_IDA_fitting import IDAFittingApp
 from gui.interface_ida_merge_fits import IDAMergeFitsApp
 
 from utils.bmg_to_txt import BMGToTxtConverter
-from utils.plot_replica import PlotReplica
 
 
 def main():

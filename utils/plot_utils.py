@@ -51,7 +51,7 @@ plt.rcParams.update(
         "grid.linewidth": 0.5,
         "grid.alpha": 0.7,
         "savefig.bbox": "tight",
-        "savefig.format": "png",
+        "savefig.format": "png"
     }
 )
 
@@ -172,7 +172,7 @@ def plot_fitting_results(
 def save_plot(fig, plots_dir):
     filename = f"{fig.get_label()}.png"
     plot_file = os.path.join(plots_dir, filename)
-    fig.savefig(plot_file, bbox_inches="tight")
+    fig.savefig(plot_file, bbox_inches="tight", dpi=300)
     print(f"Plot saved to {plot_file}")
 
 
