@@ -166,15 +166,15 @@ def plot_single_file_replicas(
         fig.canvas.manager.set_window_title(plot_title)
     except Exception:
         pass
+    labels = ["A", "B", "C", "D", "E", "F", "G", "H"]
     ax.plot(
         concentration_vector,
         data.values.T,
-        label=[f"Replica {i+1}" for i in range(data.shape[0])],
+        marker="o",
+        linewidth=1.5,
+        label=labels,
     )
     ax.legend(loc="best")
-
-    # Display the plot
-    # plt.show()
 
     # Optionally save plot
     if save_dir:
@@ -186,42 +186,46 @@ def plot_single_file_replicas(
     return None
 
 
-def plot_file_average(file_path: str, concentration_vector: list, save_dir: str = None):
-    """Plot average of replicas for a single file."""
-    file_path = Path(file_path)
+# def plot_file_average(file_path: str, concentration_vector: list, save_dir: str = None):
+#     """Plot average of replicas for a single file."""
+#     file_path = Path(file_path)
 
-    plot_title = " ".join(file_path.stem.split("_")[1:])
-    data, info = read_bmg_xlsx(file_path)
+#     plot_title = " ".join(file_path.stem.split("_")[1:])
+#     data, info = read_bmg_xlsx(file_path)
 
-    if len(concentration_vector) != data.shape[1]:
-        raise ValueError(
-            f"Concentration vector length ({len(concentration_vector)}) doesn't match data columns ({data.shape[1]})"
-        )
+#     if len(concentration_vector) != data.shape[1]:
+#         raise ValueError(
+#             f"Concentration vector length ({len(concentration_vector)}) doesn't match data columns ({data.shape[1]})"
+#         )
 
-    data_avg = data.mean(axis=0)
+#     data_avg = data.mean(axis=0)
 
-    fig, ax = plot_utils.create_plots(plot_title=f"{plot_title} (Average)")
-    try:
-        fig.canvas.manager.set_window_title(f"{plot_title} (Average)")
-    except Exception:
-        pass
-    ax.plot(concentration_vector, data_avg.values, "o-", linewidth=2, markersize=6)
+#     fig, ax = plot_utils.create_plots(plot_title=f"{plot_title} (Average)")
+#     try:
+#         fig.canvas.manager.set_window_title(f"{plot_title}")
+#     except Exception:
+#         pass
+#     ax.plot(concentration_vector, data_avg.values, "o:", linewidth=2, markersize=6)
 
-    # Display the plot
-    # plt.show()
+#     # Display the plot
+#     # plt.show()
 
-    # Optionally save plot
-    if save_dir:
-        save_dir = Path(save_dir)
-        output_file = save_dir / f"{file_path.stem}_average.png"
-        fig.savefig(output_file, dpi=300, bbox_inches="tight")
-        return output_file
+#     # Optionally save plot
+#     if save_dir:
+#         save_dir = Path(save_dir)
+#         output_file = save_dir / f"{file_path.stem}_average.png"
+#         fig.savefig(output_file, dpi=300, bbox_inches="tight")
+#         return output_file
 
-    return None
+#     return None
 
 
 def plot_grouped_files(
-    files: list, concentration_vector: list, save_dir: str = None, group_by="analyte"
+    files: list,
+    concentration_vector: list,
+    save_dir: str = None,
+    group_by="analyte",
+    show_err_bars=True,
 ):
     """Plot grouped files (by analyte or pH)."""
     grouped = group_analytes(files, group_by=group_by)
@@ -243,21 +247,37 @@ def plot_grouped_files(
                 continue  # Skip files with mismatched concentration vectors
 
             data_avg = data.mean(axis=0)
+            data_std = data.std(axis=0)
+
             file_label = (
                 Path(file_path).stem.split("_")[-1]
                 if group_by == "analyte"
                 else " ".join(Path(file_path).stem.split("_")[1:-1])
             )
-            ax.plot(
-                concentration_vector,
-                data_avg.values,
-                "o-",
-                label=file_label,
-                linewidth=2,
-                markersize=4,
-            )
+            if show_err_bars:
+                ax.errorbar(
+                    concentration_vector,
+                    data_avg.values,
+                    yerr=data_std.values,
+                    fmt="o-",
+                    linewidth=1,
+                    markersize=6,
+                    # ecolor="gray",
+                    elinewidth=1,
+                    capsize=4,
+                    label=file_label + " ± STD",
+                )
+            else:
+                ax.plot(
+                    concentration_vector,
+                    data_avg.values,
+                    "o-",
+                    label=file_label,
+                    linewidth=1,
+                )
 
-        ax.legend()
+        ax.legend(loc="best")
+
         figures.append(fig)  # Collect figure instead of showing immediately
 
         # Optionally save plot
@@ -267,10 +287,6 @@ def plot_grouped_files(
             output_file = save_dir / f"{'_'.join(plot_title.split(' '))}_{suffix}.png"
             fig.savefig(output_file, dpi=300, bbox_inches="tight")
             plot_files.append(output_file)
-
-    # Display all figures at once
-    plt.show()
-
     return plot_files
 
 
@@ -360,6 +376,20 @@ class BMGToTxtConverter:
             row=0, column=0, sticky=tk.W, padx=(0, 3)
         )
         self.cv_entry = ttk.Entry(cv_frame)
+
+        # For testing
+        test_files = [
+            str(f)
+            for f in (Path.home() / Path("git/App Test/bmg_data/")).glob("*.xlsx")
+            if "Robot" not in f.name
+        ]
+        self.file_list.extend(test_files)
+        for f in test_files:
+            self.file_listbox.insert(tk.END, f)
+        self.cv_entry.insert(
+            0, "0.0 2.0 4.0 6.0 8.0 10.0 12.0 14.0 18.0 20.0 25.0 30.0"
+        )
+
         self.cv_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 6))
         ttk.Label(cv_frame, text="of").grid(row=0, column=2, sticky=tk.W, padx=(0, 3))
         self.cv_name_entry = ttk.Entry(cv_frame, width=12)
@@ -456,15 +486,18 @@ class BMGToTxtConverter:
             variable=self.plot_type_var,
             value="individual",
         )
-        individual_rb.grid(row=0, column=0, sticky=tk.W, padx=(0, 12))
+        col = 0
+        individual_rb.grid(row=0, column=col, sticky=tk.W, padx=(0, 12))
+        col += 1
 
-        average_rb = ttk.Radiobutton(
+        average_err_rb = ttk.Radiobutton(
             plot_type_frame,
-            text="Average Replicas",
+            text="Average ± STD",
             variable=self.plot_type_var,
-            value="average",
+            value="average_std",
         )
-        average_rb.grid(row=0, column=1, sticky=tk.W, padx=(0, 12))
+        average_err_rb.grid(row=0, column=col, sticky=tk.W, padx=(0, 12))
+        col += 1
 
         group_analyte_rb = ttk.Radiobutton(
             plot_type_frame,
@@ -472,7 +505,8 @@ class BMGToTxtConverter:
             variable=self.plot_type_var,
             value="group_analyte",
         )
-        group_analyte_rb.grid(row=0, column=2, sticky=tk.W, padx=(0, 12))
+        group_analyte_rb.grid(row=0, column=col, sticky=tk.W, padx=(0, 12))
+        col += 1
 
         group_ph_rb = ttk.Radiobutton(
             plot_type_frame,
@@ -480,7 +514,19 @@ class BMGToTxtConverter:
             variable=self.plot_type_var,
             value="group_ph",
         )
-        group_ph_rb.grid(row=0, column=3, sticky=tk.W)
+        group_ph_rb.grid(row=0, column=col, sticky=tk.W)
+        col += 1
+
+        # Add checkbox for error bars in grouped plots
+        self.show_err_bars_var = tk.BooleanVar(value=False)
+        self.show_err_bars_check = ttk.Checkbutton(
+            plot_type_frame,
+            text="Show error bars in grouped plots (± STD)",
+            variable=self.show_err_bars_var,
+        )
+        self.show_err_bars_check.grid(
+            row=1, column=0, columnspan=col, sticky=tk.W, padx=(0, 0), pady=(4, 0)
+        )
 
         # Add tooltips for all radiobuttons
         def create_tooltip(widget, text):
@@ -509,19 +555,19 @@ class BMGToTxtConverter:
 
         create_tooltip(
             individual_rb,
-            "Shows all replicas separately for each file\n(good for seeing measurement variability)",
+            "Shows all replicas separately for each file\n(good for seeing measurement variability in individual pipetting channels)",
         )
         create_tooltip(
-            average_rb,
-            "Shows the average of all replicas for each file\n(cleaner view for comparison)",
+            average_err_rb,
+            "Shows average with error bars (± STD) and points for replicates",
         )
         create_tooltip(
             group_analyte_rb,
-            "Groups files by analyte name and shows pH comparison\n(requires naming: XX_CHEMOSENSOR_DYE_ANALYTE_pHY.xlsx)",
+            "Groups files by analyte, averages over replicates, and shows pH comparison\n(requires naming: XX_CHEMOSENSOR_DYE_ANALYTE_pHY.xlsx)",
         )
         create_tooltip(
             group_ph_rb,
-            "Groups files by pH and shows analyte comparison\n(requires naming: XX_CHEMOSENSOR_DYE_ANALYTE_pHY.xlsx)",
+            "Groups files by pH, averages over replicates, and shows analyte comparison\n(requires naming: XX_CHEMOSENSOR_DYE_ANALYTE_pHY.xlsx)",
         )
 
         # File naming hint
@@ -747,7 +793,9 @@ class BMGToTxtConverter:
 
     # --- File list management ---
     def add_files(self):
-        files = filedialog.askopenfilenames(parent=self.root, initialdir=Path.cwd())
+        files = filedialog.askopenfilenames(
+            parent=self.root, initialdir=Path("$HOME/git/App Test")
+        )
         for f in files:
             if f not in self.file_list:
                 self.file_list.append(f)
@@ -942,6 +990,7 @@ class BMGToTxtConverter:
 
         concentration_vector = self.get_current_concentration_vector()
         if concentration_vector is None:
+            self.update_status("No valid concentration vector found.", "red")
             return
 
         save_dir = None
@@ -949,7 +998,7 @@ class BMGToTxtConverter:
             plot_save_dir = self.plot_save_dir_entry.get().strip() or "./Plots"
             Path(plot_save_dir).mkdir(parents=True, exist_ok=True)
             save_dir = plot_save_dir
-
+        # Handle grouped plotting upfront
         plot_type = self.plot_type_var.get()
         if plot_type in ("group_analyte", "group_ph"):
             if len(selections) < 2:
@@ -960,33 +1009,43 @@ class BMGToTxtConverter:
                 return
             files = [self.file_list[idx] for idx in selections]
             group_by = "analyte" if plot_type == "group_analyte" else "pH"
-            plot_grouped_files(files, concentration_vector, save_dir, group_by)
+            show_err_bars = self.show_err_bars_var.get()
+            figs = plot_grouped_files(
+                files, concentration_vector, save_dir, group_by, show_err_bars
+            )
+
+            # Status after grouped plotting
+            if save_dir:
+                self.update_status("Displayed and saved grouped plot(s)", "green")
+            else:
+                self.update_status("Plotting complete", "green")
+            plt.show()
             return
 
+        # Otherwise, iterate over selected files and plot per-file
         plotted_count = 0
         for idx in selections:
             file_path = self.file_list[idx]
             try:
                 self.update_status(f"Plotting {Path(file_path).name}...", "blue")
                 if self.plot_type_var.get() == "individual":
-                    output = plot_single_file_replicas(
-                        file_path, concentration_vector, save_dir
-                    )
-                elif self.plot_type_var.get() == "average":
-                    output = plot_file_average(
+                    plot_single_file_replicas(file_path, concentration_vector, save_dir)
+                # elif self.plot_type_var.get() == "average":
+                #     _ = plot_file_average(file_path, concentration_vector, save_dir)
+                elif self.plot_type_var.get() == "average_std":
+                    self.plot_file_average_with_error(
                         file_path, concentration_vector, save_dir
                     )
                 plotted_count += 1
             except Exception as e:
                 self.update_status(f"Error plotting {Path(file_path).name}: {e}", "red")
 
-        # Show all generated figures after plotting all selections
-        plt.show()
-
         if save_dir and plotted_count:
             self.update_status(f"Displayed and saved {plotted_count} plot(s)", "green")
         else:
             self.update_status("Plotting complete", "green")
+        plt.show()
+        return None
 
     def plot_all_files(self):
         """Plot all files in the list according to the selected plot type."""
@@ -996,6 +1055,7 @@ class BMGToTxtConverter:
 
         concentration_vector = self.get_current_concentration_vector()
         if not concentration_vector:
+            self.update_status("No valid concentration vector found.", "red")
             return
 
         # Determine save directory if saving is enabled
@@ -1014,17 +1074,17 @@ class BMGToTxtConverter:
         plotted_count = 0
 
         try:
-            if plot_type in ["individual", "average"]:
+            if plot_type in ["individual", "average_std"]:
                 # Plot each file individually
                 for file_path in self.file_list:
                     self.update_status(f"Plotting {Path(file_path).name}...", "blue")
                     try:
                         if plot_type == "individual":
-                            output_file = plot_single_file_replicas(
+                            plot_single_file_replicas(
                                 file_path, concentration_vector, save_dir
                             )
-                        else:  # average
-                            output_file = plot_file_average(
+                        else:  # average_std
+                            self.plot_file_average_with_error(
                                 file_path, concentration_vector, save_dir
                             )
                         plotted_count += 1
@@ -1033,6 +1093,7 @@ class BMGToTxtConverter:
                             f"Error plotting {Path(file_path).name}: {str(e)}", "red"
                         )
                         continue
+                plt.show()
 
                 if save_dir:
                     self.update_status(
@@ -1045,22 +1106,25 @@ class BMGToTxtConverter:
             elif plot_type in ["group_analyte", "group_ph"]:
                 # Group files and plot
                 group_by = "analyte" if plot_type == "group_analyte" else "pH"
+                show_err_bars = self.show_err_bars_var.get()
                 self.update_status(f"Plotting files grouped by {group_by}...", "blue")
 
                 output_files = plot_grouped_files(
-                    self.file_list, concentration_vector, save_dir, group_by
+                    self.file_list,
+                    concentration_vector,
+                    save_dir,
+                    group_by,
+                    show_err_bars,
                 )
 
+                plt.show()
                 if save_dir:
                     self.update_status(
                         f"Successfully displayed and saved {len(output_files)} grouped plots",
                         "green",
                     )
                 else:
-                    self.update_status(
-                        f"Ready",
-                        "blue" "green",
-                    )
+                    self.update_status("Ready", "blue")
 
         except Exception as e:
             self.update_status(f"Error during plotting: {str(e)}", "red")
@@ -1105,6 +1169,62 @@ class BMGToTxtConverter:
             )
         except Exception as e:
             self.update_status(f"Error: {str(e)}", "red")
+
+    def plot_file_average_with_error(
+        self, file_path: str, concentration_vector: list, save_dir: str = None
+    ):
+        """Plot average with STD error bars and semi-transparent points for a single file."""
+        file_path = Path(file_path)
+        plot_title = " ".join(file_path.stem.split("_")[1:])
+        data, info = read_bmg_xlsx(file_path)
+
+        if len(concentration_vector) != data.shape[1]:
+            raise ValueError(
+                f"Concentration vector length ({len(concentration_vector)}) doesn't match data columns ({data.shape[1]})"
+            )
+
+        data_avg = data.mean(axis=0)
+        data_std = data.std(axis=0)
+
+        fig, ax = plot_utils.create_plots(plot_title=f"{plot_title}")
+        try:
+            fig.canvas.manager.set_window_title(f"{plot_title}")
+        except Exception:
+            pass
+
+        # Light points for each replica
+        for i in range(data.shape[0]):
+            ax.plot(
+                concentration_vector,
+                data.iloc[i, :].values,
+                "o",
+                markersize=2,
+                color="gray",
+                alpha=0.45,
+                label="Measurements" if i == 0 else "",
+            )
+
+        # Average with error bars
+        ax.errorbar(
+            concentration_vector,
+            data_avg.values,
+            yerr=data_std.values,
+            fmt="o-",
+            color="red",
+            linewidth=2,
+            markersize=6,
+            ecolor="black",
+            elinewidth=1,
+            capsize=4,
+            label="Average ± STD",
+        )
+        ax.legend(loc="best")
+        if save_dir:
+            save_dir = Path(save_dir)
+            output_file = save_dir / f"{file_path.stem}_avg_std.png"
+            fig.savefig(output_file, dpi=300, bbox_inches="tight")
+            return output_file
+        return None
 
     def process_bmg_data(
         self, bmg_file, concentration_vector, save_dir=None, export_replicas=False
