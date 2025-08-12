@@ -377,18 +377,18 @@ class BMGToTxtConverter:
         )
         self.cv_entry = ttk.Entry(cv_frame)
 
-        # For testing
-        test_files = [
-            str(f)
-            for f in (Path.home() / Path("git/App Test/bmg_data/")).glob("*.xlsx")
-            if "Robot" not in f.name
-        ]
-        self.file_list.extend(test_files)
-        for f in test_files:
-            self.file_listbox.insert(tk.END, f)
-        self.cv_entry.insert(
-            0, "0.0 2.0 4.0 6.0 8.0 10.0 12.0 14.0 18.0 20.0 25.0 30.0"
-        )
+        # # For testing
+        # test_files = [
+        #     str(f)
+        #     for f in (Path.home() / Path("git/App Test/bmg_data/")).glob("*.xlsx")
+        #     if "Robot" not in f.name
+        # ]
+        # self.file_list.extend(test_files)
+        # for f in test_files:
+        #     self.file_listbox.insert(tk.END, f)
+        # self.cv_entry.insert(
+        #     0, "0.0 2.0 4.0 6.0 8.0 10.0 12.0 14.0 18.0 20.0 25.0 30.0"
+        # )
 
         self.cv_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 6))
         ttk.Label(cv_frame, text="of").grid(row=0, column=2, sticky=tk.W, padx=(0, 3))
