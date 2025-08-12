@@ -11,10 +11,10 @@ class DBAMergeFitsApp:
         self.root = root
         self.root.title("DBA Merge Fits Interface")
         self.info_label = None
-
-        # Variables
+        self.pad_x = 10
+        self.pad_y = 5
         self.results_dir_var = tk.StringVar()
-        self.assay_type_var = tk.StringVar()  # New variable for assay type
+        self.assay_type_var = tk.StringVar()
         self.outlier_threshold_var = tk.DoubleVar()
         self.rmse_threshold_factor_var = tk.DoubleVar()
         self.kd_threshold_factor_var = tk.DoubleVar()
@@ -28,8 +28,6 @@ class DBAMergeFitsApp:
         self.custom_plot_title_text_var = tk.StringVar()
         self.custom_x_label_var = tk.BooleanVar()
         self.custom_x_label_text_var = tk.StringVar()
-
-        # Set default values
         self.assay_type_var.set("dba_HtoD")  # Default to Host-to-Dye
         self.outlier_threshold_var.set(0.25)
         self.rmse_threshold_factor_var.set(3)
@@ -49,38 +47,34 @@ class DBAMergeFitsApp:
         # self.save_results_entry_var.set(self.results_dir_var.get())
         # self.save_plots_entry_var.set(self.results_dir_var.get())
 
-        # Padding
-        pad_x = 10
-        pad_y = 5
-
         # Row counter for easier layout management
         row = 0
 
         # Widgets
         tk.Label(self.root, text="Results Directory:").grid(
-            row=row, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.results_dir_entry = tk.Entry(
             self.root, textvariable=self.results_dir_var, width=40, justify="left"
         )
         self.results_dir_entry.grid(
-            row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=row, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
         tk.Button(
             self.root,
             text="Browse",
             command=lambda: self.browse_directory(self.results_dir_entry),
-        ).grid(row=row, column=2, padx=pad_x, pady=pad_y)
+        ).grid(row=row, column=2, padx=self.pad_x, pady=self.pad_y)
         row += 1
 
         # Assay Type Selection
         tk.Label(self.root, text="Assay Type:").grid(
-            row=row, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
 
         # Create a frame to hold the radio buttons horizontally
         assay_type_frame = tk.Frame(self.root)
-        assay_type_frame.grid(row=row, column=1, sticky=tk.W, padx=pad_x, pady=pad_y)
+        assay_type_frame.grid(row=row, column=1, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
 
         self.host_to_dye_radio = tk.Radiobutton(
             assay_type_frame,
@@ -101,44 +95,46 @@ class DBAMergeFitsApp:
         row += 1
 
         tk.Label(self.root, text="Outlier Relative Threshold:").grid(
-            row=row, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.outlier_threshold_entry = tk.Entry(
             self.root, textvariable=self.outlier_threshold_var, justify="left"
         )
         self.outlier_threshold_entry.grid(
-            row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=row, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
+        self.add_tooltip(self.outlier_threshold_entry, "Relative threshold for outlier rejection. Lower values are stricter and may reject more data points; higher values are more permissive.")
         row += 1
 
         tk.Label(self.root, text="RMSE Threshold Factor:").grid(
-            row=row, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.rmse_threshold_factor_entry = tk.Entry(
             self.root, textvariable=self.rmse_threshold_factor_var, justify="left"
         )
         self.rmse_threshold_factor_entry.grid(
-            row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=row, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
+        self.add_tooltip(self.rmse_threshold_factor_entry, "Maximum allowed RMSE for a fit to be accepted. Lower values are stricter and may reject more fits; higher values are more permissive.")
         row += 1
 
         tk.Label(self.root, text="Kd Threshold Factor:").grid(
-            row=row, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.kd_threshold_factor_entry = tk.Entry(
             self.root, textvariable=self.kd_threshold_factor_var, justify="left"
         )
         self.kd_threshold_factor_entry.grid(
-            row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=row, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
+        self.add_tooltip(self.kd_threshold_factor_entry, "Threshold for Kd value acceptance. Lower values are stricter and may reject more fits; higher values are more permissive.")
         row += 1
-
         tk.Checkbutton(
             self.root,
             text="Save Plots To",
             variable=self.save_plots_var,
             command=self.update_save_plot_widgets,
-        ).grid(row=row, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=row, column=0, columnspan=1, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         self.plots_dir_entry = tk.Entry(
             self.root,
             textvariable=self.save_plots_entry_var,
@@ -147,7 +143,7 @@ class DBAMergeFitsApp:
             justify="left",
         )
         self.plots_dir_entry.grid(
-            row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=row, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
         self.plots_dir_button = tk.Button(
             self.root,
@@ -155,7 +151,7 @@ class DBAMergeFitsApp:
             command=lambda: self.browse_directory(self.plots_dir_entry),
             state=tk.DISABLED,
         )
-        self.plots_dir_button.grid(row=row, column=2, padx=pad_x, pady=pad_y)
+        self.plots_dir_button.grid(row=row, column=2, padx=self.pad_x, pady=self.pad_y)
 
         self.save_plots_var.trace_add(
             "write", lambda *args: self.update_save_plot_widgets()
@@ -167,7 +163,7 @@ class DBAMergeFitsApp:
             text="Save Results To",
             variable=self.save_results_var,
             command=self.update_save_results_widgets,
-        ).grid(row=row, column=0, columnspan=1, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=row, column=0, columnspan=1, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         self.save_results_dir_entry = tk.Entry(
             self.root,
             textvariable=self.save_results_entry_var,
@@ -176,7 +172,7 @@ class DBAMergeFitsApp:
             justify="left",
         )
         self.save_results_dir_entry.grid(
-            row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=row, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
         self.save_results_dir_button = tk.Button(
             self.root,
@@ -184,7 +180,7 @@ class DBAMergeFitsApp:
             command=lambda: self.browse_directory(self.save_results_dir_entry),
             state=tk.DISABLED,
         )
-        self.save_results_dir_button.grid(row=row, column=2, padx=pad_x, pady=pad_y)
+        self.save_results_dir_button.grid(row=row, column=2, padx=self.pad_x, pady=self.pad_y)
 
         self.save_results_var.trace_add(
             "write", lambda *args: self.update_save_results_widgets()
@@ -199,7 +195,7 @@ class DBAMergeFitsApp:
             command=self.update_custom_plot_title_widgets,
         )
         self.custom_plot_title_checkbox.grid(
-            row=row, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.custom_plot_title_text_entry = tk.Entry(
             self.root,
@@ -209,7 +205,7 @@ class DBAMergeFitsApp:
             justify="left",
         )
         self.custom_plot_title_text_entry.grid(
-            row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=row, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
         row += 1
 
@@ -218,7 +214,7 @@ class DBAMergeFitsApp:
             text="Custom X-axis Label:",
             variable=self.custom_x_label_var,
             command=self.update_custom_x_label_widgets,
-        ).grid(row=row, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         self.custom_x_label_entry = tk.Entry(
             self.root,
             textvariable=self.custom_x_label_text_var,
@@ -227,7 +223,7 @@ class DBAMergeFitsApp:
             justify="left",
         )
         self.custom_x_label_entry.grid(
-            row=row, column=1, columnspan=2, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=row, column=1, columnspan=2, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
         self.custom_x_label_var.trace_add(
             "write", lambda *args: self.update_custom_x_label_widgets()
@@ -236,11 +232,11 @@ class DBAMergeFitsApp:
 
         tk.Checkbutton(
             self.root, text="Display Plots", variable=self.display_plots_var
-        ).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=row, column=0, columnspan=3, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         row += 1
 
         tk.Button(self.root, text="Run Merge Fits", command=self.run_merge_fits).grid(
-            row=row, column=0, columnspan=3, pady=10, padx=pad_x
+            row=row, column=0, columnspan=3, pady=10, padx=self.pad_x
         )
         row += 1
 
@@ -286,7 +282,22 @@ class DBAMergeFitsApp:
         fg_color = "red" if is_error else "green"
         self.info_label = tk.Label(self.root, text=message, fg=fg_color)
         self.info_label.grid(row=self.next_row, column=0, columnspan=3, pady=10)
-
+    def add_tooltip(self, widget, text):
+        tooltip = tk.Toplevel(widget)
+        tooltip.withdraw()
+        tooltip.overrideredirect(True)
+        label = tk.Label(tooltip, text=text, background="#ffffe0", relief="solid", borderwidth=1, justify="left", wraplength=200)
+        label.pack(ipadx=1)
+        def enter(event):
+            tooltip.deiconify()
+            x = event.x_root + 10
+            y = event.y_root + 10
+            tooltip.geometry(f"+{x}+{y}")
+        def leave(event):
+            tooltip.withdraw()
+        widget.bind('<Enter>', enter)
+        widget.bind('<Leave>', leave)
+        
     def run_merge_fits(self):
         try:
             results_dir = self.results_dir_var.get()

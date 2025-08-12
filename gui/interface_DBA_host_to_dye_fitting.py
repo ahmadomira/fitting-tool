@@ -12,8 +12,8 @@ class DBAFittingAppHtoD:
         self.root = root
         self.root.title("DBA Host-to-Dye Fitting Interface")
         self.info_label = None
-
-        # Variables
+        self.pad_x = 10
+        self.pad_y = 5
         self.file_path_var = tk.StringVar()
         self.use_dye_alone_results = tk.BooleanVar()
         self.dye_alone_results_var = tk.StringVar()
@@ -30,8 +30,6 @@ class DBAFittingAppHtoD:
         self.custom_x_label_text_var = tk.StringVar()
         self.custom_plot_title_var = tk.BooleanVar()
         self.custom_plot_title_text_var = tk.StringVar()
-
-        # Set default values
         self.fit_trials_var.set(200)
         self.rmse_threshold_var.set(2)
         self.r2_threshold_var.set(0.9)
@@ -41,17 +39,25 @@ class DBAFittingAppHtoD:
         # self.fit_trials_var.set(10)
         # self.d0_var.set(6e-6)
         # self.file_path_var.set(
-        #     "/Users/ahmadomira/git/App Test/dba-h2d-test/DBA_system_host_to_dye.txt"
+        #     "/Users/ahmadomira/git/App Test/DBA_system_host_to_dye.txt"
         # )
         # self.use_dye_alone_results.set(True)
         # self.save_plots_var.set(True)
         # self.save_results_var.set(True)
 
         # self.dye_alone_results_var.set(
-        #     "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
+        #     "/Users/ahmadomira/git/App Test/dye_alone_results.txt"
         # )
         # self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-h2d-test/")
         # self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-h2d-test/")
+
+        # # clean up previous runs. Walking on thin ice here, but alright..
+
+        # import glob
+
+        # for file in glob.glob(self.results_dir_var.get() + "/*"):
+        #     if os.path.isfile(file):
+        #         os.remove(file)
 
         # Padding
         pad_x = 10
@@ -231,6 +237,21 @@ class DBAFittingAppHtoD:
             row=12, column=0, columnspan=3, pady=10, padx=pad_x
         )
 
+        self.add_tooltip(
+            self.fit_trials_entry,
+            "Number of random initializations for fitting. Higher values increase robustness but take longer.",
+        )
+
+        self.add_tooltip(
+            self.rmse_threshold_entry,
+            "Maximum allowed RMSE for a fit to be accepted. Lower values are stricter and may reject more fits; higher values are more permissive.",
+        )
+
+        self.add_tooltip(
+            self.r2_threshold_entry,
+            "Minimum R² for a fit to be accepted. Higher values are stricter and require better fits; lower values allow more fits.",
+        )
+
         # Bring the window to the front
         self.root.lift()
         self.root.focus_force()
@@ -295,6 +316,33 @@ class DBAFittingAppHtoD:
         self.info_label = tk.Label(self.root, text=message, fg=fg_color)
         self.info_label.grid(row=13, column=0, columnspan=3, pady=10)
 
+    def add_tooltip(self, widget, text):
+        tooltip = tk.Toplevel(widget)
+        tooltip.withdraw()
+        tooltip.overrideredirect(True)
+        label = tk.Label(
+            tooltip,
+            text=text,
+            background="#ffffe0",
+            relief="solid",
+            borderwidth=1,
+            justify="left",
+            wraplength=200,
+        )
+        label.pack(ipadx=1)
+
+        def enter(event):
+            tooltip.deiconify()
+            x = event.x_root + 10
+            y = event.y_root + 10
+            tooltip.geometry(f"+{x}+{y}")
+
+        def leave(event):
+            tooltip.withdraw()
+
+        widget.bind("<Enter>", enter)
+        widget.bind("<Leave>", leave)
+
     def run_fitting(self):
         try:
             file_path = self.file_path_entry.get()
@@ -333,7 +381,7 @@ class DBAFittingAppHtoD:
             with ProgressWindow(
                 self.root, "Fitting in Progress", "Fitting in progress, please wait..."
             ) as progress_window:
-                run_dba_host_to_dye_fitting(
+                result = run_dba_host_to_dye_fitting(
                     file_path=file_path,
                     results_file_path=dye_alone_results,
                     d0_in_M=d0_in_M,
@@ -348,7 +396,10 @@ class DBAFittingAppHtoD:
                     custom_x_label=custom_x_label,
                     custom_plot_title=custom_plot_title,
                 )
-            self.show_message("Fitting complete!", is_error=False)
+            if not result:
+                self.show_message("No valid fits found. Try loosening thresholds, adjusting bounds, or double checking your raw data for outliers.", is_error=True)
+            else:
+                self.show_message("Fitting complete!", is_error=False)
         except Exception as e:
             if "progress_window" in locals():
                 progress_window.destroy()

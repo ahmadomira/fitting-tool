@@ -26,13 +26,19 @@ class DyeAloneFittingApp:
         # Set default values
         # # For testing
         # self.file_path_var.set(
-        #     "/Users/ahmadomira/git/App Test/dye-alone-test/Dye_alone.txt"
+        #     "/Users/ahmadomira/git/App Test/Dye_alone.txt"
         # )
         # self.save_path_var.set(
         #     "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
         # )
         # self.plots_dir_var.set("/Users/ahmadomira/git/App Test/dye-alone-test/")
         # self.save_plots_var.set(True)
+        # # clean up previous runs. Walking on thin ice here, but alright..
+        # import glob
+        # for file in glob.glob(self.plots_dir_var.get() + "/*"):
+        #     if os.path.isfile(file):
+        #         os.remove(file)
+
         self.display_plots_var.set(True)
 
         tk.Label(root, text="Input File:").grid(row=0, column=0, sticky=tk.W)
@@ -180,7 +186,7 @@ class DyeAloneFittingApp:
                 "Dye-alone fitting in progress, please wait...",
             ) as progress_window:
                 algorithm = DyeAloneFittingAlgorithm()
-                algorithm.perform_fitting(
+                algorithm.fit(
                     input_path,
                     output_path,
                     save_plots,

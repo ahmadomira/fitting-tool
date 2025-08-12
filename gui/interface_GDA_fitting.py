@@ -40,16 +40,22 @@ class GDAFittingApp:
         # self.h0_var.set(4.3e-6)
         # self.g0_var.set(6e-6)
         # self.fit_trials_var.set(10)
-        # self.file_path_var.set("/Users/ahmadomira/git/App Test/gda-test/GDA_system.txt")
+        # self.file_path_var.set("/Users/ahmadomira/git/App Test/GDA_system.txt")
         # self.use_dye_alone_results.set(True)
         # self.save_plots_var.set(True)
         # self.save_results_var.set(True)
 
         # self.dye_alone_results_var.set(
-        #     "/Users/ahmadomira/git/App Test/dye-alone-test/dye_alone_results.txt"
+        #     "/Users/ahmadomira/git/App Test/dye_alone_results.txt"
         # )
         # self.results_dir_var.set("/Users/ahmadomira/git/App Test/gda-test/")
         # self.plots_dir_var.set("/Users/ahmadomira/git/App Test/gda-test/")
+
+        # import glob
+
+        # for file in glob.glob(self.results_dir_var.get() + "/*"):
+        #     if os.path.isfile(file):
+        #         os.remove(file)
 
         pad_x = 10
         pad_y = 5
@@ -111,6 +117,10 @@ class GDAFittingApp:
             self.root, textvariable=self.fit_trials_var, justify="left"
         )
         self.fit_trials_entry.grid(row=6, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self._add_tooltip(
+            self.fit_trials_entry,
+            "Random restarts per replica. More trials increase chance of global optimum but take longer.",
+        )
         tk.Label(self.root, text="RMSE Threshold Factor:").grid(
             row=7, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
         )
@@ -120,6 +130,10 @@ class GDAFittingApp:
         self.rmse_threshold_entry.grid(
             row=7, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
         )
+        self._add_tooltip(
+            self.rmse_threshold_entry,
+            "Filter fits with RMSE <= (best RMSE × factor). Typical 2–3.",
+        )
         tk.Label(self.root, text="R² Threshold:").grid(
             row=8, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
         )
@@ -128,6 +142,10 @@ class GDAFittingApp:
         )
         self.r2_threshold_entry.grid(
             row=8, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+        )
+        self._add_tooltip(
+            self.r2_threshold_entry,
+            "Minimum R² for a fit to be accepted (0–1). Typical ≥ 0.9.",
         )
         tk.Checkbutton(
             self.root,
@@ -289,6 +307,31 @@ class GDAFittingApp:
         self.info_label = tk.Label(self.root, text=message, fg=fg_color)
         self.info_label.grid(row=15, column=0, columnspan=3, pady=10)
 
+    def _add_tooltip(self, widget, text):
+        def on_enter(event):
+            tooltip = tk.Toplevel()
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            label = tk.Label(
+                tooltip,
+                text=text,
+                background="lightyellow",
+                relief="solid",
+                borderwidth=1,
+                justify="left",
+                wraplength=200,
+            )
+            label.pack()
+            widget.tooltip = tooltip
+
+        def on_leave(event):
+            if hasattr(widget, "tooltip"):
+                widget.tooltip.destroy()
+                del widget.tooltip
+
+        widget.bind("<Enter>", on_enter)
+        widget.bind("<Leave>", on_leave)
+
     def run_fitting(self):
         try:
             file_path = self.file_path_entry.get()
@@ -330,7 +373,7 @@ class GDAFittingApp:
                 "Fitting in Progress",
                 "GDA fitting in progress, please wait...",
             ) as progress_window:
-                run_gda_fitting(
+                result = run_gda_fitting(
                     file_path,
                     dye_alone_results,
                     Kd_in_M,
@@ -347,7 +390,10 @@ class GDAFittingApp:
                     custom_x_label=custom_x_label,
                     custom_plot_title=custom_plot_title,
                 )
-            self.show_message(f"Fitting completed!", is_error=False)
+            if not result:
+                self.show_message("No valid fits found. Try loosening thresholds, adjusting bounds, or double checking your raw data for outliers.", is_error=True)
+            else:
+                self.show_message(f"Fitting completed!", is_error=False)
         except Exception as e:
             self.show_message(f"Error: {str(e)}", is_error=True)
 

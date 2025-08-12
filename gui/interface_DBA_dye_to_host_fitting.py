@@ -11,8 +11,8 @@ class DBAFittingAppDtoH:
         self.root = root
         self.root.title("DBA Dye-to-Host Fitting Interface")
         self.info_label = None
-
-        # Variables
+        self.pad_x = 10
+        self.pad_y = 5
         self.file_path_var = tk.StringVar()
         self.use_dye_alone_results = tk.BooleanVar()
         self.dye_alone_results_var = tk.StringVar()
@@ -29,43 +29,22 @@ class DBAFittingAppDtoH:
         self.custom_x_label_text_var = tk.StringVar()
         self.custom_plot_title_var = tk.BooleanVar()
         self.custom_plot_title_text_var = tk.StringVar()
-
-        # Set default values
         self.fit_trials_var.set(200)
         self.rmse_threshold_var.set(2)
         self.r2_threshold_var.set(0.9)
         self.display_plots_var.set(True)
 
-        # # for testing
-        # self.h0_var.set(8e-7)
-        # self.fit_trials_var.set(5)
-        # self.file_path_var.set(
-        #     "/Users/ahmadomira/git/App Test/dba-d2h-test/R_DBA_d2h.txt"
-        # )
-        # self.use_dye_alone_results.set(True)
-        # self.save_plots_var.set(True)
-        # self.save_results_var.set(True)
-
-        # self.dye_alone_results_var.set(
-        #     "/Users/ahmadomira/git/App Test/dba-d2h-test/dye_alone_results.txt"
-        # )
-        # self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
-        # self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
-
-        # Padding
-        pad_x = 10
-        pad_y = 5
-
-        # Widgets
         tk.Label(self.root, text="Input File Path:").grid(
-            row=0, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=0, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.file_path_entry = tk.Entry(
             self.root, textvariable=self.file_path_var, width=40, justify="left"
         )
-        self.file_path_entry.grid(row=0, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.file_path_entry.grid(
+            row=0, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
+        )
         tk.Button(self.root, text="Browse", command=self.browse_input_file).grid(
-            row=0, column=2, padx=pad_x, pady=pad_y
+            row=0, column=2, padx=self.pad_x, pady=self.pad_y
         )
 
         tk.Checkbutton(
@@ -73,7 +52,7 @@ class DBAFittingAppDtoH:
             text="Read Boundaries from File: ",
             variable=self.use_dye_alone_results,
             command=self.update_use_results_widgets,
-        ).grid(row=1, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=1, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         self.dye_alone_results_entry = tk.Entry(
             self.root,
             textvariable=self.dye_alone_results_var,
@@ -82,7 +61,7 @@ class DBAFittingAppDtoH:
             state=tk.DISABLED,
         )
         self.dye_alone_results_entry.grid(
-            row=1, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=1, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
         self.dye_alone_browse_button = tk.Button(
             self.root,
@@ -90,43 +69,61 @@ class DBAFittingAppDtoH:
             command=lambda: self.browse_file(self.dye_alone_results_entry),
             state=tk.DISABLED,
         )
-        self.dye_alone_browse_button.grid(row=1, column=2, padx=pad_x, pady=pad_y)
+        self.dye_alone_browse_button.grid(
+            row=1, column=2, padx=self.pad_x, pady=self.pad_y
+        )
         self.use_dye_alone_results.trace_add(
             "write", lambda *args: self.update_use_results_widgets()
         )
 
         tk.Label(self.root, text="H₀ (M):").grid(
-            row=3, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=3, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.h0_entry = tk.Entry(self.root, textvariable=self.h0_var, justify="left")
-        self.h0_entry.grid(row=3, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.h0_entry.grid(
+            row=3, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
+        )
 
         tk.Label(self.root, text="Number of Fit Trials:").grid(
-            row=4, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=4, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.fit_trials_entry = tk.Entry(
             self.root, textvariable=self.fit_trials_var, justify="left"
         )
-        self.fit_trials_entry.grid(row=4, column=1, padx=pad_x, pady=pad_y, sticky=tk.W)
+        self.fit_trials_entry.grid(
+            row=4, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
+        )
+        self.add_tooltip(
+            self.fit_trials_entry,
+            "Number of random initializations for fitting. Higher values increase robustness but take longer.",
+        )
 
         tk.Label(self.root, text="RMSE Threshold Factor:").grid(
-            row=5, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=5, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.rmse_threshold_entry = tk.Entry(
             self.root, textvariable=self.rmse_threshold_var, justify="left"
         )
         self.rmse_threshold_entry.grid(
-            row=5, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=5, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
+        )
+        self.add_tooltip(
+            self.rmse_threshold_entry,
+            "Maximum allowed RMSE for a fit to be accepted. Lower values are stricter and may reject more fits; higher values are more permissive.",
         )
 
         tk.Label(self.root, text="R² Threshold:").grid(
-            row=6, column=0, sticky=tk.W, padx=pad_x, pady=pad_y
+            row=6, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         self.r2_threshold_entry = tk.Entry(
             self.root, textvariable=self.r2_threshold_var, justify="left"
         )
         self.r2_threshold_entry.grid(
-            row=6, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=6, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
+        )
+        self.add_tooltip(
+            self.r2_threshold_entry,
+            "Minimum R² for a fit to be accepted. Higher values are stricter and require better fits; lower values allow more fits.",
         )
 
         tk.Checkbutton(
@@ -134,7 +131,7 @@ class DBAFittingAppDtoH:
             text="Save Plots To",
             variable=self.save_plots_var,
             command=self.update_save_plot_widgets,
-        ).grid(row=7, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=7, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         self.results_dir_entry = tk.Entry(
             self.root,
             textvariable=self.results_dir_var,
@@ -143,7 +140,7 @@ class DBAFittingAppDtoH:
             justify="left",
         )
         self.results_dir_entry.grid(
-            row=7, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=7, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
         self.results_dir_button = tk.Button(
             self.root,
@@ -151,7 +148,7 @@ class DBAFittingAppDtoH:
             command=lambda: self.browse_directory(self.results_dir_entry),
             state=tk.DISABLED,
         )
-        self.results_dir_button.grid(row=7, column=2, padx=pad_x, pady=pad_y)
+        self.results_dir_button.grid(row=7, column=2, padx=self.pad_x, pady=self.pad_y)
         self.save_plots_var.trace_add(
             "write", lambda *args: self.update_save_plot_widgets()
         )
@@ -161,7 +158,7 @@ class DBAFittingAppDtoH:
             text="Save Results To",
             variable=self.save_results_var,
             command=self.update_save_results_widgets,
-        ).grid(row=8, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=8, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         self.results_save_dir_entry = tk.Entry(
             self.root,
             textvariable=self.results_save_dir_var,
@@ -170,7 +167,7 @@ class DBAFittingAppDtoH:
             justify="left",
         )
         self.results_save_dir_entry.grid(
-            row=8, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=8, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
         self.results_save_dir_button = tk.Button(
             self.root,
@@ -178,7 +175,9 @@ class DBAFittingAppDtoH:
             command=lambda: self.browse_directory(self.results_save_dir_entry),
             state=tk.DISABLED,
         )
-        self.results_save_dir_button.grid(row=8, column=2, padx=pad_x, pady=pad_y)
+        self.results_save_dir_button.grid(
+            row=8, column=2, padx=self.pad_x, pady=self.pad_y
+        )
         self.save_results_var.trace_add(
             "write", lambda *args: self.update_save_results_widgets()
         )
@@ -188,7 +187,7 @@ class DBAFittingAppDtoH:
             text="Custom Plot Title:",
             variable=self.custom_plot_title_var,
             command=self.update_custom_plot_title_widgets,
-        ).grid(row=9, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=9, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         self.custom_plot_title_entry = tk.Entry(
             self.root,
             textvariable=self.custom_plot_title_text_var,
@@ -197,7 +196,7 @@ class DBAFittingAppDtoH:
             justify="left",
         )
         self.custom_plot_title_entry.grid(
-            row=9, column=1, columnspan=2, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=9, column=1, columnspan=2, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
         self.custom_plot_title_var.trace_add(
             "write", lambda *args: self.update_custom_plot_title_widgets()
@@ -208,7 +207,7 @@ class DBAFittingAppDtoH:
             text="Custom X-axis Label:",
             variable=self.custom_x_label_var,
             command=self.update_custom_x_label_widgets,
-        ).grid(row=10, column=0, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(row=10, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         self.custom_x_label_entry = tk.Entry(
             self.root,
             textvariable=self.custom_x_label_text_var,
@@ -217,7 +216,12 @@ class DBAFittingAppDtoH:
             justify="left",
         )
         self.custom_x_label_entry.grid(
-            row=10, column=1, columnspan=2, padx=pad_x, pady=pad_y, sticky=tk.W
+            row=10,
+            column=1,
+            columnspan=2,
+            padx=self.pad_x,
+            pady=self.pad_y,
+            sticky=tk.W,
         )
         self.custom_x_label_var.trace_add(
             "write", lambda *args: self.update_custom_x_label_widgets()
@@ -225,14 +229,69 @@ class DBAFittingAppDtoH:
 
         tk.Checkbutton(
             self.root, text="Display Plots", variable=self.display_plots_var
-        ).grid(row=11, column=0, columnspan=3, sticky=tk.W, padx=pad_x, pady=pad_y)
+        ).grid(
+            row=11,
+            column=0,
+            columnspan=3,
+            sticky=tk.W,
+            padx=self.pad_x,
+            pady=self.pad_y,
+        )
         tk.Button(self.root, text="Run Fitting", command=self.run_fitting).grid(
-            row=12, column=0, columnspan=3, pady=10, padx=pad_x
+            row=12, column=0, columnspan=3, pady=10, padx=self.pad_x
         )
 
+        # # for testing
+        # dye_alone_fit = "/Users/ahmadomira/git/App Test/R_dye_alone_results.txt"
+        # input_file = "/Users/ahmadomira/git/App Test/R_DBA_d2h.txt"
+        # self.fit_trials_var.set(10)
+        # self.h0_var.set(8e-7)
+        # self.file_path_var.set(input_file)
+        # self.use_dye_alone_results.set(True)
+        # self.save_plots_var.set(True)
+        # self.save_results_var.set(True)
+
+        # self.dye_alone_results_var.set(dye_alone_fit)
+        # self.results_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
+        # self.results_save_dir_var.set("/Users/ahmadomira/git/App Test/dba-d2h-test/")
+        
+        # # clean up previous runs. Walking on thin ice here, but alright..
+        # import glob
+
+        # for file in glob.glob(self.results_dir_var.get() + "/*"):
+        #     if os.path.isfile(file):
+        #         os.remove(file)
+                
         # Bring the window to the front
         self.root.lift()
         self.root.focus_force()
+
+    def add_tooltip(self, widget, text):
+        tooltip = tk.Toplevel(widget)
+        tooltip.withdraw()
+        tooltip.overrideredirect(True)
+        label = tk.Label(
+            tooltip,
+            text=text,
+            background="#ffffe0",
+            relief="solid",
+            borderwidth=1,
+            justify="left",
+            wraplength=200,
+        )
+        label.pack(ipadx=1)
+
+        def enter(event):
+            tooltip.deiconify()
+            x = event.x_root + 10
+            y = event.y_root + 10
+            tooltip.geometry(f"+{x}+{y}")
+
+        def leave(event):
+            tooltip.withdraw()
+
+        widget.bind("<Enter>", enter)
+        widget.bind("<Leave>", leave)
 
     def browse_input_file(self):
         file_path = filedialog.askopenfilename()
@@ -332,7 +391,7 @@ class DBAFittingAppDtoH:
             with ProgressWindow(
                 self.root, "Fitting in Progress", "Fitting in progress, please wait..."
             ) as progress_window:
-                run_dba_dye_to_host_fitting(
+                result = run_dba_dye_to_host_fitting(
                     file_path=file_path,
                     results_file_path=dye_alone_results,
                     h0_in_M=h0_in_M,
@@ -347,7 +406,13 @@ class DBAFittingAppDtoH:
                     custom_x_label=custom_x_label,
                     custom_plot_title=custom_plot_title,
                 )
-            self.show_message("Fitting complete!", is_error=False)
+            if not result:
+                self.show_message(
+                    "No valid fits found. Try loosening thresholds, adjusting bounds, or double checking your raw data for outliers.",
+                    is_error=True,
+                )
+            else:
+                self.show_message("Fitting complete!", is_error=False)
         except Exception as e:
             if "progress_window" in locals():
                 progress_window.destroy()

@@ -80,6 +80,10 @@ class IDAMergeFitsApp:
         self.outlier_threshold_entry.grid(
             row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
         )
+        self._add_tooltip(
+            self.outlier_threshold_entry,
+            "Relative deviation threshold to drop outlier replicas (e.g., 0.25 = 25%).",
+        )
         row += 1
 
         tk.Label(self.root, text="RMSE Threshold Factor:").grid(
@@ -91,6 +95,10 @@ class IDAMergeFitsApp:
         self.rmse_threshold_factor_entry.grid(
             row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
         )
+        self._add_tooltip(
+            self.rmse_threshold_factor_entry,
+            "Accept fits with RMSE within this multiple of the best RMSE (>=1).",
+        )
         row += 1
 
         tk.Label(self.root, text="Kg Threshold Factor:").grid(
@@ -101,6 +109,10 @@ class IDAMergeFitsApp:
         )
         self.kg_threshold_factor_entry.grid(
             row=row, column=1, padx=pad_x, pady=pad_y, sticky=tk.W
+        )
+        self._add_tooltip(
+            self.kg_threshold_factor_entry,
+            "Drop replicas whose Kg deviates by more than this factor from the median.",
         )
         row += 1
 
@@ -218,6 +230,31 @@ class IDAMergeFitsApp:
         # Store row counter for use in show_message
         self.next_row = row
 
+    def _add_tooltip(self, widget, text):
+        def on_enter(event):
+            tip = tk.Toplevel()
+            tip.wm_overrideredirect(True)
+            tip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            label = tk.Label(
+                tip,
+                text=text,
+                bg="lightyellow",
+                relief="solid",
+                borderwidth=1,
+                justify="left",
+                wraplength=200,
+            )
+            label.pack(padx=2, pady=2)
+            widget._tip = tip
+
+        def on_leave(event):
+            if hasattr(widget, "_tip"):
+                widget._tip.destroy()
+                del widget._tip
+
+        widget.bind("<Enter>", on_enter)
+        widget.bind("<Leave>", on_leave)
+
     def browse_directory(self, entry):
         initial_dir = (
             os.path.dirname(self.results_dir_var.get())
@@ -298,7 +335,7 @@ class IDAMergeFitsApp:
                     custom_plot_title,
                     custom_x_label,
                 )
-            self.show_message("Merging fits completed!", is_error=False)
+            self.show_message("Merging fits completed successfully.", is_error=False)
         except Exception as e:
             self.show_message(f"Error: {str(e)}", is_error=True)
 
