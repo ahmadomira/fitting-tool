@@ -573,7 +573,7 @@ def export_merge_results(
         for replica_info in retained_replicas_info:
             original_index, params, fit_rmse, fit_r2 = replica_info
             f.write(
-                f"{original_index}\t{params[1] * 1e6:.2e}\t{params[0]:.2e}\t{params[2] * 1e6:.2e}\t{params[3] * 1e6:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n"
+                f"{original_index}\t{params[1]:.2e}\t{params[0]:.2e}\t{params[2]:.2e}\t{params[3]:.2e}\t{fit_rmse:.3f}\t{fit_r2:.3f}\n"
             )
 
         f.write("\nOutput:\nAveraged Parameters:\n")

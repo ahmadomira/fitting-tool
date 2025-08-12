@@ -12,6 +12,8 @@ from core.fitting_utils import (
     calculate_fit_metrics,
     export_merge_results,
     load_replica_file,
+    to_M,
+    to_uM,
 )
 from core.forward_model import (
     compute_signal_dba,
@@ -210,7 +212,7 @@ def plot_replicas_with_outliers(
     colors = plt.cm.jet(np.linspace(0, 1, len(replicas)))
 
     for idx, replica in enumerate(replicas):
-        concentrations = replica["concentrations"]
+        concentrations_M = replica["concentrations"]
         signals = replica["signals"]
 
         # Detect outliers
@@ -243,26 +245,26 @@ def plot_replicas_with_outliers(
                 "d0": replica.get("d0"),
             }
 
-        fitting_curve_x, fitting_curve_y = generate_fitting_curve(
-            median_params, concentrations, assay_type, assay_params
+        fitting_curve_x_M, fitting_curve_y = generate_fitting_curve(
+            median_params, concentrations_M, assay_type, assay_params
         )
 
         # Convert to µM for plotting
-        concentrations_plot = concentrations * 1e6
-        fitting_curve_x_plot = fitting_curve_x * 1e6
+        concentrations_uM = to_uM(concentrations_M)
+        fitting_curve_x_uM = to_uM(fitting_curve_x_M)
 
         # Plot data points
         ax.plot(
-            concentrations_plot,
+            concentrations_uM,
             signals,
             "o",
             color=colors[idx],
-            label=f"Replica {idx + 1} Data",
+            label=f"Replica {idx + 1}",
         )
 
         # Plot fitting curve
         ax.plot(
-            fitting_curve_x_plot,
+            fitting_curve_x_uM,
             fitting_curve_y,
             "--",
             color=colors[idx],
@@ -273,7 +275,7 @@ def plot_replicas_with_outliers(
         # Mark outliers
         if len(outlier_indices) > 0:
             ax.plot(
-                concentrations_plot[outlier_indices],
+                concentrations_uM[outlier_indices],
                 signals[outlier_indices],
                 "x",
                 color=colors[idx],
@@ -331,7 +333,7 @@ def plot_averaged_fit(
 
     # Plot averaged data
     ax.plot(
-        avg_concentrations * 1e6,
+        to_uM(avg_concentrations),
         avg_signals,
         "o",
         label="Averaged Data",
@@ -344,7 +346,7 @@ def plot_averaged_fit(
     )
 
     ax.plot(
-        fitting_curve_x * 1e6,
+        to_uM(fitting_curve_x),
         fitting_curve_y,
         "--",
         color="red",
@@ -458,6 +460,7 @@ def run_merge_fits(
     valid_replicas = []
     for idx, replica in enumerate(replicas):
         median_params = [
+            # in M^-1
             replica["median_params"]["I0"],
             replica["median_params"][config["k_param"]],
             replica["median_params"]["Id"],
@@ -490,7 +493,7 @@ def run_merge_fits(
         valid_replicas.append((idx + 1, replica, median_params, rmse, r_squared))
 
     if not valid_replicas:
-        raise ValueError("No valid replicas after quality evaluation")
+        raise ValueError("No valid replicas found after quality evaluation")
 
     # Apply statistical filtering
     mean_rmse = np.mean([v[3] for v in valid_replicas])
@@ -508,10 +511,10 @@ def run_merge_fits(
     ]
 
     if not retained_replicas:
-        print(
-            "Warning: No replicas passed statistical filtering. Using all valid replicas."
-        )
-        retained_replicas = valid_replicas
+        # print(
+        #     "Warning: No replicas passed statistical filtering. Using all valid replicas."
+        # )
+        raise ValueError("No replicas passed statistical filtering. Try loosening thresholds.")
 
     print(f"\nRetained {len(retained_replicas)} out of {len(replicas)} replicas")
     for original_index, _, params, rmse, r2 in retained_replicas:
