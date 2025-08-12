@@ -48,6 +48,7 @@ def run_dba_host_to_dye_fitting(
     replicas = split_replicas(data_lines)
     print(f"Number of replicas detected: {len(replicas)}")
     figures = []
+    fit_found = False
     plt.close("all")  # Close any previous plots
 
     for replica_index, replica_data in enumerate(replicas, start=1):
@@ -149,8 +150,10 @@ def run_dba_host_to_dye_fitting(
                 fitting_params,
                 assay,
             )
+        fit_found = True
     if save_plots:
         for fig in figures:
             save_plot(fig, plots_dir)
     if display_plots:
         plt.show()
+    return fit_found
