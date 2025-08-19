@@ -43,6 +43,8 @@ def run_full_plate_fit(
     plots_dir=None,
     custom_x_label=None,
     custom_plot_title=None,
+    filter_params=None,  # dict: {'rmse_factor':..., 'k_factor':..., 'r2_threshold':...}
+    other_fits_to_plot=0,  # number of additional (next-best) fits to overlay
 ):
     """Run full plate fitting directly from BMG Excel file.
 
@@ -113,7 +115,7 @@ def run_full_plate_fit(
     )
     if not fit_results:
         raise ValueError("No valid fits found. Check data/parameters.")
-    
+
     best_params_internal = fit_results["best_params"]  # [I0, K_int, Id_int, Ihd_int]
     fitting_curve_x_uM, fitting_curve_y = _generate_fitting_curve(
         best_params_internal, concentrations_uM, assay_type, assay_params_internal
@@ -124,6 +126,36 @@ def run_full_plate_fit(
         best_params_internal, concentrations_uM, assay_type, assay_params_internal
     )
     rmse, r_squared = calculate_fit_metrics(avg_signals, computed_signals)
+
+    # Optional filtering of alternative successful fits (moved before plotting so stds can be shown)
+    filtered_fits = None
+    filtered_stats = None
+    filtered_param_summary = None
+    if filter_params:
+        rmse_factor = filter_params.get("rmse_factor")
+        k_factor = filter_params.get("k_factor")
+        r2_threshold = filter_params.get("r2_threshold")
+        if None in (rmse_factor, k_factor, r2_threshold):
+            raise ValueError(
+                "filter_params must include rmse_factor, k_factor, r2_threshold"
+            )
+        filtered_fits, filtered_stats = filter_fit_results(
+            fit_results["all_results"], rmse_factor, k_factor, r2_threshold
+        )
+        if filtered_fits:
+            filtered_param_summary = _summarize_filtered_parameters(
+                filtered_fits, ASSAY_CONFIGS[assay_type]
+            )
+
+    # Determine other fits exclusively from filtered_fits (if provided) excluding the best
+    other_fit_params = []
+    if other_fits_to_plot and filtered_fits:
+        # Sort filtered fits by RMSE
+        filtered_sorted = sorted(filtered_fits, key=lambda r: r["rmse"])
+        # Best fit internal params already recorded; skip if identical object
+        # Collect next N after best (index 0)
+        for r in filtered_sorted[1 : 1 + other_fits_to_plot]:
+            other_fit_params.append(r["params"])
 
     if save_plots or display_plots:
         plot_title = custom_plot_title or f"{config['name']} - {excel_file.stem}"
@@ -139,6 +171,10 @@ def run_full_plate_fit(
             config,
             plot_title,
             custom_x_label,
+            filtered_fits=filtered_fits,
+            other_fit_params=other_fit_params,
+            assay_type=assay_type,
+            assay_params_internal=assay_params_internal,
         )
         if save_plots:
             plot_file = plots_dir / f"{excel_file.stem}_full_plate_fit.png"
@@ -165,6 +201,9 @@ def run_full_plate_fit(
             fit_results["all_results"],
             assay_type,
             n_replicas,
+            filtered_fits=filtered_fits,
+            filtered_stats=filtered_stats,
+            filtered_param_summary=filtered_param_summary,
         )
         print(f"Results saved: {results_file}")
 
@@ -181,6 +220,10 @@ def run_full_plate_fit(
         "assay_type": assay_type,
         "excel_file": excel_file_path,
         "bounds_physical": bounds_physical,
+        "filtered_fits": filtered_fits,
+        "filtered_stats": filtered_stats,
+        "filtered_param_summary": filtered_param_summary,
+        "other_fit_params": other_fit_params,
     }
 
 
@@ -194,17 +237,17 @@ def _prepare_bounds(user_bounds, results_file_path, signals):
         results_file_path
     )
     physical_defaults = {
-    "I0": (I0_lo, I0_hi),
-    "K": (1e-8, 1e8),
-    "Id": (Id_lo, Id_hi),
-    "Ihd": (Ihd_lo, Ihd_hi),
+        "I0": (I0_lo, I0_hi),
+        "K": (1e-8, 1e8),
+        "Id": (Id_lo, Id_hi),
+        "Ihd": (Ihd_lo, Ihd_hi),
     }
-    
+
     if user_bounds:
         for k, v in user_bounds.items():
             if v is not None:
                 physical_defaults[k] = v
-    
+
     # infer I0 from signal range if I0 is inf
     if np.isinf(physical_defaults["I0"][1]):
         physical_defaults.update({"I0": (0, signals.min())})
@@ -384,6 +427,11 @@ def _create_fit_plot(
     config,
     plot_title,
     custom_x_label=None,
+    *,
+    filtered_fits=None,
+    other_fit_params=None,
+    assay_type=None,
+    assay_params_internal=None,
 ):
     x_label = (
         custom_x_label + r" $\rm{[\mu M]}$" if custom_x_label else config["x_label"]
@@ -391,13 +439,33 @@ def _create_fit_plot(
     fig, ax = create_plots(
         x_label=x_label, y_label=r"Signal $\rm{[AU]}$", plot_title=plot_title
     )
+    # Plot other fits first (so best overlays them). Each in light gray; single legend entry.
+    if other_fit_params:
+        other_label_added = False
+        for p in other_fit_params:
+            ox, oy = _generate_fitting_curve(
+                p, concentrations_uM, assay_type, assay_params_internal, n_points=21
+            )
+            ax.plot(
+                ox,
+                oy,
+                marker="",
+                linestyle="--",
+                color="gray",
+                linewidth=1,
+                alpha=0.7,
+                label="Other Fits" if not other_label_added else None,
+            )
+            other_label_added = True
+
+    # Plot best fit in green
     ax.plot(
         fitting_curve_x_uM,
         fitting_curve_y,
         "--",
-        color="darkgray",
+        color="green",
         linewidth=2,
-        label="Fit",
+        label="Best Fit",
     )
     ax.errorbar(
         concentrations_uM,
@@ -414,15 +482,34 @@ def _create_fit_plot(
     )
 
     scale = to_M(1.0)
-    param_text = (
-        f"{config['k_label']}: ${scientific_notation(params_internal[1] / scale)}$ {config['k_unit']}\n"
-        f"$I_0$: ${scientific_notation(params_internal[0])}$\n"
-        f"$I_d$: ${scientific_notation(params_internal[2] / scale)}$ {config['k_unit']}\n"
-        f"$I_{'{hd}'}$: ${scientific_notation(params_internal[3] / scale)}$ {config['k_unit']}\n"
-        f"$RMSE$: {format_value(rmse)}\n"
-        f"$R^2$: {r_squared:.3f}"
-    )
+    # Build parameter annotation, optionally with per-parameter STDEV inline if multiple filtered fits
+    if filtered_fits and len(filtered_fits) > 1:
+        arr = np.array([r["params"] for r in filtered_fits])
+        # Convert internal std (µM^-1) to physical (M^-1) by dividing by 1e-6
+        std_K = np.std(arr[:, 1]) / scale
+        std_Id = np.std(arr[:, 2]) / scale
+        std_Ihd = np.std(arr[:, 3]) / scale
+        std_I0 = np.std(arr[:, 0])  # I0 already in AU
+        param_text = (
+            f"{config['k_label']}: ${scientific_notation(params_internal[1] / scale)}$ {config['k_unit']} (STDEV: ${scientific_notation(std_K)}$)\n"
+            f"$I_0$: ${scientific_notation(params_internal[0])}$ (STDEV: ${scientific_notation(std_I0)}$)\n"
+            f"$I_d$: ${scientific_notation(params_internal[2] / scale)}$ {config['k_unit']} (STDEV: ${scientific_notation(std_Id)}$)\n"
+            f"$I_{'{hd}'}$: ${scientific_notation(params_internal[3] / scale)}$ {config['k_unit']} (STDEV: ${scientific_notation(std_Ihd)}$)\n"
+            f"RMSE: {format_value(rmse)}\n"
+            f"$R^2$: {r_squared:.3f}"
+        )
+    else:
+        param_text = (
+            f"{config['k_label']}: ${scientific_notation(params_internal[1] / scale)}$ {config['k_unit']}\n"
+            f"$I_0$: ${scientific_notation(params_internal[0])}$\n"
+            f"$I_d$: ${scientific_notation(params_internal[2] / scale)}$ {config['k_unit']}\n"
+            f"$I_{'{hd}'}$: ${scientific_notation(params_internal[3] / scale)}$ {config['k_unit']}\n"
+            f"RMSE: {format_value(rmse)}\n"
+            f"$R^2$: {r_squared:.3f}"
+        )
     place_legend_and_annotation_safely(ax, param_text)
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles[::-1], labels[::-1])
     fig.tight_layout()
     return fig
 
@@ -441,6 +528,10 @@ def _save_results(
     all_results,
     assay_type,
     n_replicas,
+    *,
+    filtered_fits=None,
+    filtered_stats=None,
+    filtered_param_summary=None,
 ):
     config = ASSAY_CONFIGS[assay_type]
     scale = to_uM(1.0)
@@ -464,7 +555,7 @@ def _save_results(
         f.write(f"Ihd: {params_internal[3] * scale:.6e} M^-1\n\n")
         f.write("Fit Quality:\n")
         f.write(f"RMSE: {rmse:.6f} \n")
-        f.write(f"R²: {r_squared:.6f}\n\n")
+        f.write(f"R2: {r_squared:.6f}\n\n")
         successful_fits = [r for r in all_results if r["success"]]
         f.write("Optimization Summary:\n")
         f.write(f"Total trials: {len(all_results)}\n")
@@ -473,7 +564,31 @@ def _save_results(
             rmse_vals = [r["rmse"] for r in successful_fits]
             r2_vals = [r["r_squared"] for r in successful_fits]
             f.write(f"RMSE range: {min(rmse_vals):.6f} - {max(rmse_vals):.6f}\n")
-            f.write(f"R² range: {min(r2_vals):.6f} - {max(r2_vals):.6f}\n")
+            f.write(f"R2 range: {min(r2_vals):.6f} - {max(r2_vals):.6f}\n")
+        if filtered_stats is not None:
+            f.write("\nFiltered Fits (based on thresholds):\n")
+            for k, v in filtered_stats.items():
+                if k.startswith("K_"):
+                    # Convert internal µM^-1 to physical M^-1
+                    if isinstance(v, tuple):
+                        lo, hi = v
+                        f.write(f"{k}: ({lo * scale:.6e}, {hi * scale:.6e}) M^-1\n")
+                    else:
+                        f.write(f"{k}: {v * scale:.6e} M^-1\n")
+                else:
+                    f.write(f"{k}: {v}\n")
+            if filtered_param_summary:
+                f.write("\nFiltered Parameter Summary (physical units):\n")
+                for line in filtered_param_summary:
+                    f.write(line + "\n")
+            if filtered_fits:
+                f.write("\nFiltered Fits Table (physical units):\n")
+                f.write("I0\tK(M^-1)\tId(M^-1)\tIhd(M^-1)\tRMSE\tR2\n")
+                for r in filtered_fits:
+                    p = r["params"]
+                    f.write(
+                        f"{p[0]:.6e}\t{p[1] * scale:.6e}\t{p[2] * scale:.6e}\t{p[3] * scale:.6e}\t{r['rmse']:.6f}\t{r['r_squared']:.6f}\n"
+                    )
         f.write("\n")
         f.write("Experimental Data:\n")
         f.write("Concentration_M\tSignal_Observed\tSignal_StdDev\tSignal_Fitted\n")
@@ -488,6 +603,85 @@ def _save_results(
         f.write("Concentration_M\tSignal_Fitted\n")
         for conc, sig in zip(fitting_curve_x_M, fitting_curve_y):
             f.write(f"{conc:.6e}\t{sig:.6f}\n")
+
+
+def filter_fit_results(all_results, rmse_factor, k_factor, r2_threshold):
+    """Filter successful optimization trials based on relative RMSE, K proximity, and R².
+
+    Parameters
+    ----------
+    all_results : list[dict]
+        List of trial result dicts produced in _run_optimization. Each dict must have keys:
+        'params' (np.ndarray: [I0, K_internal, Id, Ihd]), 'rmse', 'r_squared', 'success'.
+        Units: params in internal units (K_internal, Id, Ihd in µM^-1).
+    rmse_factor : float
+        Retain fits with RMSE <= rmse_factor * RMSE_best.
+    k_factor : float
+        Retain fits with K within [K_best / k_factor, K_best * k_factor].
+    r2_threshold : float
+        Retain fits with R² >= r2_threshold.
+
+    Returns
+    -------
+    filtered : list[dict]
+        Subset of all_results passing all filters.
+    stats : dict
+        Summary statistics about filtering (counts, thresholds used).
+    """
+    successful = [r for r in all_results if r.get("success")]
+    if not successful:
+        return [], {"reason": "no successful results"}
+    # Determine best by RMSE (could alternatively use cost, but rmse already computed)
+    best = min(successful, key=lambda r: r["rmse"])
+    rmse_best = best["rmse"]
+    K_best = best["params"][1]  # internal µM^-1
+    rmse_cutoff = rmse_factor * rmse_best
+    if k_factor <= 0:
+        raise ValueError("k_factor must be > 0")
+    K_low = K_best / k_factor
+    K_high = K_best * k_factor
+    filtered = []
+    for r in successful:
+        K_val = r["params"][1]
+        if (
+            r["rmse"] <= rmse_cutoff
+            and K_low <= K_val <= K_high
+            and r["r_squared"] >= r2_threshold
+        ):
+            filtered.append(r)
+    stats = {
+        "total_success": len(successful),
+        "retained": len(filtered),
+        "rmse_best": rmse_best,
+        "rmse_cutoff": rmse_cutoff,
+        "K_best_internal_uM_inv": K_best,
+        "K_window_internal_uM_inv": (K_low, K_high),
+        "r2_threshold": r2_threshold,
+    }
+    return filtered, stats
+
+
+def _summarize_filtered_parameters(filtered_fits, config):
+    """Compute summary lines (median, std, min, max) for I0 (AU) and K, Id, Ihd (physical M^-1).
+
+    Returns list[str] lines ready for writing.
+    """
+    scale = to_uM(1.0)
+    arr = np.array(
+        [r["params"] for r in filtered_fits]
+    )  # columns: I0, K, Id, Ihd (internal)
+    lines = []
+    # I0 already in output (AU) units
+    i0_vals = arr[:, 0]
+    lines.append(
+        f"I0: median={np.median(i0_vals):.6e}, std={np.std(i0_vals):.6e}, min={i0_vals.min():.6e}, max={i0_vals.max():.6e} AU"
+    )
+    for idx, label in zip([1, 2, 3], [config["k_param"], "Id", "Ihd"]):
+        vals_phys = arr[:, idx] * scale  # µM^-1 -> M^-1
+        lines.append(
+            f"{label}: median={np.median(vals_phys):.6e}, std={np.std(vals_phys):.6e}, min={vals_phys.min():.6e}, max={vals_phys.max():.6e} M^-1"
+        )
+    return lines
 
 
 if __name__ == "__main__":
