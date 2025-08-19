@@ -45,6 +45,7 @@ def run_full_plate_fit(
     custom_plot_title=None,
     filter_params=None,  # dict: {'rmse_factor':..., 'k_factor':..., 'r2_threshold':...}
     other_fits_to_plot=0,  # number of additional (next-best) fits to overlay
+    outlier_params=None,  # dict: {'method':'mad','threshold':2,'max_exclude':2}
 ):
     """Run full plate fitting directly from BMG Excel file.
 
@@ -92,6 +93,41 @@ def run_full_plate_fit(
     concentrations_M = np.array(concentration_vector, dtype=float)
     concentrations_uM = to_uM(concentrations_M)
 
+    # Preserve original replicate data for plotting exclusions
+    original_data = data.copy()
+    # Outlier detection (replicate-level) before averaging
+    excluded_replicates = []
+    n_replicas_raw = data.shape[0]
+    if outlier_params:
+        method = outlier_params.get("method", "mad")
+        threshold = float(outlier_params.get("threshold", 3.5))
+        max_exclude = int(outlier_params.get("max_exclude", 2))
+        if method != "mad":
+            raise ValueError("Currently only 'mad' method is supported")
+        # Compute a robust central tendency per concentration using median across replicates
+        median_curve = data.median(axis=0).values  # length = n_points
+        # Compute per-replicate RMSE vs median curve
+        replicate_rmse = []
+        for i in range(n_replicas_raw):
+            diff = data.iloc[i].values - median_curve
+            replicate_rmse.append(np.sqrt(np.mean(diff**2)))
+        replicate_rmse = np.array(replicate_rmse)
+        # Robust scale via MAD
+        med_rmse = np.median(replicate_rmse)
+        mad = np.median(np.abs(replicate_rmse - med_rmse)) or 1e-12
+        modified_z = 0.6745 * (replicate_rmse - med_rmse) / mad
+        outlier_indices = np.where(modified_z > threshold)[0].tolist()
+        if outlier_indices:
+            # Keep up to max_exclude largest z-scores
+            outlier_indices = sorted(
+                outlier_indices, key=lambda idx: modified_z[idx], reverse=True
+            )[:max_exclude]
+            excluded_replicates = outlier_indices
+            if excluded_replicates:
+                print(
+                    f"Excluding replicates (MAD rule): {excluded_replicates} (threshold={threshold})"
+                )
+                data = data.drop(data.index[excluded_replicates])
     avg_signals = data.mean(axis=0).values
     std_signals = data.std(axis=0).values
     n_replicas = data.shape[0]
@@ -175,6 +211,8 @@ def run_full_plate_fit(
             other_fit_params=other_fit_params,
             assay_type=assay_type,
             assay_params_internal=assay_params_internal,
+            excluded_replicates=excluded_replicates,
+            original_data=original_data,
         )
         if save_plots:
             plot_file = plots_dir / f"{excel_file.stem}_full_plate_fit.png"
@@ -224,6 +262,7 @@ def run_full_plate_fit(
         "filtered_stats": filtered_stats,
         "filtered_param_summary": filtered_param_summary,
         "other_fit_params": other_fit_params,
+        "excluded_replicates": excluded_replicates,
     }
 
 
@@ -432,6 +471,8 @@ def _create_fit_plot(
     other_fit_params=None,
     assay_type=None,
     assay_params_internal=None,
+    excluded_replicates=None,
+    original_data=None,
 ):
     x_label = (
         custom_x_label + r" $\rm{[\mu M]}$" if custom_x_label else config["x_label"]
@@ -458,6 +499,23 @@ def _create_fit_plot(
             )
             other_label_added = True
 
+    # Plot excluded replicates' raw points as lightgray x markers
+    if excluded_replicates and original_data is not None:
+        label_added = False
+        for idx in excluded_replicates:
+            if idx < len(original_data):
+                yvals = original_data.iloc[idx].values
+                ax.plot(
+                    concentrations_uM,
+                    yvals,
+                    linestyle="None",
+                    marker="x",
+                    color="gray",
+                    alpha=0.8,
+                    markersize=5,
+                    label=("Outliers" + ": " + ", ".join("ABCDEFGH"[_] for _ in excluded_replicates)) if not label_added else None,
+                )
+                label_added = True
     # Plot best fit in green
     ax.plot(
         fitting_curve_x_uM,
@@ -532,6 +590,7 @@ def _save_results(
     filtered_fits=None,
     filtered_stats=None,
     filtered_param_summary=None,
+    excluded_replicates=None,
 ):
     config = ASSAY_CONFIGS[assay_type]
     scale = to_uM(1.0)
@@ -539,6 +598,8 @@ def _save_results(
         f.write(f"Full Plate Fitting Results - {config['name']}\n")
         f.write("=" * 50 + "\n\n")
         f.write(f"Number of replicas averaged: {n_replicas}\n")
+        if excluded_replicates:
+            f.write(f"Excluded replicates (0-based indices): {excluded_replicates}\n")
         f.write(f"Assay type: {assay_type}\n")
         f.write(f"Number of concentration points: {len(concentrations_M)}\n\n")
         f.write("Assay Parameters:\n")
