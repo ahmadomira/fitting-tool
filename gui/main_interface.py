@@ -8,11 +8,11 @@ from gui.interface_DBA_dye_to_host_fitting import DBAFittingAppDtoH
 from gui.interface_DBA_host_to_dye_fitting import DBAFittingAppHtoD
 from gui.interface_dba_merge_fits import DBAMergeFitsApp
 from gui.interface_DyeAlone_fitting import DyeAloneFittingApp
+from gui.interface_full_plate_fitting import FullPlateFittingApp
 from gui.interface_GDA_fitting import GDAFittingApp
 from gui.interface_gda_merge_fits import GDAMergeFitsApp
 from gui.interface_IDA_fitting import IDAFittingApp
 from gui.interface_ida_merge_fits import IDAMergeFitsApp
-
 from utils.bmg_to_txt import BMGToTxtConverter
 
 
@@ -25,9 +25,9 @@ def main():
 
     # Create all widgets (all the existing sections and buttons will follow)
 
-    # Preprocess Data Section
+    # Process BMG Data Section
     preprocess_data_label = tk.Label(
-        root, text="Preprocess Data", font=("Arial", 16, "bold")
+        root, text="Process BMG Data", font=("Arial", 16, "bold")
     )
     preprocess_data_label.pack(pady=5)
 
@@ -49,7 +49,17 @@ def main():
     bmg_to_txt_button = tk.Button(
         root, text="BMG Data (*.xlsx)", command=open_bmg_to_txt_converter
     )
-    bmg_to_txt_button.pack(pady=(10, 20), padx=15, fill=tk.X)
+    bmg_to_txt_button.pack(pady=(10, 10), padx=15, fill=tk.X)
+
+    def open_full_plate_fitting():
+        new_window = tk.Toplevel(root)
+        new_window.title("Full Plate Fitting")
+        FullPlateFittingApp(new_window)
+
+    full_plate_button = tk.Button(
+        root, text="Full Plate Fitting", command=open_full_plate_fitting
+    )
+    full_plate_button.pack(pady=(0, 20), padx=15, fill=tk.X)
 
     # Fitting Section
     fitting_label = tk.Label(root, text="Fitting", font=("Arial", 16, "bold"))
