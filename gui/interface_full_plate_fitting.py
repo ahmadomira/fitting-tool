@@ -143,18 +143,42 @@ class FullPlateFittingApp:
         self.custom_plot_title_var = tk.BooleanVar()
         self.custom_plot_title_text_var = tk.StringVar()
 
-        # # for testing
-        # self.excel_path_var.set(
-        #     "/Users/ahmadomira/Downloads/DBA_h2d_with_outliers.xlsx"
-        # )
-        # self.cv_entry_var.set("0, 30, 60, 100, 150, 225, 300, 400, 500, 600, 700, 840")
-        # self.param_vars["d0"].set(6e-6)
-        # self.enable_filter_var.set(True)
-        # self.enable_outlier_var.set(True)
-        # self.save_plots_var.set(True)
-        # self.plots_dir_var.set("/Users/ahmadomira/Downloads")
-        # self.save_results_var.set(True)
-        # self.results_dir_var.set("/Users/ahmadomira/Downloads")
+        # Plot styling / export extensions
+        self.use_style_file_var = tk.BooleanVar()
+        self.style_file_var = tk.StringVar()
+        # Removed grid + legend vars (now handled by style); keep toggles below
+        self.export_plot_data_var = tk.BooleanVar()
+        self.show_outliers_var = tk.BooleanVar(value=True)
+        self.show_param_box_var = tk.BooleanVar(value=True)
+
+        # Major/minor grid toggles
+        self.show_major_grid_var = tk.BooleanVar(value=True)
+        self.show_minor_grid_var = tk.BooleanVar(value=True)
+
+        # Built-in style quick select
+        self.built_in_style_var = tk.StringVar(value="Biedermann Labs")
+
+        # (Optional) pre-fill for testing / demo: comment out for production
+        try:
+            demo_excel = "/Users/ahmadomira/Downloads/DBA_h2d_with_outliers.xlsx"
+            if os.path.exists(demo_excel):
+                self.excel_path_var.set(demo_excel)
+            self.cv_entry_var.set(
+                "0, 30, 60, 100, 150, 225, 300, 400, 500, 600, 700, 840"
+            )
+            self.param_vars["d0"].set(6e-6)
+            self.enable_filter_var.set(True)
+            self.enable_outlier_var.set(True)
+            self.save_plots_var.set(True)
+            self.plots_dir_var.set(
+                os.path.dirname(demo_excel)
+                if os.path.exists(demo_excel)
+                else os.getcwd()
+            )
+            self.save_results_var.set(True)
+            self.results_dir_var.set(self.plots_dir_var.get())
+        except Exception:
+            pass
 
         self._build_ui()
 
@@ -450,6 +474,99 @@ class FullPlateFittingApp:
         ).grid(row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         row += 1
 
+        # --- Styling & Export Options ---
+        style_lbl = tk.Label(self.root, text="Plot Styling & Export:", fg="navy")
+        style_lbl.grid(
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=(self.pad_y, 0)
+        )
+        row += 1
+        # Plot Styling dropdown (includes custom default)
+        import matplotlib.style as mpl_style
+
+        styles = sorted(mpl_style.available)
+        if "Biedermann Labs" not in styles:
+            styles.insert(0, "Biedermann Labs")
+        tk.Label(self.root, text="Plot Styling:").grid(
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
+        )
+        style_menu = tk.OptionMenu(
+            self.root,
+            self.built_in_style_var,
+            *styles,
+            command=lambda v: self._on_builtin_style_select(v),
+        )
+        style_menu.grid(
+            row=row, column=1, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
+        )
+        ToolTip(
+            style_menu,
+            "Select a base style. 'Biedermann Labs' = internal default (no external style). Custom file can further tweak.",
+        )
+        row += 1
+        # Use Style File checkbox moved below dropdown
+        style_chk = tk.Checkbutton(
+            self.root,
+            text="Use Style File (.mplstyle)",
+            variable=self.use_style_file_var,
+            command=self._toggle_style_file,
+        )
+        style_chk.grid(row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
+        self.style_file_entry = tk.Entry(
+            self.root,
+            textvariable=self.style_file_var,
+            width=42,
+            state=tk.DISABLED,
+            justify="left",
+        )
+        self.style_file_entry.grid(
+            row=row, column=1, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
+        )
+        self.style_browse_btn = tk.Button(
+            self.root,
+            text="Browse",
+            state=tk.DISABLED,
+            command=lambda: self._browse_generic(self.style_file_entry),
+        )
+        self.style_browse_btn.grid(row=row, column=2, padx=self.pad_x, pady=self.pad_y)
+        ToolTip(
+            style_chk,
+            "Apply a Matplotlib style sheet (.mplstyle) to customize fonts, colors, legend, etc.",
+        )
+        row += 1
+
+        # Toggles
+        toggle_frame = tk.Frame(self.root)
+        toggle_frame.grid(
+            row=row,
+            column=0,
+            columnspan=3,
+            sticky=tk.W,
+            padx=self.pad_x,
+            pady=self.pad_y,
+        )
+        tk.Checkbutton(
+            toggle_frame, text="Show Major Grid", variable=self.show_major_grid_var
+        ).pack(side=tk.LEFT, padx=(0, 8))
+        tk.Checkbutton(
+            toggle_frame, text="Show Minor Grid", variable=self.show_minor_grid_var
+        ).pack(side=tk.LEFT, padx=(0, 8))
+        tk.Checkbutton(
+            toggle_frame, text="Show Outliers", variable=self.show_outliers_var
+        ).pack(side=tk.LEFT, padx=(0, 8))
+        tk.Checkbutton(
+            toggle_frame, text="Show Parameter Box", variable=self.show_param_box_var
+        ).pack(side=tk.LEFT, padx=(0, 8))
+        tk.Checkbutton(
+            toggle_frame,
+            text="Export Plot Data (CSV)",
+            variable=self.export_plot_data_var,
+        ).pack(side=tk.LEFT, padx=(0, 8))
+        ToolTip(
+            toggle_frame,
+            "Toggle outlier markers (if any removed), parameter annotation box, and CSV export of plotted data.",
+        )
+        row += 1
+
         tk.Button(
             self.root, text="Run Full Plate Fitting", command=self._run_fitting
         ).grid(row=row, column=0, columnspan=3, pady=(10, 6))
@@ -621,6 +738,30 @@ class FullPlateFittingApp:
         state = tk.NORMAL if self.use_bounds_file_var.get() else tk.DISABLED
         self.bounds_entry.config(state=state)
         self.bounds_browse_btn.config(state=state)
+
+    def _toggle_style_file(self):
+        state = tk.NORMAL if self.use_style_file_var.get() else tk.DISABLED
+        self.style_file_entry.config(state=state)
+        self.style_browse_btn.config(state=state)
+
+    def _parse_limit_pair(self, lo_txt, hi_txt):
+        lo = lo_txt.strip()
+        hi = hi_txt.strip()
+        if not lo and not hi:
+            return None
+        try:
+            lo_v = float(lo) if lo else None
+            hi_v = float(hi) if hi else None
+            if lo_v is None or hi_v is None:
+                # Only apply if both provided
+                return None
+            if hi_v <= lo_v:
+                self._show_message("Axis limit hi must be > lo", True)
+                return None
+            return (lo_v, hi_v)
+        except ValueError:
+            self._show_message("Invalid axis limit(s)", True)
+            return None
 
     # ------------- Concentration vector mgmt -------------
     def _save_cv(self):
@@ -822,6 +963,13 @@ class FullPlateFittingApp:
             with ProgressWindow(
                 self.root, "Full Plate Fitting", "Processing & fitting, please wait..."
             ):
+                style_stack = []
+                selected_style = self.built_in_style_var.get().strip()
+                if selected_style and selected_style != "Biedermann Labs":
+                    style_stack.append(selected_style)
+                if self.use_style_file_var.get() and self.style_file_var.get().strip():
+                    style_stack.append(self.style_file_var.get().strip())
+                style_param = style_stack if style_stack else None
                 result = run_full_plate_fit(
                     excel_file,
                     conc_M,
@@ -840,6 +988,13 @@ class FullPlateFittingApp:
                     filter_params=filter_params,
                     other_fits_to_plot=other_fits_to_plot,
                     outlier_params=outlier_params,
+                    style_file=style_param,
+                    show_major_grid=self.show_major_grid_var.get(),
+                    show_minor_grid=self.show_minor_grid_var.get(),
+                    show_outlier_markers=self.show_outliers_var.get(),
+                    show_param_box=self.show_param_box_var.get(),
+                    legend_loc=None,
+                    export_plot_data=self.export_plot_data_var.get(),
                 )
 
             if not result:
@@ -871,8 +1026,5 @@ class FullPlateFittingApp:
             column=0, row=999, columnspan=3, sticky=tk.W, padx=self.pad_x, pady=(8, 4)
         )
 
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    FullPlateFittingApp(root)
-    root.mainloop()
+    def _on_builtin_style_select(self, value):
+        pass

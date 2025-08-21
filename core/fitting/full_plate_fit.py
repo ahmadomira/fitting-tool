@@ -46,6 +46,16 @@ def run_full_plate_fit(
     filter_params=None,  # dict: {'rmse_factor':..., 'k_factor':..., 'r2_threshold':...}
     other_fits_to_plot=0,  # number of additional (next-best) fits to overlay
     outlier_params=None,  # dict: {'method':'mad','threshold':2,'max_exclude':2}
+    # --- styling / export extensions ---
+    style_file=None,  # path to a .mplstyle file (applied before plotting)
+    xlim=None,  # (xmin, xmax) in µM units for the x-axis
+    ylim=None,  # (ymin, ymax) for signal axis
+    show_major_grid=True,
+    show_minor_grid=True,
+    show_outlier_markers=True,
+    show_param_box=True,
+    legend_loc=None,  # overrides auto placement if provided
+    export_plot_data=False,  # write CSV with plotted data & fit curve
 ):
     """Run full plate fitting directly from BMG Excel file.
 
@@ -76,10 +86,10 @@ def run_full_plate_fit(
         results_save_dir = excel_file.parent
     if plots_dir is None:
         plots_dir = results_save_dir
-        
+
     plots_dir = Path(plots_dir)
     results_save_dir = Path(results_save_dir)
-    
+
     results_save_dir.mkdir(parents=True, exist_ok=True)
     plots_dir.mkdir(parents=True, exist_ok=True)
 
@@ -197,31 +207,115 @@ def run_full_plate_fit(
         for r in filtered_sorted[1 : 1 + other_fits_to_plot]:
             other_fit_params.append(r["params"])
 
-    if save_plots or display_plots:
+    if save_plots or display_plots or export_plot_data:
         plot_title = custom_plot_title or f"{config['name']} - {excel_file.stem}"
-        fig = _create_fit_plot(
-            concentrations_uM,
-            avg_signals,
-            std_signals,
-            fitting_curve_x_uM,
-            fitting_curve_y,
-            best_params_internal,
-            rmse,
-            r_squared,
-            config,
-            plot_title,
-            custom_x_label,
-            filtered_fits=filtered_fits,
-            other_fit_params=other_fit_params,
-            assay_type=assay_type,
-            assay_params_internal=assay_params_internal,
-            excluded_replicates=excluded_replicates,
-            original_data=original_data,
-        )
+        # Optional style application
+        style_ctx = None
+        import matplotlib.style as mpl_style
+
+        style_stack = []
+        # Handle dropdown base style (may be injected through style_file param if list provided later)
+        if isinstance(style_file, (list, tuple)):
+            style_stack.extend([s for s in style_file if s])
+        elif isinstance(style_file, str) and style_file:
+            style_stack.append(style_file)
+        # Inject custom 'Biedermann Labs' style if requested
+        if any(s == "Biedermann Labs" for s in style_stack):
+            # Define temporary style dictionary; push ahead of others (later ones override)
+            biedermann_style = {
+                "axes.grid": False,  # base grids handled manually
+                "font.size": 11,
+                "axes.titlesize": 13,
+                "axes.labelsize": 12,
+                "xtick.labelsize": 10,
+                "ytick.labelsize": 10,
+                "lines.linewidth": 1.5,
+                "lines.markersize": 5,
+                "legend.frameon": True,
+                "legend.framealpha": 0.55,
+                "figure.dpi": 120,
+            }
+            # Use style.context with dict first
+            style_context_stack = [biedermann_style] + [
+                s for s in style_stack if s != "Biedermann Labs"
+            ]
+        else:
+            style_context_stack = style_stack
+        # ... later when creating plots wrap with context if any ...
+        if style_context_stack:
+            import contextlib
+
+            with mpl_style.context(style_context_stack):
+                fig = _create_fit_plot(
+                    concentrations_uM,
+                    avg_signals,
+                    std_signals,
+                    fitting_curve_x_uM,
+                    fitting_curve_y,
+                    best_params_internal,
+                    rmse,
+                    r_squared,
+                    config,
+                    plot_title,
+                    custom_x_label,
+                    filtered_fits=filtered_fits,
+                    other_fit_params=other_fit_params,
+                    assay_type=assay_type,
+                    assay_params_internal=assay_params_internal,
+                    excluded_replicates=excluded_replicates,
+                    original_data=original_data,
+                    xlim=xlim,
+                    ylim=ylim,
+                    show_major_grid=show_major_grid,
+                    show_minor_grid=show_minor_grid,
+                    show_outlier_markers=show_outlier_markers,
+                    show_param_box=show_param_box,
+                    legend_loc=legend_loc,
+                )
+        else:
+            fig = _create_fit_plot(
+                concentrations_uM,
+                avg_signals,
+                std_signals,
+                fitting_curve_x_uM,
+                fitting_curve_y,
+                best_params_internal,
+                rmse,
+                r_squared,
+                config,
+                plot_title,
+                custom_x_label,
+                filtered_fits=filtered_fits,
+                other_fit_params=other_fit_params,
+                assay_type=assay_type,
+                assay_params_internal=assay_params_internal,
+                excluded_replicates=excluded_replicates,
+                original_data=original_data,
+                xlim=xlim,
+                ylim=ylim,
+                show_major_grid=show_major_grid,
+                show_minor_grid=show_minor_grid,
+                show_outlier_markers=show_outlier_markers,
+                show_param_box=show_param_box,
+                legend_loc=legend_loc,
+            )
         if save_plots:
             plot_file = plots_dir / f"{excel_file.stem}_full_plate_fit.png"
             fig.savefig(plot_file, bbox_inches="tight", dpi=300)
             print(f"Plot saved: {plot_file}")
+        if export_plot_data:
+            csv_file = plots_dir / f"{excel_file.stem}_plot_data.csv"
+            _export_plot_data(
+                csv_file,
+                concentrations_M,
+                avg_signals,
+                std_signals,
+                fitting_curve_x_M,
+                fitting_curve_y,
+                excluded_replicates,
+                original_data,
+            )
+            print(f"Plot data exported: {csv_file}")
         if display_plots:
             plt.show()
         else:
@@ -267,6 +361,14 @@ def run_full_plate_fit(
         "filtered_param_summary": filtered_param_summary,
         "other_fit_params": other_fit_params,
         "excluded_replicates": excluded_replicates,
+        "style_applied": style_file,
+        "xlim": xlim,
+        "ylim": ylim,
+        "show_major_grid": show_major_grid,
+        "show_minor_grid": show_minor_grid,
+        "show_outlier_markers": show_outlier_markers,
+        "show_param_box": show_param_box,
+        "legend_loc": legend_loc,
     }
 
 
@@ -477,12 +579,23 @@ def _create_fit_plot(
     assay_params_internal=None,
     excluded_replicates=None,
     original_data=None,
+    xlim=None,
+    ylim=None,
+    show_major_grid=True,
+    show_minor_grid=True,
+    show_outlier_markers=True,
+    show_param_box=True,
+    legend_loc=None,
 ):
     x_label = (
         custom_x_label + r" $\rm{[\mu M]}$" if custom_x_label else config["x_label"]
     )
     fig, ax = create_plots(
-        x_label=x_label, y_label=r"Signal $\rm{[AU]}$", plot_title=plot_title
+        x_label=x_label,
+        y_label=r"Signal $\rm{[AU]}$",
+        plot_title=plot_title,
+        show_major_grid=show_major_grid,
+        show_minor_grid=show_minor_grid,
     )
     # Plot other fits first (so best overlays them). Each in light gray; single legend entry.
     if other_fit_params:
@@ -504,7 +617,7 @@ def _create_fit_plot(
             other_label_added = True
 
     # Plot excluded replicates' raw points as lightgray x markers
-    if excluded_replicates and original_data is not None:
+    if show_outlier_markers and excluded_replicates and original_data is not None:
         label_added = False
         for idx in excluded_replicates:
             if idx < len(original_data):
@@ -517,7 +630,15 @@ def _create_fit_plot(
                     color="gray",
                     alpha=0.8,
                     markersize=5,
-                    label=("Outliers" + ": " + ", ".join("ABCDEFGH"[_] for _ in excluded_replicates)) if not label_added else None,
+                    label=(
+                        (
+                            "Outliers"
+                            + ": "
+                            + ", ".join("ABCDEFGH"[_] for _ in excluded_replicates)
+                        )
+                        if not label_added
+                        else None
+                    ),
                 )
                 label_added = True
     # Plot best fit in green
@@ -569,11 +690,71 @@ def _create_fit_plot(
             f"RMSE: {format_value(rmse)}\n"
             f"$R^2$: {r_squared:.3f}"
         )
-    place_legend_and_annotation_safely(ax, param_text)
+    if show_param_box:
+        place_legend_and_annotation_safely(ax, param_text)
+    # Legend location override or reverse order for consistent ordering
     handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[::-1], labels[::-1])
+    if legend_loc:
+        ax.legend(handles[::-1], labels[::-1], loc=legend_loc)
+    else:
+        ax.legend(handles[::-1], labels[::-1])
+    # Axis limits
+    if xlim:
+        ax.set_xlim(xlim)
+    if ylim:
+        ax.set_ylim(ylim)
     fig.tight_layout()
     return fig
+
+
+def _export_plot_data(
+    csv_path,
+    concentrations_M,
+    avg_signals,
+    std_signals,
+    fitting_curve_x_M,
+    fitting_curve_y,
+    excluded_replicates,
+    original_data,
+):
+    """Export the data necessary to recreate the plot in external software.
+
+    Columns:
+      concentration_M, avg_signal, std_signal, fit_curve_concentration_M, fit_curve_signal
+    Outlier replicate rows (if any) appended after a blank line with prefix 'outlier_' and replicate index.
+    """
+    import csv
+
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                "concentration_M",
+                "avg_signal",
+                "std_signal",
+                "fit_curve_concentration_M",
+                "fit_curve_signal",
+            ]
+        )
+        # Align lengths by iterating over max length
+        max_len = max(len(concentrations_M), len(fitting_curve_x_M))
+        for i in range(max_len):
+            conc = concentrations_M[i] if i < len(concentrations_M) else ""
+            avg = avg_signals[i] if i < len(avg_signals) else ""
+            std = std_signals[i] if i < len(std_signals) else ""
+            fcx = fitting_curve_x_M[i] if i < len(fitting_curve_x_M) else ""
+            fcy = fitting_curve_y[i] if i < len(fitting_curve_y) else ""
+            writer.writerow([conc, avg, std, fcx, fcy])
+        if excluded_replicates:
+            writer.writerow([])
+            writer.writerow(
+                ["outlier_replicate_index", "point_concentration_M", "signal"]
+            )
+            for ridx in excluded_replicates:
+                if ridx < len(original_data):
+                    row = original_data.iloc[ridx].values
+                    for c, sig in zip(concentrations_M, row):
+                        writer.writerow([ridx, c, sig])
 
 
 def _save_results(

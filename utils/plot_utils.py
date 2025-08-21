@@ -28,9 +28,9 @@ plt.rcParams.update(
         "font.weight": "light",
         "axes.titleweight": "light",
         "axes.labelweight": "light",
-        "axes.grid": True,
-        "axes.grid.axis": "both",
-        "axes.grid.which": "both",
+        # "axes.grid": True,
+        # "axes.grid.axis": "both",
+        # "axes.grid.which": "both",
         "axes.formatter.use_mathtext": True,
         "axes.formatter.limits": (-2, 3),
         "xtick.direction": "in",
@@ -46,12 +46,12 @@ plt.rcParams.update(
         "legend.framealpha": 0.5,
         "legend.fancybox": True,
         "legend.shadow": False,
-        "grid.color": "gray",
-        "grid.linestyle": "-",
-        "grid.linewidth": 0.5,
-        "grid.alpha": 0.7,
+        # "grid.color": "gray",
+        # "grid.linestyle": "-",
+        # "grid.linewidth": 0.5,
+        # "grid.alpha": 0.7,
         "savefig.bbox": "tight",
-        "savefig.format": "png"
+        "savefig.format": "png",
     }
 )
 
@@ -85,24 +85,36 @@ def create_plots(
     y_label=r"Intensity $\rm{[AU]}$",
     suptitle="",
     plot_title="",
+    show_major_grid=True,
+    show_minor_grid=True,
     *args,
     **kwargs,
 ):
+    """Create a matplotlib figure/axes with optional separate grid control.
 
+    Parameters
+    ----------
+    show_major_grid : bool
+        Show major grid lines.
+    show_minor_grid : bool
+        Show minor grid lines (minor ticks must be enabled in rcParams).
+    """
     fig, ax = plt.subplots(*args, **kwargs)
-
-    ax.grid(which="major", linestyle=":", linewidth="0.5", color="gray")
-    ax.grid(which="minor", linestyle=":", linewidth="0.5", color="lightgray")
-
-    if suptitle != "":
+    # Apply original styling defaults manually (override any style file for grids)
+    if show_major_grid:
+        ax.grid(which="major", linestyle=":", linewidth=0.5, color="gray", alpha=0.7)
+    if show_minor_grid:
+        ax.grid(
+            which="minor", linestyle=":", linewidth=0.5, color="lightgray", alpha=0.7
+        )
+    if not show_major_grid and not show_minor_grid:
+        ax.grid(False)
+    if suptitle:
         fig.suptitle(f"{suptitle}")
-
-    if plot_title != "":
+    if plot_title:
         ax.set_title(f"{plot_title}")
-
     ax.set_xlabel(f"{x_label}")
     ax.set_ylabel(f"{y_label}")
-
     return fig, ax
 
 
