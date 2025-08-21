@@ -163,20 +163,20 @@ class FullPlateFittingApp:
             demo_excel = "/Users/ahmadomira/Downloads/DBA_h2d_with_outliers.xlsx"
             if os.path.exists(demo_excel):
                 self.excel_path_var.set(demo_excel)
-            self.cv_entry_var.set(
-                "0, 30, 60, 100, 150, 225, 300, 400, 500, 600, 700, 840"
-            )
-            self.param_vars["d0"].set(6e-6)
-            self.enable_filter_var.set(True)
-            self.enable_outlier_var.set(True)
-            self.save_plots_var.set(True)
-            self.plots_dir_var.set(
-                os.path.dirname(demo_excel)
-                if os.path.exists(demo_excel)
-                else os.getcwd()
-            )
-            self.save_results_var.set(True)
-            self.results_dir_var.set(self.plots_dir_var.get())
+                self.cv_entry_var.set(
+                    "0, 30, 60, 100, 150, 225, 300, 400, 500, 600, 700, 840"
+                )
+                self.param_vars["d0"].set(6e-6)
+                self.enable_filter_var.set(True)
+                self.enable_outlier_var.set(True)
+                self.save_plots_var.set(True)
+                self.plots_dir_var.set(
+                    os.path.dirname(demo_excel)
+                    if os.path.exists(demo_excel)
+                    else os.getcwd()
+                )
+                self.save_results_var.set(True)
+                self.results_dir_var.set(self.plots_dir_var.get())
         except Exception:
             pass
 
