@@ -73,11 +73,15 @@ def run_full_plate_fit(
 
     excel_file = Path(excel_file_path)
     if results_save_dir is None:
-        results_save_dir = excel_file.parent / "full_plate_results"
+        results_save_dir = excel_file.parent
     if plots_dir is None:
-        plots_dir = results_save_dir / "plots"
-    Path(results_save_dir).mkdir(parents=True, exist_ok=True)
-    Path(plots_dir).mkdir(parents=True, exist_ok=True)
+        plots_dir = results_save_dir
+        
+    plots_dir = Path(plots_dir)
+    results_save_dir = Path(results_save_dir)
+    
+    results_save_dir.mkdir(parents=True, exist_ok=True)
+    plots_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Processing {excel_file.name} for {config['name']} analysis...")
     try:

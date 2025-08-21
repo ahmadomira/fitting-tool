@@ -82,8 +82,8 @@ class FullPlateFittingApp:
 
     # (Display Label, Internal Code)
     ASSAY_TYPES = [
-        ("DBA (H to D)", "dba_HtoD"),
-        ("DBA (D to H)", "dba_DtoH"),
+        ("DBA (H → D)", "dba_HtoD"),
+        ("DBA (D → H)", "dba_DtoH"),
         ("IDA", "ida"),
         ("GDA", "gda"),
     ]
@@ -122,7 +122,7 @@ class FullPlateFittingApp:
         # Filtering options
         self.enable_filter_var = tk.BooleanVar()
         self.rmse_factor_var = tk.DoubleVar(value=2.0)
-        self.k_factor_var = tk.DoubleVar(value=5.0)
+        self.k_factor_var = tk.DoubleVar(value=2.0)
         self.r2_threshold_var = tk.DoubleVar(value=0.9)
         self.other_fits_var = tk.IntVar(value=0)
 
@@ -143,6 +143,19 @@ class FullPlateFittingApp:
         self.custom_plot_title_var = tk.BooleanVar()
         self.custom_plot_title_text_var = tk.StringVar()
 
+        # # for testing
+        # self.excel_path_var.set(
+        #     "/Users/ahmadomira/Downloads/DBA_h2d_with_outliers.xlsx"
+        # )
+        # self.cv_entry_var.set("0, 30, 60, 100, 150, 225, 300, 400, 500, 600, 700, 840")
+        # self.param_vars["d0"].set(6e-6)
+        # self.enable_filter_var.set(True)
+        # self.enable_outlier_var.set(True)
+        # self.save_plots_var.set(True)
+        # self.plots_dir_var.set("/Users/ahmadomira/Downloads")
+        # self.save_results_var.set(True)
+        # self.results_dir_var.set("/Users/ahmadomira/Downloads")
+
         self._build_ui()
 
         # Bring window forward
@@ -156,26 +169,35 @@ class FullPlateFittingApp:
             row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         tk.Entry(
-            self.root, textvariable=self.excel_path_var, width=42, justify="left"
+            self.root, textvariable=self.excel_path_var, width=55, justify="left"
         ).grid(row=row, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W)
         tk.Button(self.root, text="Browse", command=self._browse_excel).grid(
-            row=row, column=2, padx=self.pad_x, pady=self.pad_y
+            row=row, column=2, pady=self.pad_y, sticky=tk.W
         )
         row += 1
 
-        tk.Checkbutton(
+        dye_alone_btn = tk.Checkbutton(
             self.root,
-            text="Use Bounds From File:",
+            text="Use Dye Alone Results:",
             variable=self.use_bounds_file_var,
             command=self._update_bounds_widgets,
-        ).grid(row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
+        )
+        dye_alone_btn.grid(
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
+        )
         self.bounds_entry = tk.Entry(
             self.root,
             textvariable=self.bounds_file_var,
-            width=42,
+            width=55,
             state=tk.DISABLED,
             justify="left",
         )
+
+        ToolTip(
+            dye_alone_btn,
+            "Use dye-only experiment results to set initial guesses and bounds for I₀ and Id.",
+        )
+
         self.bounds_entry.grid(
             row=row, column=1, padx=self.pad_x, pady=self.pad_y, sticky=tk.W
         )
@@ -185,7 +207,7 @@ class FullPlateFittingApp:
             state=tk.DISABLED,
             command=lambda: self._browse_generic(self.bounds_entry),
         )
-        self.bounds_browse_btn.grid(row=row, column=2, padx=self.pad_x, pady=self.pad_y)
+        self.bounds_browse_btn.grid(row=row, column=2, pady=self.pad_y, sticky=tk.W)
         row += 1
 
         # Assay type
@@ -207,7 +229,7 @@ class FullPlateFittingApp:
         self.params_frame = tk.Frame(self.root)
         self.params_frame.grid(
             row=row,
-            column=0,
+            column=1,
             columnspan=3,
             sticky=tk.W,
             padx=self.pad_x,
@@ -216,20 +238,32 @@ class FullPlateFittingApp:
         row += 1
         self._refresh_assay_params()
 
-        # Concentration vector section
+        # Concentration vector section (wider entry & dropdown, consolidated export/import)
         tk.Label(self.root, text="Concentrations (µM):").grid(
             row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
         tk.Entry(
-            self.root, textvariable=self.cv_entry_var, width=28, justify="left"
+            self.root, textvariable=self.cv_entry_var, width=50, justify="left"
         ).grid(row=row, column=1, sticky=tk.W, padx=(self.pad_x, 2), pady=self.pad_y)
-        tk.Entry(
-            self.root, textvariable=self.cv_name_var, width=10, justify="left"
-        ).grid(row=row, column=1, sticky=tk.E, padx=(2, 42), pady=self.pad_y)
-        tk.Button(self.root, text="Save Set", command=self._save_cv).grid(
-            row=row, column=2, padx=self.pad_x, pady=self.pad_y
+        tk.Label(self.root, text="Label:").grid(
+            row=row, column=1, sticky=tk.E, padx=(0, 0), pady=self.pad_y
         )
+        # Name entry for saving the concentration set; Enter triggers save
+        self.cv_name_entry = tk.Entry(
+            self.root, textvariable=self.cv_name_var, width=9, justify="left"
+        )
+        self.cv_name_entry.grid(
+            row=row, column=2, sticky=tk.W, padx=(2, 2), pady=self.pad_y
+        )
+        self.cv_name_entry.bind("<Return>", lambda _e: self._save_cv())
+        self.cv_name_entry.bind("<FocusOut>", lambda _e: self._save_cv())
+        self.cv_name_entry.bind("<KP_Enter>", lambda _e: self._save_cv())
         row += 1
+
+        ToolTip(
+            self.cv_name_entry,
+            "Name the concentration vector (titrated compound) and press Enter. You can save multiple vectors per session and export/import them for reuse.",
+        )
 
         tk.Label(self.root, text="Saved Sets:").grid(
             row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
@@ -240,13 +274,15 @@ class FullPlateFittingApp:
         self.cv_dropdown.grid(
             row=row, column=1, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
         )
-        tk.Button(self.root, text="Export", command=self._export_cvs).grid(
-            row=row, column=2, padx=self.pad_x, pady=self.pad_y
-        )
-        row += 1
-        tk.Button(self.root, text="Import", command=self._import_cvs).grid(
-            row=row, column=2, padx=self.pad_x, pady=(0, self.pad_y)
-        )
+        # self.cv_dropdown.config(width=10)
+        btn_frame = tk.Frame(self.root)
+        btn_frame.grid(row=row, column=1, padx=self.pad_x, pady=self.pad_y)
+        tk.Button(
+            btn_frame, text="Import Conc.", command=self._import_cvs, width=7
+        ).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Button(
+            btn_frame, text="Export Conc.", command=self._export_cvs, width=7
+        ).pack(side=tk.LEFT, padx=(0, 4))
         row += 1
 
         # Fit trials
@@ -258,32 +294,20 @@ class FullPlateFittingApp:
         ).grid(row=row, column=1, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
         row += 1
 
-        # Filtering options
-        tk.Checkbutton(
-            self.root,
-            text="Enable Filtering",
-            variable=self.enable_filter_var,
-            command=self._toggle_filter_widgets,
-        ).grid(row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
-        self.filter_frame = tk.Frame(self.root)
-        self.filter_frame.grid(
-            row=row,
-            column=1,
-            columnspan=2,
-            sticky=tk.W,
-            padx=self.pad_x,
-            pady=self.pad_y,
-        )
-        row += 1
-        self._build_filter_widgets()
-
-        # Outlier detection options
-        tk.Checkbutton(
+        # Outlier detection options (moved above filtering)
+        outlier_chk = tk.Checkbutton(
             self.root,
             text="Outlier Detection",
             variable=self.enable_outlier_var,
             command=self._toggle_outlier_widgets,
-        ).grid(row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y)
+        )
+        outlier_chk.grid(
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
+        )
+        ToolTip(
+            outlier_chk,
+            "When enabled, replicate-level outliers are flagged using the chosen method (currently MAD) before averaging. This can improve robustness by excluding anomalous wells. When disabled, all replicates are averaged as-is.",
+        )
         self.outlier_frame = tk.Frame(self.root)
         self.outlier_frame.grid(
             row=row,
@@ -295,6 +319,32 @@ class FullPlateFittingApp:
         )
         row += 1
         self._build_outlier_widgets()
+
+        # Filtering options (below outlier section)
+        filter_button = tk.Checkbutton(
+            self.root,
+            text="Include Other Fits:",
+            variable=self.enable_filter_var,
+            command=self._toggle_filter_widgets,
+        )
+        filter_button.grid(
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
+        )
+        ToolTip(
+            filter_button,
+            "Enable to retain and analyze additional optimization trials that are close to the best fit (by RMSE, Ka window, and R²). Disabled: only the single best fit is reported and plotted.",
+        )
+        self.filter_frame = tk.Frame(self.root)
+        self.filter_frame.grid(
+            row=row,
+            column=1,
+            columnspan=2,
+            sticky=tk.W,
+            padx=self.pad_x,
+            pady=self.pad_y,
+        )
+        row += 1
+        self._build_filter_widgets()
 
         # Plot & results options
         tk.Checkbutton(
@@ -448,7 +498,7 @@ class FullPlateFittingApp:
         for w in self.filter_frame.winfo_children():
             w.destroy()
         if self.enable_filter_var.get():
-            lbl_rmse = tk.Label(self.filter_frame, text="RMSE x best ≤")
+            lbl_rmse = tk.Label(self.filter_frame, text="RMSE Tolerance:")
             lbl_rmse.grid(row=0, column=0, sticky=tk.W)
             tk.Entry(
                 self.filter_frame,
@@ -456,7 +506,7 @@ class FullPlateFittingApp:
                 width=6,
                 justify="left",
             ).grid(row=0, column=1, padx=(0, 10))
-            lbl_k = tk.Label(self.filter_frame, text="Ka factor:")
+            lbl_k = tk.Label(self.filter_frame, text="Ka Tolerance:")
             lbl_k.grid(row=0, column=2, sticky=tk.W)
             tk.Entry(
                 self.filter_frame,
@@ -484,19 +534,19 @@ class FullPlateFittingApp:
             # Attach tooltips
             ToolTip(
                 lbl_rmse,
-                "Retain fits with RMSE ≤ (factor × best RMSE). Lower values tighten selection; default 2.0 is moderate.",
+                "Retain fits with RMSE ≤ ([provided factor] × best RMSE). Lower values tighten selection; higher values are more permissive. Default 2.0 is moderate.",
             )
             ToolTip(
                 lbl_k,
-                "Accept fits with K within [K_best / factor, K_best × factor]. Lower factor narrows allowed K variability.",
+                "Accept other fits with Ka within [K_best / factor, K_best × factor]. Lower factor narrows allowed K variability. Higher values allow for more Ka variability.",
             )
             ToolTip(
                 lbl_r2,
-                "Minimum R² (coefficient of determination). Fits below are discarded. Typical 0.9–0.98.",
+                "Minimum R² (coefficient of determination). Fits below provided value are discarded. Typical 0.9–0.98.",
             )
             ToolTip(
                 lbl_other,
-                "Number of additional retained fits (after filtering) to overlay in gray for visual comparison.",
+                "Number of fits (after filtering) to overlay in gray in the plot for visual comparison.",
             )
 
     def _build_outlier_widgets(self):
@@ -505,10 +555,13 @@ class FullPlateFittingApp:
         if self.enable_outlier_var.get():
             lbl_method = tk.Label(self.outlier_frame, text="Method:")
             lbl_method.grid(row=0, column=0, sticky=tk.W)
-            tk.OptionMenu(self.outlier_frame, self.outlier_method_var, "mad").grid(
-                row=0, column=1, sticky=tk.W
+            method_menu = tk.OptionMenu(
+                self.outlier_frame, self.outlier_method_var, "MAD"
             )
-            lbl_z = tk.Label(self.outlier_frame, text="Z thresh:")
+            # Display uppercase while preserving lowercase for backend usage later
+            self.outlier_method_var.set("MAD")
+            method_menu.grid(row=0, column=1, sticky=tk.W, padx=(0, 10))
+            lbl_z = tk.Label(self.outlier_frame, text="Z Threshold:")
             lbl_z.grid(row=0, column=2, sticky=tk.W)
             tk.Entry(
                 self.outlier_frame,
@@ -528,15 +581,15 @@ class FullPlateFittingApp:
             # Attach tooltips
             ToolTip(
                 lbl_method,
-                "Outlier detection method. Currently only MAD (median absolute deviation) is supported.",
+                "Outlier detection algorithm applied to replicate RMSE values versus the median curve. Currently only MAD (Median Absolute Deviation) is implemented.",
             )
             ToolTip(
                 lbl_z,
-                "Modified z-score cutoff: replicates with score above are candidates. Typical 3.0–3.5.",
+                "Modified z-score threshold applied to replicate RMSEs. Replicates with score > threshold are candidates. Typical range 2.5–3.5 (lower = more aggressive).",
             )
             ToolTip(
                 lbl_max,
-                "Maximum number of highest-scoring replicate outliers to exclude to prevent over-pruning.",
+                "Upper limit on how many replicate outliers may be excluded (highest scoring first). Prevents removing too many replicates in noisy datasets.",
             )
 
     # ------------- Widget state toggles -------------
@@ -736,7 +789,7 @@ class FullPlateFittingApp:
             outlier_params = None
             if self.enable_outlier_var.get():
                 outlier_params = {
-                    "method": self.outlier_method_var.get(),
+                    "method": self.outlier_method_var.get().lower(),
                     "threshold": self.outlier_threshold_var.get(),
                     "max_exclude": self.outlier_max_exclude_var.get(),
                 }
