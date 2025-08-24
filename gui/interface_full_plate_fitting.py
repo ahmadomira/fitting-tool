@@ -158,6 +158,12 @@ class FullPlateFittingApp:
         # Built-in style quick select
         self.built_in_style_var = tk.StringVar(value="Biedermann Labs")
 
+        # Axes limits (optional)
+        self.x_min_var = tk.StringVar()
+        self.x_max_var = tk.StringVar()
+        self.y_min_var = tk.StringVar()
+        self.y_max_var = tk.StringVar()
+
         # (Optional) pre-fill for testing / demo: comment out for production
         try:
             demo_excel = "/Users/ahmadomira/Downloads/DBA_h2d_with_outliers.xlsx"
@@ -531,6 +537,34 @@ class FullPlateFittingApp:
         ToolTip(
             style_chk,
             "Apply a Matplotlib style sheet (.mplstyle) to customize fonts, colors, legend, etc.",
+        )
+        row += 1
+
+        # Axes Limits section
+        tk.Label(self.root, text="Axes Limits (optional):").grid(
+            row=row, column=0, sticky=tk.W, padx=self.pad_x, pady=self.pad_y
+        )
+        axes_frame = tk.Frame(self.root)
+        axes_frame.grid(row=row, column=1, columnspan=2, sticky=tk.W)
+        tk.Label(axes_frame, text="X min (µM)").grid(row=0, column=0, sticky=tk.W)
+        tk.Entry(axes_frame, textvariable=self.x_min_var, width=7, justify="left").grid(
+            row=0, column=1, padx=(2, 10)
+        )
+        tk.Label(axes_frame, text="X max (µM)").grid(row=0, column=2, sticky=tk.W)
+        tk.Entry(axes_frame, textvariable=self.x_max_var, width=7, justify="left").grid(
+            row=0, column=3, padx=(2, 14)
+        )
+        tk.Label(axes_frame, text="Y min").grid(row=0, column=4, sticky=tk.W)
+        tk.Entry(axes_frame, textvariable=self.y_min_var, width=7, justify="left").grid(
+            row=0, column=5, padx=(2, 10)
+        )
+        tk.Label(axes_frame, text="Y max").grid(row=0, column=6, sticky=tk.W)
+        tk.Entry(axes_frame, textvariable=self.y_max_var, width=7, justify="left").grid(
+            row=0, column=7, padx=(2, 0)
+        )
+        ToolTip(
+            axes_frame,
+            "Optional axis bounds. Provide both min and max for X or Y. X is in µM to match the concentrations entry.",
         )
         row += 1
 
@@ -970,6 +1004,13 @@ class FullPlateFittingApp:
                 if self.use_style_file_var.get() and self.style_file_var.get().strip():
                     style_stack.append(self.style_file_var.get().strip())
                 style_param = style_stack if style_stack else None
+                # Parse axis limits (expect µM for X to match plotted units)
+                xlim = self._parse_limit_pair(
+                    self.x_min_var.get(), self.x_max_var.get()
+                )
+                ylim = self._parse_limit_pair(
+                    self.y_min_var.get(), self.y_max_var.get()
+                )
                 result = run_full_plate_fit(
                     excel_file,
                     conc_M,
@@ -989,6 +1030,8 @@ class FullPlateFittingApp:
                     other_fits_to_plot=other_fits_to_plot,
                     outlier_params=outlier_params,
                     style_file=style_param,
+                    xlim=xlim,
+                    ylim=ylim,
                     show_major_grid=self.show_major_grid_var.get(),
                     show_minor_grid=self.show_minor_grid_var.get(),
                     show_outlier_markers=self.show_outliers_var.get(),
