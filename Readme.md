@@ -317,8 +317,6 @@ We welcome contributions! Our contributing guideline:
 
 ## 🐛 Troubleshooting
 
-### Common Issues
-
 **Fitting convergence issues:**
 - Check data quality and remove outliers
 - Adjust initial parameter estimates
