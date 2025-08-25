@@ -71,6 +71,14 @@ jobs:
       with:
         path: ./artifacts
 
+    - name: Create release in the same repo
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        files: ./artifacts/**/*.zip
+        token: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Create release in the public repo
       uses: softprops/action-gh-release@v2
       with:

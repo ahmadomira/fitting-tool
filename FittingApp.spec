@@ -5,10 +5,10 @@ sys.setrecursionlimit(sys.getrecursionlimit() * 5)
 
 # Cross-platform icon handling
 icon_file = None
-if os.path.exists('MyIcon.icns'):
-    icon_file = 'MyIcon.icns'
-elif os.path.exists('MyIcon.ico'):
-    icon_file = 'MyIcon.ico'
+if os.path.exists('assets/MyIcon.icns'):
+    icon_file = 'assets/MyIcon.icns'
+elif os.path.exists('assets/MyIcon.ico'):
+    icon_file = 'assets/MyIcon.ico'
 
 # Find Python shared library for conda environments
 python_lib_path = None

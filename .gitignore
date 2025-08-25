@@ -201,6 +201,6 @@ Temporary Items
 .vscode/*
 scratch/*
 app/*
-MyIcon.iconset/*
-AppIcon.png
+assets/MyIcon.iconset/*
+assets/AppIcon.png
 /data
