@@ -8,6 +8,7 @@ from typing import Any, Optional
 from core.assays.registry import AssayType
 from core.data_processing.measurement_set import MeasurementSet
 from core.pipeline.fit_pipeline import FitConfig, FitResult
+from core.pipeline.sensitivity import SensitivityResult
 from core.units import Quantity
 
 
@@ -37,6 +38,7 @@ class SessionState:
     # Results
     fit_results: list[FitResult] = field(default_factory=list)
     dye_alone_result: Optional[FitResult] = None
+    sensitivity_result: Optional[SensitivityResult] = None
 
     # Plot display unit (concentration unit used for the x-axis). Lives in
     # session state so it survives style-widget reconstructions and is the

@@ -23,11 +23,13 @@ from core.data_processing.measurement_set import MeasurementSet
 from core.data_processing.plotting import prepare_plot_data
 from core.io.formats.bmg_reader import BMG_PLACEHOLDER_KEY
 from core.pipeline.fit_pipeline import FitConfig, FitResult, apply_statistics_mode, select_representative
+from core.pipeline.sensitivity import estimated_fit_count
 from gui.app_state import SessionState
 from gui.plotting.distribution_widget import DistributionWidget
 from gui.plotting.fit_summary_widget import FitSummaryWidget
 from gui.plotting.plot_style import PlotStyleWidget
 from gui.plotting.plot_widget import PlotWidget
+from gui.plotting.sensitivity_widget import SensitivityWidget
 from gui.widgets.assay_config_panel import AssayConfigPanel
 from gui.widgets.bounds_panel import BoundsPanel
 from gui.widgets.data_panel import DataPanel
@@ -36,7 +38,8 @@ from gui.widgets.flat_tabs import FlatTabWidget
 from gui.widgets.info_button import InfoGroupBox
 from gui.widgets.preprocessing_panel import PreprocessingPanel
 from gui.widgets.replica_panel import ReplicaPanel
-from gui.workers import FitWorker
+from gui.widgets.sensitivity_panel import SensitivityPanel
+from gui.workers import FitWorker, SensitivityWorker
 
 
 class _SidebarScrollArea(QScrollArea):
@@ -142,6 +145,7 @@ class FittingSession(QWidget):
         super().__init__(parent)
         self._state = SessionState()
         self._fit_worker: FitWorker | None = None
+        self._sensitivity_worker: SensitivityWorker | None = None
         self._custom_tab_name: str | None = None
         self._setup_ui()
         self._connect_signals()
@@ -604,6 +608,7 @@ class FittingSession(QWidget):
         self._replica_panel = ReplicaPanel()
         self._assay_panel = AssayConfigPanel()
         self._fit_panel = FitConfigPanel()
+        self._sensitivity_panel = SensitivityPanel()
         self._bounds_panel = BoundsPanel()
         self._style_widget = _Grouped(
             'Plot Style',
@@ -618,6 +623,7 @@ class FittingSession(QWidget):
             self._replica_panel,
             self._assay_panel,
             self._fit_panel,
+            self._sensitivity_panel,
             self._bounds_panel,
             self._style_widget,
         ):
@@ -634,9 +640,11 @@ class FittingSession(QWidget):
         # Tabbed plot area: Fit Curve | Distributions (flat/minimal, white pane).
         self._plot_widget = PlotWidget()
         self._distribution_widget = DistributionWidget()
+        self._sensitivity_widget = SensitivityWidget()
         self._plot_tabs = FlatTabWidget(white_pane=True)
         self._plot_tabs.addTab(self._plot_widget, 'Fit Curve')
         self._plot_tabs.addTab(self._distribution_widget, 'Distributions')
+        self._plot_tabs.addTab(self._sensitivity_widget, 'Ka Sensitivity')
 
         self._summary_widget = FitSummaryWidget()
 
@@ -651,8 +659,9 @@ class FittingSession(QWidget):
         # No explicit initial split: the sidebar opens at its content-driven
         # sizeHint width and the plot (stretch factor 1) takes the rest.
 
-        # Initialise BoundsPanel for default assay type
+        # Initialise BoundsPanel and SensitivityPanel for default assay type
         self._bounds_panel.set_assay_type(self._state.assay_type)
+        self._sensitivity_panel.set_assay_type(self._state.assay_type)
 
         # Push the initial display unit into PlotStyleWidget so the style
         # dict reflects the DataPanel's combo from the first emission.
@@ -673,15 +682,20 @@ class FittingSession(QWidget):
         self._replica_panel.replicas_changed.connect(self._on_replicas_changed)
 
         self._assay_panel.assay_type_changed.connect(self._on_assay_type_changed)
+        self._assay_panel.assay_type_changed.connect(self._sensitivity_panel.set_assay_type)
         self._assay_panel.conditions_changed.connect(self._on_conditions_changed)
 
         self._fit_panel.config_changed.connect(self._on_config_changed)
 
         self._bounds_panel.bounds_changed.connect(self._on_bounds_changed)
 
-        # Direct widget-to-widget: style → plot / distributions
+        self._sensitivity_panel.run_requested.connect(self.run_sensitivity)
+        self._sensitivity_panel.cancel_requested.connect(self._cancel_sensitivity)
+
+        # Direct widget-to-widget: style → plot / distributions / sensitivity
         self._style_widget.widget.style_changed.connect(self._plot_widget.apply_style)
         self._style_widget.widget.style_changed.connect(self._distribution_widget.apply_style)
+        self._style_widget.widget.style_changed.connect(self._sensitivity_widget.apply_style)
 
         # Ensemble interaction: switch reported ± / pick a different representative.
         self._summary_widget.statistics_mode_changed.connect(self._on_statistics_mode_changed)
@@ -786,6 +800,87 @@ class FittingSession(QWidget):
     def _on_fit_error(self, msg: str) -> None:
         QMessageBox.warning(self, 'Fit Error', msg)
         self.status_message.emit(f'Fit failed: {msg}')
+
+    # ------------------------------------------------------------------
+    # Ka sensitivity analysis
+    # ------------------------------------------------------------------
+
+    def run_sensitivity(self) -> None:
+        """Start a background Ka input-sensitivity run."""
+        ms = self._state.measurement_set
+        if ms is None:
+            QMessageBox.warning(self, 'No Data', 'Load a measurement file first.')
+            return
+
+        if self._state.assay_type is AssayType.DYE_ALONE:
+            QMessageBox.warning(
+                self,
+                'Sensitivity Analysis',
+                'Dye-only measurements have no association constant to analyse. '
+                'Pick a binding assay (GDA, IDA, or DBA) to run a sensitivity analysis.',
+            )
+            return
+
+        sens_config = self._sensitivity_panel.current_config()
+        if not sens_config.delta_pct:
+            QMessageBox.warning(
+                self,
+                'Sensitivity Analysis',
+                'No input is set to vary. Set a ±% above zero for at least one input '
+                '(the titrant or a concentration) so the analysis has something to perturb.',
+            )
+            return
+
+        n_fits = estimated_fit_count(sens_config)
+        if n_fits > 2000:
+            reply = QMessageBox.question(
+                self,
+                'Large Sensitivity Run',
+                f'This will run about {n_fits} fits and may take a while. Continue?',
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        assay_cls = self._assay_panel.get_assay_class()
+        conditions = self._assay_panel.current_conditions()
+        fit_config = self._fit_panel.current_config()
+
+        self._sensitivity_worker = SensitivityWorker(
+            ms,
+            assay_cls,
+            conditions,
+            fit_config,
+            sens_config,
+            parent=self,
+        )
+        self._sensitivity_worker.progress.connect(self._sensitivity_widget.set_progress)
+        self._sensitivity_worker.progress.connect(
+            lambda done, total: self.status_message.emit(f'Sensitivity {done}/{total}…')
+        )
+        self._sensitivity_worker.finished.connect(self._on_sensitivity_complete)
+        self._sensitivity_worker.error.connect(self._on_sensitivity_error)
+
+        self._sensitivity_widget.show_running()
+        self._sensitivity_panel.set_running(True)
+        self._plot_tabs.setCurrentWidget(self._sensitivity_widget)
+        self._sensitivity_worker.start()
+        self.status_message.emit('Running sensitivity analysis…')
+
+    def _on_sensitivity_complete(self, result) -> None:
+        self._state.sensitivity_result = result
+        self._sensitivity_widget.update_result(result)
+        self._sensitivity_panel.set_running(False)
+        self.status_message.emit(f'Sensitivity complete — {result.n_success}/{result.n_total} fits succeeded')
+
+    def _on_sensitivity_error(self, msg: str) -> None:
+        QMessageBox.warning(self, 'Sensitivity Analysis', msg)
+        self._sensitivity_panel.set_running(False)
+        self.status_message.emit(f'Sensitivity failed: {msg}')
+
+    def _cancel_sensitivity(self) -> None:
+        if self._sensitivity_worker is not None:
+            self._sensitivity_worker.cancel()
+            self.status_message.emit('Cancelling…')
 
     def _on_statistics_mode_changed(self, mode: str) -> None:
         """Switch the reported ± between median±MAD and mean±STDEV (no re-fit)."""

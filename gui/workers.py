@@ -9,6 +9,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from core.assays.base import BaseAssay
 from core.data_processing.measurement_set import MeasurementSet
 from core.pipeline.fit_pipeline import FitConfig, PerReplicaFitError, fit_measurement_set
+from core.pipeline.sensitivity import SensitivityConfig, run_sensitivity
 
 
 class FitWorker(QThread):
@@ -70,3 +71,75 @@ class FitWorker(QThread):
             self.error.emit(f'{exc}\n\nFailures per replica:\n{details}')
         except Exception as exc:
             self.error.emit(f'The fit could not be completed:\n{exc}')
+
+
+class SensitivityWorker(QThread):
+    """Run :func:`run_sensitivity` in a background thread.
+
+    Keeps the GUI responsive while the sensitivity analysis re-runs the fit
+    many times over perturbed inputs.
+
+    Parameters
+    ----------
+    ms : MeasurementSet
+        Measurement data (its averaged active signal is used).
+    assay_cls : type[BaseAssay]
+        Assay class to build each perturbed fit with.
+    conditions : dict
+        Baseline assay conditions (Ka_dye, h0, etc.) as pint Quantities.
+    fit_config : FitConfig
+        Per-fit optimizer configuration.
+    sens_config : SensitivityConfig
+        What to perturb and how.
+
+    Signals
+    -------
+    progress(int, int)
+        Emitted as ``(done, total)`` after every fit.
+    finished(SensitivityResult)
+        Emitted on successful completion.
+    error(str)
+        Emitted if the analysis cannot be completed.
+    """
+
+    progress = pyqtSignal(int, int)  # (done, total)
+    finished = pyqtSignal(object)  # SensitivityResult
+    error = pyqtSignal(str)
+
+    def __init__(
+        self,
+        ms: MeasurementSet,
+        assay_cls: type[BaseAssay],
+        conditions: dict[str, Any],
+        fit_config: FitConfig,
+        sens_config: SensitivityConfig,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._ms = ms
+        self._assay_cls = assay_cls
+        self._conditions = conditions
+        self._fit_config = fit_config
+        self._sens_config = sens_config
+        self._cancelled = False
+
+    def cancel(self) -> None:
+        """Request early termination; surfaced to the driver via ``should_cancel``."""
+        self._cancelled = True
+
+    def run(self) -> None:
+        try:
+            result = run_sensitivity(
+                self._ms,
+                self._assay_cls,
+                self._conditions,
+                self._fit_config,
+                self._sens_config,
+                progress=self.progress.emit,
+                should_cancel=lambda: self._cancelled,
+            )
+            self.finished.emit(result)
+        except ValueError as exc:
+            self.error.emit(f'The sensitivity analysis could not run:\n{exc}')
+        except Exception as exc:
+            self.error.emit(f'The sensitivity analysis could not be completed:\n{exc}')
