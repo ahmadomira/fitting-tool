@@ -456,6 +456,17 @@ class FittingSession(QWidget):
             if results:
                 self._summary_widget.update_result(results[-1])
             self.status_message.emit(f'Imported {len(results)} result(s) from {path}')
+            # Ranges and spread come from the stored pool of accepted fits.
+            # Files saved before pools were stored have none, so say so rather
+            # than leaving the user to wonder why those columns are dashes.
+            if any(not r.parameter_samples for r in results):
+                QMessageBox.information(
+                    self,
+                    'Fit Spread Unavailable',
+                    f'{Path(path).name} does not store the individual fits behind its results, '
+                    'so the plot and the table can only show each best-fit value — no range or '
+                    'spread statistics.\n\nRe-run the fit to get them.',
+                )
         except Exception:
             QMessageBox.warning(
                 self,

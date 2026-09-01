@@ -134,7 +134,9 @@ class DistributionWidget(QWidget):
         self._param_keys: list[str] = []
         # Visibility toggles (issue 7): ordered keys = param keys then quality keys.
         self._all_keys: list[str] = []
-        self._hidden_keys: set[str] = set()
+        # RMSE starts hidden: it is monotone in R², which is already shown, so it
+        # adds a panel without adding information. Re-enable via its checkbox.
+        self._hidden_keys: set[str] = {'rmse'}
         self._plot_by_key: dict[str, pg.PlotWidget] = {}
         self._checkboxes: dict[str, QCheckBox] = {}
 
