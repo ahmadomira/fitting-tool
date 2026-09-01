@@ -22,12 +22,6 @@ def _sample_fit_result(**overrides) -> FitResult:
             'I_dye_free': Q_(5e7, 'au/M'),
             'I_dye_bound': Q_(3e8, 'au/M'),
         },
-        uncertainties={
-            'Ka_guest': Q_(1e4, '1/M'),
-            'I0': Q_(5.0, 'au'),
-            'I_dye_free': Q_(1e5, 'au/M'),
-            'I_dye_bound': Q_(2e5, 'au/M'),
-        },
         rmse=42.0,
         r_squared=0.998,
         n_passing=80,
@@ -51,7 +45,6 @@ def _sample_fit_result(**overrides) -> FitResult:
             'r_squared': np.array([0.997, 0.998, 0.996]),
         },
         representative_index=1,
-        statistics_mode='median',
     )
     defaults.update(overrides)
     return FitResult(**defaults)
@@ -90,11 +83,9 @@ class TestSerialization:
         d = original.to_dict()
         restored = FitResult.from_dict(d)
 
-        # Parameters and uncertainties round-trip as Quantities
+        # Parameters round-trip as Quantities
         for k in original.parameters:
             assert restored.parameters[k].magnitude == pytest.approx(original.parameters[k].magnitude)
-        for k in original.uncertainties:
-            assert restored.uncertainties[k].magnitude == pytest.approx(original.uncertainties[k].magnitude)
         assert restored.rmse == original.rmse
         assert restored.r_squared == original.r_squared
         assert restored.n_passing == original.n_passing
@@ -120,13 +111,11 @@ class TestSerialization:
         for k in original.quality_samples:
             np.testing.assert_array_almost_equal(restored.quality_samples[k], original.quality_samples[k])
         assert restored.representative_index == original.representative_index
-        assert restored.statistics_mode == original.statistics_mode
 
     def test_from_dict_missing_optional_fields(self):
         """from_dict handles missing optional keys gracefully."""
         minimal = {
             'parameters': {'slope': 1.0},
-            'uncertainties': {'slope': 0.1},
             'rmse': 0.5,
             'r_squared': 0.99,
             'n_passing': 1,
@@ -147,20 +136,6 @@ class TestSerialization:
         r = FitResult.from_dict(d)
         assert isinstance(r.x_fit, Quantity)
         assert isinstance(r.y_fit, Quantity)
-
-    def test_round_trip_nan_uncertainty(self):
-        """NaN uncertainties survive round-trip."""
-        r = _sample_fit_result(
-            uncertainties={
-                'Ka_guest': Q_(np.nan, '1/M'),
-                'I0': Q_(np.nan, 'au'),
-                'I_dye_free': Q_(np.nan, 'au/M'),
-                'I_dye_bound': Q_(np.nan, 'au/M'),
-            }
-        )
-        d = r.to_dict()
-        restored = FitResult.from_dict(d)
-        assert np.isnan(restored.uncertainties['Ka_guest'].magnitude)
 
     def test_x_y_fit_units_round_trip(self):
         """x_fit/y_fit carry their own unit tokens; older files without them fall
@@ -186,7 +161,7 @@ class TestSerialization:
         assert d['parameter_units']['Ka_guest'] == str(Q_(1, '1/M').units)
         restored = FitResult.from_dict(d)
         assert restored.parameters['Ka_guest'].units == Q_(1, '1/M').units
-        assert restored.uncertainties['I_dye_free'].units == Q_(1, 'au/M').units
+        assert restored.parameters['I_dye_free'].units == Q_(1, 'au/M').units
 
     def test_config_custom_bounds_keep_unit_token(self):
         """Serialized custom_bounds provenance keeps its unit token so a bound in
@@ -201,40 +176,6 @@ class TestSerialization:
 
 class TestEnsembleMutators:
     """Fail-fast contracts on the public pipeline mutation helpers."""
-
-    def test_apply_statistics_mode_rejects_unknown_mode(self):
-        from core.pipeline.fit_pipeline import apply_statistics_mode
-
-        r = _sample_fit_result()
-        before = dict(r.uncertainties)
-        with pytest.raises(ValueError, match='Unknown statistics mode'):
-            apply_statistics_mode(r, 'bogus')
-        # Rejected up front — no partial mutation.
-        assert r.statistics_mode == 'median'
-        assert r.uncertainties == before
-
-    def test_apply_statistics_mode_preserves_parameter_units(self):
-        """Toggling the ± flavour keeps each parameter's real unit — a Ka spread
-        stays 1/M, a coefficient au/M, an offset au — never dimensionless (M1)."""
-        from core.pipeline.fit_pipeline import apply_statistics_mode
-
-        r = _sample_fit_result()
-        expected = {k: v.units for k, v in r.parameters.items()}
-        for mode in ('mean', 'median'):
-            apply_statistics_mode(r, mode)
-            assert r.statistics_mode == mode
-            for k, u in expected.items():
-                assert r.uncertainties[k].units == u, f'{k} lost its unit under {mode!r}'
-
-    def test_apply_statistics_mode_unknown_assay_keeps_units(self):
-        """Even for an assay_type outside the registry, the ± takes its units from
-        the fitted parameters — not a silent registry-miss dimensionless (M1)."""
-        from core.pipeline.fit_pipeline import apply_statistics_mode
-
-        r = _sample_fit_result(assay_type='LEGACY_UNKNOWN')
-        apply_statistics_mode(r, 'mean')
-        assert r.uncertainties['Ka_guest'].units == Q_(1, '1/M').units
-        assert r.uncertainties['I_dye_free'].units == Q_(1, 'au/M').units
 
     def test_select_representative_rejects_out_of_range_index(self):
         from core.pipeline.fit_pipeline import select_representative
@@ -255,13 +196,6 @@ class TestEnsembleMutators:
 
 class TestFromDictNormalisation:
     """Malformed/legacy imports are sanitised so they can't crash the GUI later."""
-
-    def test_unknown_statistics_mode_falls_back_to_default(self):
-        from core.optimizer.ensemble import DEFAULT_STATISTICS_MODE
-
-        d = _sample_fit_result().to_dict()
-        d['statistics_mode'] = 'bogus'
-        assert FitResult.from_dict(d).statistics_mode == DEFAULT_STATISTICS_MODE
 
     def test_out_of_range_representative_index_dropped(self):
         d = _sample_fit_result().to_dict()  # pool size 3

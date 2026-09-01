@@ -22,7 +22,6 @@ def _simple_fit_result():
     x = np.linspace(0, 5, 20)
     return FitResult(
         parameters={'slope': Q_(1.0, 'au/M')},
-        uncertainties={'slope': Q_(0.1, 'au/M')},
         rmse=0.01,
         r_squared=0.99,
         n_passing=1,

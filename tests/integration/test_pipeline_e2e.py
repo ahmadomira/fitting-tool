@@ -30,6 +30,7 @@ from core.pipeline.fit_pipeline import (
     fit_assay,
     fit_linear_assay,
     fit_measurement_set,
+    summarize_parameters,
 )
 from core.units import Q_
 from tests.conftest import (
@@ -140,10 +141,11 @@ class TestDBAEndToEnd:
         assert result.assay_type == 'DBA_DtoH'
         assert result.model_name == 'equilibrium_4param'
 
-        # Parameters populated
+        # Parameters populated, each with a pool the reported range comes from
+        summaries = {s.key: s for s in summarize_parameters(result) if not s.is_log}
         for key in ('Ka_dye', 'I0', 'I_dye_free', 'I_dye_bound'):
             assert key in result.parameters
-            assert key in result.uncertainties
+            assert summaries[key].stats is not None
 
         # Fit curve is a dense, sorted grid spanning the data range (smooth display curve)
         assert result.x_fit.shape == result.y_fit.shape
@@ -372,7 +374,6 @@ class TestFailureModes:
         """bounds_from_dye_alone raises on non-linear FitResult."""
         result = FitResult(
             parameters={'Ka_dye': Q_(5e5, '1/M'), 'I0': Q_(0.0, 'au')},
-            uncertainties={'Ka_dye': Q_(1e4, '1/M'), 'I0': Q_(0.1, 'au')},
             rmse=0.01,
             r_squared=0.999,
             n_passing=5,
@@ -499,7 +500,6 @@ class TestBoundsMarginEdgeCases:
         """bounds_from_dye_alone rejects failed fits."""
         r = FitResult(
             parameters={'slope': Q_(1.0, 'au/M'), 'intercept': Q_(0.0, 'au')},
-            uncertainties={'slope': Q_(0.1, 'au/M'), 'intercept': Q_(0.1, 'au')},
             rmse=np.inf,
             r_squared=0.0,
             n_passing=0,

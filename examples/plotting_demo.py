@@ -28,7 +28,7 @@ from core.assays.registry import ASSAY_REGISTRY, AssayType
 from core.data_processing.measurement_set import MeasurementSet
 from core.data_processing.plotting import prepare_plot_data
 from core.models.equilibrium import gda_signal
-from core.pipeline.fit_pipeline import FitConfig, fit_measurement_set
+from core.pipeline.fit_pipeline import FitConfig, fit_measurement_set, summarize_parameters
 from gui.plotting import FitSummaryWidget, PlotStyleWidget, PlotWidget
 
 # ---------------------------------------------------------------------------
@@ -121,9 +121,10 @@ result = fit_measurement_set(ms, GDAAssay, CONDITIONS, config)
 
 # Console summary
 ka_fit = result.parameters.get('Ka_guest', float('nan'))
-ka_unc = result.uncertainties.get('Ka_guest', float('nan'))
+ka_stats = next((s.stats for s in summarize_parameters(result) if s.key == 'Ka_guest' and not s.is_log), None)
+ka_range = f'({ka_stats["min"]:.2e}, {ka_stats["max"]:.2e})' if ka_stats else '(no pool)'
 print(f'  Ka_guest  true : {TRUE_PARAMS["Ka_guest"]:.3e} M⁻¹')
-print(f'  Ka_guest  fit  : {ka_fit:.3e} ± {ka_unc:.2e} M⁻¹')
+print(f'  Ka_guest  fit  : {ka_fit:.3e} {ka_range} M⁻¹')
 print(f'  R²             : {result.r_squared:.4f}')
 print(f'  Fits passing   : {result.n_passing} / {result.n_total}')
 print(f'  RMSE           : {result.rmse:.4e}')

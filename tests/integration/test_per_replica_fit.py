@@ -138,16 +138,19 @@ class TestPerReplicateRecovery:
         assert len(result.replica_fits) == N_REPLICAS
         assert_within_tolerance(result.parameters['Ka_guest'], IDA_TRUE['Ka_guest'], NOISY_TOL, 'Ka_guest')
 
-    def test_replica_mad_is_nonzero_on_noisy_data(self, noisy_pr_result):
-        """Cross-replica MAD should capture real noise — not collapse to ~0."""
-        result = noisy_pr_result
+    def test_replica_spread_is_nonzero_on_noisy_data(self, noisy_pr_result):
+        """Cross-replica spread should capture real noise — not collapse to ~0."""
+        from core.pipeline.fit_pipeline import summarize_parameters
 
+        result = noisy_pr_result
         ka_mag = float(result.parameters['Ka_guest'].magnitude)
-        ka_mad = float(result.uncertainties['Ka_guest'].magnitude)
-        assert ka_mad > 0.0
-        # Replicate MAD should be at most comparable to Ka itself; anything
-        # vastly larger indicates aggregation broke.
-        assert ka_mad / ka_mag < 2.0
+        stats = next(s.stats for s in summarize_parameters(result) if s.key == 'Ka_guest' and not s.is_log)
+
+        assert stats['mad'] > 0.0
+        assert stats['max'] > stats['min']
+        # The spread should be at most comparable to Ka itself; anything vastly
+        # larger indicates aggregation broke.
+        assert stats['mad'] / ka_mag < 2.0
 
     def test_per_replica_fits_are_in_physical_units(self, clean_pr_result):
         """Each replica fit must already be in physical units (M^-1 etc)."""
@@ -325,19 +328,23 @@ class TestPoolAggregation:
             for k in rf.parameters.keys():
                 assert len(rf.parameter_samples[k]) == rf.n_passing
 
-    def test_reported_value_is_representative_uncertainty_is_pool_mad(self, noisy_pr_result):
+    def test_reported_value_is_representative_and_range_is_pool_extent(self, noisy_pr_result):
+        from core.pipeline.fit_pipeline import summarize_parameters
+
         result = noisy_pr_result
-        assert result.statistics_mode == 'median'
         ridx = result.representative_index
+        summaries = {s.key: s for s in summarize_parameters(result) if not s.is_log}
         for k, q in result.parameters.items():
             pool = result.parameter_samples[k]
             # Reported value = the representative real trial (a row of the pool),
             # NOT a per-parameter median that could land off the manifold.
             assert float(q.magnitude) == pytest.approx(float(pool[ridx]), rel=1e-12)
-            # Default (median) mode → reported ± is the pool MAD.
-            expected_median = float(np.median(pool))
-            expected_mad = float(np.median(np.abs(pool - expected_median)))
-            assert float(result.uncertainties[k].magnitude) == pytest.approx(expected_mad, rel=1e-12)
+            # The quoted range is the full extent of the accepted pool, so the
+            # representative must lie inside it.
+            stats = summaries[k].stats
+            assert stats['min'] == pytest.approx(float(np.min(pool)), rel=1e-12)
+            assert stats['max'] == pytest.approx(float(np.max(pool)), rel=1e-12)
+            assert stats['min'] <= float(q.magnitude) <= stats['max']
 
     def test_serialization_round_trip_of_parameter_samples(self, noisy_pr_result):
         result = noisy_pr_result
