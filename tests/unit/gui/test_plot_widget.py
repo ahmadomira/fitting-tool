@@ -386,6 +386,53 @@ def test_user_drag_survives_a_rebuild(qapp):
     assert pw._annotation_item.pos() == dropped
 
 
+def _draggable(on_moved):
+    from gui.plotting.plot_widget import _DraggableTextItem
+
+    item = _DraggableTextItem(html='<div>x</div>', anchor=(0, 0), on_moved=on_moved)
+    item.setFlag(item.GraphicsItemFlag.ItemIsMovable)
+    return item
+
+
+def test_click_without_dragging_does_not_pin_the_annotation(qapp):
+    """A click that moves nothing must leave auto-placement in charge.
+
+    Reporting a move on every mouse release would latch `_annotation_pos` on a
+    stray click, freezing the box for the rest of the session.
+    """
+    moved = []
+    item = _draggable(moved.append)
+    item._press_pos = item.pos()  # what mousePressEvent records
+
+    item._report_if_moved()
+
+    assert moved == []
+
+
+def test_drag_reports_the_drop_position(qapp):
+    """Press → move → release does report, so a drag wins over auto-placement."""
+    from PyQt6.QtCore import QPointF
+
+    moved = []
+    item = _draggable(moved.append)
+    item._press_pos = item.pos()
+    item.setPos(QPointF(50.0, 60.0))  # what Qt's ItemIsMovable does on drag
+
+    item._report_if_moved()
+
+    assert moved == [QPointF(50.0, 60.0)]
+
+
+def test_release_without_a_recorded_press_reports_nothing(qapp):
+    """Unpaired release → stay auto-placed; latching an unchosen spot is worse."""
+    moved = []
+    item = _draggable(moved.append)
+
+    item._report_if_moved()
+
+    assert moved == []
+
+
 @pytest.mark.parametrize(
     'free_corner',
     ['top-left', 'top-right', 'bottom-left', 'bottom-right'],

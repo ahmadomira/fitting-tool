@@ -50,18 +50,33 @@ class _DraggableTextItem(pg.TextItem):
     """A ``TextItem`` that reports where the user dropped it.
 
     ``pg.TextItem`` has no "moved" signal, so the drop is captured here and
-    handed to *on_moved*. Only a real drag gets through — a programmatic
-    ``setPos`` during auto-placement does not — which is what lets the
-    annotation keep re-placing itself until the user takes over.
+    handed to *on_moved*. Only a position change reports: a click that moves
+    nothing leaves auto-placement in charge, and a programmatic ``setPos``
+    never routes through these handlers at all.
     """
 
     def __init__(self, *args, on_moved: Callable[[QPointF], None] | None = None, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._on_moved = on_moved
+        self._press_pos: QPointF | None = None
+
+    def mousePressEvent(self, ev) -> None:
+        super().mousePressEvent(ev)
+        self._press_pos = self.pos()
 
     def mouseReleaseEvent(self, ev) -> None:
         super().mouseReleaseEvent(ev)
-        if self._on_moved is not None:
+        self._report_if_moved()
+
+    def _report_if_moved(self) -> None:
+        """Hand the drop position to *on_moved*, but only after a real move.
+
+        A press whose position was never recorded reports nothing: leaving
+        auto-placement running is recoverable (the user can drag again),
+        whereas latching a position the user never chose is not.
+        """
+        start, self._press_pos = self._press_pos, None
+        if self._on_moved is not None and start is not None and self.pos() != start:
             self._on_moved(self.pos())
 
 
