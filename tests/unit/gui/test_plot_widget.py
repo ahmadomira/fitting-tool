@@ -200,3 +200,250 @@ def test_whitespace_only_override_falls_back_to_default(qapp):
     assert pw._compose_axis_label('Guest', '   ', 'µM') == 'Guest [µM]'
     assert pw._compose_axis_label('Guest', '', 'µM') == 'Guest [µM]'
     assert pw._compose_axis_label('Guest', 'Tryptamine', 'µM') == 'Tryptamine [µM]'
+
+
+# ---------------------------------------------------------------------------
+# Fit-summary annotation: content and auto-placement
+# ---------------------------------------------------------------------------
+
+
+def _binding_plot(qapp, *, x_max=5e-5, pool=True):
+    """A shown PlotWidget with a saturating titration and one fit annotated.
+
+    The curve runs lower-left to upper-right, so the top-left and bottom-right
+    regions are genuinely empty — placement has somewhere correct to go.
+    """
+    import numpy as np
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtWidgets import QApplication
+
+    from core.pipeline.fit_pipeline import FitResult
+    from core.units import Q_
+    from gui.plotting.plot_widget import PlotWidget
+
+    def curve(c):
+        return 1000 + 4000 * c / (c + x_max / 5)
+
+    rng = np.random.default_rng(0)
+    x = np.linspace(x_max / 25, x_max, 25)
+    y = curve(x)
+    # The pipeline reports a dense (300-point) display curve; use the same here
+    # so the curve is a real obstacle for placement rather than a sparse one.
+    x_dense = np.linspace(x[0], x[-1], 300)
+    y_dense = curve(x_dense)
+
+    pw = PlotWidget()
+    pw.update_plot(
+        {
+            'concentrations': x,
+            'active_replicas': [('r1', y)],
+            'dropped_replicas': [],
+            'average': y,
+            'fits': [{'x': x_dense, 'y': y_dense, 'label': 'IDA fit', 'id': 'abc'}],
+        },
+        x_label='Guest',
+        y_label='Signal',
+    )
+    samples = None
+    if pool:
+        samples = {
+            'Ka_guest': rng.normal(1.24e6, 9e4, 60).clip(1e5),
+            'I_0': rng.normal(1000.0, 20.0, 60),
+        }
+    result = FitResult(
+        parameters={'Ka_guest': Q_(1.24e6, '1/M'), 'I_0': Q_(1000.0, 'au')},
+        rmse=12.3,
+        r_squared=0.9962,
+        n_passing=60 if pool else 1,
+        n_total=100,
+        x_fit=Q_(x_dense, 'M'),
+        y_fit=Q_(y_dense, 'au'),
+        assay_type='IDA',
+        model_name='equilibrium_4param',
+        parameter_samples=samples,
+    )
+    pw.set_fit_results([result])
+    pw.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+    pw.resize(900, 600)
+    pw.show()
+    QApplication.processEvents()
+    return pw
+
+
+def _annotation_rect(pw):
+    from PyQt6.QtCore import QRectF
+
+    item = pw._annotation_item
+    return QRectF(item.pos(), item.boundingRect().size())
+
+
+def _ka_line(text):
+    """The Ka parameter line of the annotation."""
+    return next(line for line in text.split('\n') if line.startswith('Ka'))
+
+
+def test_annotation_reports_estimate_and_range(qapp):
+    """Each parameter reads 'Estimate (min, max)' over the accepted pool."""
+    import re
+
+    import numpy as np
+
+    pw = _binding_plot(qapp)
+    text = pw._annotation_item.textItem.toPlainText()
+    pool = pw._fit_results[0].parameter_samples['Ka_guest']
+
+    assert 'best fit (range over 60 accepted fits)' in text
+    assert '±' not in text, 'the ± spread should be gone'
+    assert 'RMSE' not in text, 'RMSE duplicates the Fit Quality panel'
+    assert 'R²: 0.9962' in text
+
+    # The bracketed pair is the pool's own extremes, not a symmetric spread:
+    # parse the two numbers back out and compare to numpy.
+    lo, hi = re.search(r'\(([\d.]+)×10(\d+), ([\d.]+)×10(\d+)\)', _ka_line(text)).group(1, 3)
+    assert float(lo) == pytest.approx(np.min(pool) / 1e6, abs=0.01)
+    assert float(hi) == pytest.approx(np.max(pool) / 1e6, abs=0.01)
+
+
+def test_annotation_without_pool_states_no_range(qapp):
+    """A result with no stored pool shows the estimate and says why, not a fake range."""
+    pw = _binding_plot(qapp, pool=False)
+    text = pw._annotation_item.textItem.toPlainText()
+
+    assert 'no fit pool stored' in text
+    # A range would render as "(lo, hi)" — the comma is the tell (the parameter
+    # label itself contains parentheses).
+    assert ',' not in _ka_line(text)
+    assert '±' not in text
+
+
+def test_annotation_is_placed_clear_of_data_and_legend(qapp):
+    """The regression this whole placement search exists for."""
+    pw = _binding_plot(qapp)
+    rect = _annotation_rect(pw)
+    points = pw._obstacle_points_px()
+
+    covered = (
+        (points[:, 0] >= rect.left())
+        & (points[:, 0] <= rect.right())
+        & (points[:, 1] >= rect.top())
+        & (points[:, 1] <= rect.bottom())
+    ).sum()
+    assert covered == 0, 'annotation was placed on top of plotted data'
+
+    legend_rect = pw._legend_rect_px()
+    assert legend_rect is not None
+    assert not legend_rect.intersects(rect), 'annotation overlaps the legend'
+
+
+def test_annotation_lives_in_viewbox_pixel_space(qapp):
+    """Parented to the ViewBox, not its childGroup — so data ranges can't move it."""
+    pw = _binding_plot(qapp)
+    vb = pw._pg_widget.getViewBox()
+
+    assert pw._annotation_item.parentItem() is vb
+    assert pw._annotation_item not in vb.addedItems  # stays out of autoRange
+
+
+def test_annotation_is_replaced_for_a_new_dataset(qapp):
+    """A second fit over a very different range must re-place, not reuse a stale spot."""
+    from PyQt6.QtWidgets import QApplication
+
+    pw = _binding_plot(qapp, x_max=5e-5)
+    first = _annotation_rect(pw)
+
+    # Same widget, concentrations 1000x larger: the old pixel slot is only
+    # correct by accident, and the old *data* coords would be far off-screen.
+    pw2 = _binding_plot(qapp, x_max=5e-2)
+    QApplication.processEvents()
+    second = _annotation_rect(pw2)
+
+    vb = pw2._pg_widget.getViewBox()
+    assert 0 <= second.left() and second.right() <= vb.width() + 1
+    assert 0 <= second.top() and second.bottom() <= vb.height() + 1
+    assert first.isValid() and second.isValid()
+
+    points = pw2._obstacle_points_px()
+    covered = (
+        (points[:, 0] >= second.left())
+        & (points[:, 0] <= second.right())
+        & (points[:, 1] >= second.top())
+        & (points[:, 1] <= second.bottom())
+    ).sum()
+    assert covered == 0
+
+
+def test_user_drag_survives_a_rebuild(qapp):
+    """Auto-placement applies until the user moves the box; then it stays put."""
+    from PyQt6.QtCore import QPointF
+
+    pw = _binding_plot(qapp)
+    dropped = QPointF(123.0, 45.0)
+    pw._annotation_item.setPos(dropped)
+    pw._on_annotation_moved(dropped)  # what mouseReleaseEvent reports
+
+    pw.set_fit_results(pw._fit_results)  # style change / re-report → rebuild
+
+    assert pw._annotation_item.pos() == dropped
+
+
+@pytest.mark.parametrize(
+    'free_corner',
+    ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
+)
+def test_placement_finds_the_one_free_corner(qapp, free_corner):
+    """With every region occupied but one, the search must land in that one.
+
+    Drives ``_best_overlay_slot`` directly against a synthetic obstacle cloud,
+    so it pins the search rather than the shape of any particular dataset —
+    including the cases where the preferred top-right corner is unavailable.
+    """
+    import numpy as np
+
+    pw = _binding_plot(qapp)
+    vb = pw._pg_widget.getViewBox()
+    w, h = vb.width(), vb.height()
+
+    # A dense grid over the whole viewport, minus the quadrant left free.
+    gx, gy = np.meshgrid(np.linspace(0, w, 60), np.linspace(0, h, 60))
+    px, py = gx.ravel(), gy.ravel()
+    left = px < w / 2
+    top = py < h / 2
+    free = {
+        'top-left': left & top,
+        'top-right': ~left & top,
+        'bottom-left': left & ~top,
+        'bottom-right': ~left & ~top,
+    }[free_corner]
+    cloud = np.column_stack((px[~free], py[~free]))
+
+    pw._obstacle_points_px = lambda: cloud
+    slot = pw._best_overlay_slot((w / 4, h / 4))
+    assert slot is not None
+    (fx, fy), rect = slot
+
+    expected = {'top-left': (0.0, 0.0), 'top-right': (1.0, 0.0), 'bottom-left': (0.0, 1.0), 'bottom-right': (1.0, 1.0)}
+    assert (fx, fy) == expected[free_corner]
+    covered = (
+        (cloud[:, 0] >= rect.left())
+        & (cloud[:, 0] <= rect.right())
+        & (cloud[:, 1] >= rect.top())
+        & (cloud[:, 1] <= rect.bottom())
+    ).sum()
+    assert covered == 0
+
+
+def test_placement_avoids_a_blocked_rect(qapp):
+    """An already-placed overlay is dodged even when its slot is otherwise empty."""
+    import numpy as np
+
+    pw = _binding_plot(qapp)
+    vb = pw._pg_widget.getViewBox()
+    w, h = vb.width(), vb.height()
+    size = (w / 4, h / 4)
+
+    pw._obstacle_points_px = lambda: np.empty((0, 2))
+    (fx, fy), free_rect = pw._best_overlay_slot(size)
+    assert (fx, fy) == (1.0, 0.0)  # no obstacles at all → preferred corner
+
+    blocked = pw._best_overlay_slot(size, blocked=(free_rect,))[1]
+    assert not blocked.intersects(free_rect)

@@ -11,7 +11,7 @@ from PyQt6.QtCore import QPointF, QRectF
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 
-from core.units import Q_, Quantity
+from core.units import Q_
 from gui.plotting.colors import (
     AVERAGE_LINE_COLOR,
     BACKGROUND_COLOR,
@@ -26,6 +26,44 @@ from gui.plotting.colors import (
 from gui.plotting.labels import fmt_param, fmt_unit_html
 from gui.plotting.plot_style import DEFAULT_STYLE, line_style_to_qt
 from gui.widgets.replica_panel import _display_label
+
+# Overlay auto-placement (legend + fit-summary annotation). PyQtGraph has no
+# equivalent of matplotlib's legend loc='best' — upstream issue #2769 asking for
+# one is still open — so the candidate-and-score search lives here.
+_OVERLAY_PAD_PX = 8
+#: Candidate slots as (x, y) fractions of the free space inside the ViewBox,
+#: in preference order: ties fall to the conventional top-right.
+_OVERLAY_SLOTS: tuple[tuple[float, float], ...] = (
+    (1.0, 0.0),
+    (0.0, 0.0),
+    (1.0, 1.0),
+    (0.0, 1.0),
+    (0.5, 0.0),
+    (0.5, 1.0),
+)
+#: Overlapping another overlay costs more than covering any plausible number
+#: of data points, so a slot that collides is only chosen as a last resort.
+_BLOCKED_PENALTY = 10_000
+
+
+class _DraggableTextItem(pg.TextItem):
+    """A ``TextItem`` that reports where the user dropped it.
+
+    ``pg.TextItem`` has no "moved" signal, so the drop is captured here and
+    handed to *on_moved*. Only a real drag gets through — a programmatic
+    ``setPos`` during auto-placement does not — which is what lets the
+    annotation keep re-placing itself until the user takes over.
+    """
+
+    def __init__(self, *args, on_moved: Callable[[QPointF], None] | None = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._on_moved = on_moved
+
+    def mouseReleaseEvent(self, ev) -> None:
+        super().mouseReleaseEvent(ev)
+        if self._on_moved is not None:
+            self._on_moved(self.pos())
+
 
 _X_UNIT_SCALES: dict[str, float] = {label: float(Q_(1, label).to('M').magnitude) for label in ('nM', 'µM', 'mM', 'M')}
 # Invert: we need M→display, i.e. multiply M value to get display value
@@ -219,6 +257,15 @@ class PlotWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._pg_widget)
 
+        # The ViewBox has no real geometry until it has been laid out and
+        # ranged, so a placement computed during update_plot() can be based on
+        # a default (0,0)-(1,1) view. Re-place once the range/size is real —
+        # the same deferred-paint caveat that ScientificAxisItem works around
+        # with its exponent callbacks.
+        _vb = self._pg_widget.getViewBox()
+        _vb.sigRangeChanged.connect(self._on_view_geometry_changed)
+        _vb.sigResized.connect(self._on_view_geometry_changed)
+
         # Wire exponent callbacks so axis labels update reactively after paint
         left_ax: ScientificAxisItem = self._pg_widget.getAxis('left')
         left_ax.on_exponent_changed = self._on_y_exponent_changed
@@ -235,8 +282,10 @@ class PlotWidget(QWidget):
         self._error_cap_items: list[pg.PlotCurveItem] = []
         self._fit_items: list[pg.PlotCurveItem] = []
         self._annotation_item: pg.TextItem | None = None
-        self._annotation_pos: pg.Point | None = None
-        self._legend_corner: str | None = None
+        # Set only by a user drag (in ViewBox pixels). While None, the
+        # annotation re-places itself automatically on every rebuild.
+        self._annotation_pos: QPointF | None = None
+        self._legend_placed = False
 
         self._replica_ids: list[str] = []
         self._all_replica_ids: tuple[str, ...] = ()
@@ -285,15 +334,14 @@ class PlotWidget(QWidget):
             Y-axis unit suffix (e.g. ``"a.u."``). Auto-managed; not editable
             in the GUI.
         preserve_positions : bool
-            If False (the default), reset the remembered legend corner
-            and annotation position so overlays are re-placed on the
-            uncovered quadrant of the new data. Set to True when the
-            caller is redrawing the *same* data (e.g. an x-axis unit
+            If False (the default), forget where the legend and annotation
+            were put so both are re-placed against the new data. Set to True
+            when the caller is redrawing the *same* data (e.g. an x-axis unit
             rescale) and wants user-dragged positions to survive.
         """
         self._last_plot_data = plot_data
         if not preserve_positions:
-            self._legend_corner = None
+            self._legend_placed = False
             self._annotation_pos = None
         self._clear_items()
 
@@ -414,9 +462,9 @@ class PlotWidget(QWidget):
                 self._fit_items.append(item)
                 self._fit_labels.append(fit.get('label', f'fit {i}'))
 
-        # Auto-range first so _find_least_occupied_corner sees the new
-        # view rect; otherwise it'd pick the corner from the previous
-        # data range and the legend could end up over the data points.
+        # Auto-range first so overlay placement scores against the new view
+        # rect; otherwise it would score the previous data range and drop the
+        # legend or annotation onto the data.
         self._pg_widget.getViewBox().autoRange()
         self._rebuild_legend()
         self._rebuild_annotation()
@@ -746,42 +794,35 @@ class PlotWidget(QWidget):
             self._legend.opts['brush'] = brush
             self._legend.update()
 
-        # Position legend once per data load. On later rebuilds (style
+        # Position the legend once per data load. On later rebuilds (style
         # changes, x-unit rescales, visibility toggles) leave the anchor
         # alone: pyqtgraph's GraphicsWidgetAnchor already tracks the
         # legend's current position, including any user drag, so
         # touching it would clobber those.
         if entry_count == 0:
-            self._legend_corner = None
-        elif self._legend_corner is None:
-            corner = self._find_least_occupied_corner()
-            offsets = {
-                'top-right': (10, 10),
-                'top-left': (10, 10),
-                'bottom-right': (10, 10),
-                'bottom-left': (10, 10),
-            }
-            anchors = {
-                'top-right': (1, 0),
-                'top-left': (0, 0),
-                'bottom-right': (1, 1),
-                'bottom-left': (0, 1),
-            }
-            parent_anchor = anchors[corner]
-            self._legend.anchor(
-                itemPos=parent_anchor,
-                parentPos=parent_anchor,
-                offset=offsets[corner],
-            )
-            self._legend_corner = corner
+            self._legend_placed = False
+        elif not self._legend_placed:
+            rect = self._legend.boundingRect()
+            slot = self._best_overlay_slot((rect.width(), rect.height()))
+            if slot is not None:
+                (fx, fy), _ = slot
+                # Anchoring (rather than setPos) keeps the legend pinned to the
+                # same relative corner when the widget is resized.
+                pad = _OVERLAY_PAD_PX
+                self._legend.anchor(
+                    itemPos=(fx, fy),
+                    parentPos=(fx, fy),
+                    offset=(pad * (1 - 2 * fx), pad * (1 - 2 * fy)),
+                )
+                self._legend_placed = True
 
     def _clear_items(self) -> None:
         """Remove all data items and reset the legend."""
-        # Preserve annotation position before clearing
         if self._annotation_item is not None:
-            self._annotation_pos = self._annotation_item.pos()
+            scene = self._annotation_item.scene()
+            if scene is not None:
+                scene.removeItem(self._annotation_item)
         all_items = [
-            self._annotation_item,
             self._dropped_item,
             self._average_item,
             self._error_bar_item,
@@ -813,60 +854,156 @@ class PlotWidget(QWidget):
         if plot_item.legend is not None:
             plot_item.legend.clear()
 
-    def _find_least_occupied_corner(self, exclude: str | None = None) -> str:
-        """Determine which corner of the view has the fewest data points.
+    def _obstacle_points_px(self) -> np.ndarray:
+        """Every plotted vertex, in ViewBox-local pixel coordinates.
 
-        Parameters
-        ----------
-        exclude : str, optional
-            Corner to exclude (e.g. already used by legend).
-
-        Returns
-        -------
-        str
-            One of 'top-left', 'top-right', 'bottom-left', 'bottom-right'.
+        Includes the fitted curves and the mean line, not just the scatter
+        points — the curve is what an overlay most often lands on. Fit curves
+        are already sampled densely (``_FIT_CURVE_POINTS``), so counting
+        vertices stands in for testing segment/rectangle intersection.
         """
-        vr = self._pg_widget.getViewBox().viewRect()
-        cx = vr.center().x()
-        cy = vr.center().y()
+        vb = self._pg_widget.getViewBox()
+        (x0, x1), (y0, y1) = vb.viewRange()
+        width, height = vb.width(), vb.height()
+        if x1 <= x0 or y1 <= y0 or width <= 0 or height <= 0:
+            return np.empty((0, 2))
 
-        # Collect all visible data points
-        all_x: list[float] = []
-        all_y: list[float] = []
-        for item in self._replica_items:
-            if item.isVisible():
-                data = item.getData()
-                if data[0] is not None:
-                    all_x.extend(data[0].tolist())
-                    all_y.extend(data[1].tolist())
-        if self._dropped_item is not None and self._dropped_item.isVisible():
-            data = self._dropped_item.getData()
-            if data[0] is not None:
-                all_x.extend(data[0].tolist())
-                all_y.extend(data[1].tolist())
-        for item in getattr(self, '_dropped_items', []):
-            if item.isVisible():
-                data = item.getData()
-                if data[0] is not None:
-                    all_x.extend(data[0].tolist())
-                    all_y.extend(data[1].tolist())
+        xs: list[np.ndarray] = []
+        ys: list[np.ndarray] = []
+        items = [
+            *self._replica_items,
+            *self._dropped_items,
+            *self._fit_items,
+            *self._error_cap_items,
+            self._dropped_item,
+            self._average_item,
+        ]
+        for item in items:
+            if item is None or not item.isVisible():
+                continue
+            data_x, data_y = item.getData()
+            if data_x is None or len(data_x) == 0:
+                continue
+            xs.append(np.asarray(data_x, dtype=float))
+            ys.append(np.asarray(data_y, dtype=float))
+        if not xs:
+            return np.empty((0, 2))
 
-        counts = {'top-left': 0, 'top-right': 0, 'bottom-left': 0, 'bottom-right': 0}
-        for px, py in zip(all_x, all_y):
-            h = 'left' if px < cx else 'right'
-            v = 'bottom' if py < cy else 'top'
-            counts[f'{v}-{h}'] += 1
+        data_x = np.concatenate(xs)
+        data_y = np.concatenate(ys)
+        # y grows upward in data space but downward in pixels.
+        px = (data_x - x0) / (x1 - x0) * width
+        py = (1.0 - (data_y - y0) / (y1 - y0)) * height
+        return np.column_stack((px, py))
 
-        if exclude:
-            counts.pop(exclude, None)
+    def _best_overlay_slot(
+        self,
+        size: tuple[float, float],
+        blocked: tuple[QRectF, ...] = (),
+    ) -> tuple[tuple[float, float], QRectF] | None:
+        """Emptiest slot for a *size* box: ``(anchor_fractions, rect)`` in pixels.
 
-        return min(counts, key=counts.get)
+        A compact port of matplotlib's ``Legend._find_best_position``, which
+        PyQtGraph has no equivalent of (upstream issue #2769 is still open):
+        score each candidate slot by how many plotted vertices it would cover,
+        add a penalty for overlapping an already-placed overlay, and keep the
+        lowest. Candidates are ordered so ties fall to the conventional
+        top-right. Returns ``None`` while the ViewBox has no usable geometry.
+        """
+        vb = self._pg_widget.getViewBox()
+        width, height = vb.width(), vb.height()
+        box_w, box_h = size
+        if width <= 0 or height <= 0 or box_w <= 0 or box_h <= 0:
+            return None
+
+        pad = _OVERLAY_PAD_PX
+        free_w = max(0.0, width - box_w - 2 * pad)
+        free_h = max(0.0, height - box_h - 2 * pad)
+        points = self._obstacle_points_px()
+
+        best: tuple[tuple[float, float], QRectF] | None = None
+        best_badness = None
+        for fx, fy in _OVERLAY_SLOTS:
+            rect = QRectF(pad + fx * free_w, pad + fy * free_h, box_w, box_h)
+            badness = 0.0
+            if points.size:
+                inside = (
+                    (points[:, 0] >= rect.left())
+                    & (points[:, 0] <= rect.right())
+                    & (points[:, 1] >= rect.top())
+                    & (points[:, 1] <= rect.bottom())
+                )
+                badness = float(np.count_nonzero(inside))
+            badness += _BLOCKED_PENALTY * sum(1 for other in blocked if rect.intersects(other))
+            if best_badness is None or badness < best_badness:
+                best, best_badness = ((fx, fy), rect), badness
+            if badness == 0:
+                break
+        return best
+
+    def _legend_rect_px(self) -> QRectF | None:
+        """The legend's current footprint in ViewBox-local pixels, if placed."""
+        if self._legend is None or not self._legend.isVisible():
+            return None
+        rect = self._legend.boundingRect()
+        if rect.isEmpty():
+            return None
+        return QRectF(self._legend.pos(), rect.size())
+
+    def _annotation_html(self) -> str:
+        """Body of the fit-summary overlay.
+
+        Reports each parameter as ``Estimate (min, max)``: the representative
+        fit — one real fit from the accepted pool — followed by the full range
+        that pool spans. Rows come from
+        :func:`~core.pipeline.fit_pipeline.summarize_parameters`, so the plot,
+        the summary table and the exports quote the same numbers. RMSE is
+        omitted: it is already in the Fit Quality panel and is monotone in the
+        R² shown here. The log₁₀ twin rows stay in the table — repeating them
+        here would double the box height for no new information.
+        """
+        from core.pipeline.fit_pipeline import summarize_parameters
+
+        lines: list[str] = []
+        for idx, result in enumerate(self._fit_results):
+            rows = [spec for spec in summarize_parameters(result) if not spec.is_log]
+            pooled = any(spec.stats is not None for spec in rows)
+
+            if len(self._fit_results) > 1:
+                title = self._fit_labels[idx] if idx < len(self._fit_labels) else f'fit {idx}'
+            else:
+                title = 'Fit Summary'
+            if pooled:
+                lines.append(f'<b>{title}</b> — best fit (range over {result.n_passing} accepted fits)')
+            else:
+                lines.append(f'<b>{title}</b> — best fit (no fit pool stored, so no range)')
+
+            for spec in rows:
+                # Pint's HTML formatter gives proper superscripts; the unit is
+                # stripped from each number and appended once at the end.
+                def fmt(magnitude: float, unit: str = spec.unit) -> str:
+                    if unit:
+                        return f'{Q_(magnitude, unit):.3g~H}'.rsplit(' ', 1)[0]
+                    return f'{magnitude:.3g}'
+
+                unit_html = f' {fmt_unit_html(spec.unit)}' if spec.unit else ''
+                text = f'{fmt_param(spec.key)} = {fmt(spec.estimate)}'
+                if spec.stats is not None:
+                    text += f' ({fmt(spec.stats["min"])}, {fmt(spec.stats["max"])})'
+                lines.append(f'{text}{unit_html}')
+
+            lines.append(f'<b>R\u00b2:</b> {result.r_squared:.4f}')
+
+            if idx < len(self._fit_results) - 1:
+                lines.append('')
+        return '<br>'.join(lines)
 
     def _rebuild_annotation(self) -> None:
-        """Add or remove a draggable TextItem showing fit results."""
+        """Rebuild the draggable fit-summary overlay, then re-place it."""
         if self._annotation_item is not None:
-            self._annotation_pos = self._annotation_item.pos()
-            self._pg_widget.removeItem(self._annotation_item)
+            scene = self._annotation_item.scene()
+            if scene is not None:
+                scene.removeItem(self._annotation_item)
             self._annotation_item = None
 
         if not self._style['visibility']['show_fit_results']:
@@ -875,76 +1012,51 @@ class PlotWidget(QWidget):
             return
 
         font_pt = self._style['annotations']['font_size']
-        lines: list[str] = []
-
-        from core.assays.registry import ASSAY_REGISTRY, AssayType
-        from core.optimizer.ensemble import ENSEMBLE_STATISTICS
-
-        for idx, result in enumerate(self._fit_results):
-            spread = ENSEMBLE_STATISTICS[result.statistics_mode].label
-            if len(self._fit_results) > 1:
-                label = self._fit_labels[idx] if idx < len(self._fit_labels) else f'fit {idx}'
-                lines.append(f'<b>{label}</b> — {spread}')
-            else:
-                lines.append(f'<b>Fit Summary</b> — {spread}')
-
-            try:
-                meta = ASSAY_REGISTRY[AssayType[result.assay_type]]
-                units_dict = meta.units
-            except KeyError:
-                units_dict = {}
-
-            for key, val in result.parameters.items():
-                unc = result.uncertainties.get(key, float('nan'))
-                unit_str = units_dict.get(key, '')
-                unit_html = f' {fmt_unit_html(unit_str)}' if unit_str else ''
-                val_mag = float(val.magnitude) if isinstance(val, Quantity) else float(val)
-                unc_mag = float(unc.magnitude) if isinstance(unc, Quantity) else float(unc)
-                # Format with Pint HTML for proper superscripts, then strip unit
-                if unit_str:
-                    val_html = f'{Q_(val_mag, unit_str):.3g~H}'.rsplit(' ', 1)[0]
-                    unc_html = f'{Q_(unc_mag, unit_str):.3g~H}'.rsplit(' ', 1)[0]
-                else:
-                    val_html = f'{val_mag:.3g}'
-                    unc_html = f'{unc_mag:.3g}'
-                lines.append(f'{fmt_param(key)} = {val_html} &plusmn; {unc_html}{unit_html}')
-
-            lines.append(f'<b>R\u00b2:</b> {result.r_squared:.4f}')
-            lines.append(f'<b>RMSE:</b> {Q_(result.rmse, "au"):.3g~H}')
-
-            if idx < len(self._fit_results) - 1:
-                lines.append('')
-
-        body = '<br>'.join(lines)
+        body = self._annotation_html()
         bg_rgba = self._style['annotations'].get('background_color', (255, 255, 255, 200))
         r, g, b = int(bg_rgba[0]), int(bg_rgba[1]), int(bg_rgba[2])
         a_frac = (bg_rgba[3] if len(bg_rgba) >= 4 else 255) / 255.0
         bg_css = f'rgba({r},{g},{b},{a_frac:.3f})'
         html = f'<div style="font-size:{font_pt}pt; background-color: {bg_css}; padding:4px; border:1px solid #aaa;">{body}</div>'
-        # Choose annotation corner, excluding the one occupied by the legend
-        # so the fit-results overlay never covers the legend on a fresh build.
-        corner = self._find_least_occupied_corner(exclude=self._legend_corner)
-        anchor_map = {
-            'top-right': (1, 0),
-            'top-left': (0, 0),
-            'bottom-right': (1, 1),
-            'bottom-left': (0, 1),
-        }
-        anchor = anchor_map[corner]
-        self._annotation_item = pg.TextItem(html=html, anchor=anchor)
+        # Parent to the ViewBox itself, not to its childGroup (which is what
+        # PlotWidget.addItem does). The item then lives in ViewBox-local *pixel*
+        # coordinates — exactly how PlotItem.addLegend parents the legend — so
+        # its position cannot go stale when the data range or x-unit changes,
+        # and it stays out of autoRange instead of feeding its own position in.
+        self._annotation_item = _DraggableTextItem(html=html, anchor=(0, 0), on_moved=self._on_annotation_moved)
         self._annotation_item.setFlag(self._annotation_item.GraphicsItemFlag.ItemIsMovable)
-        self._pg_widget.addItem(self._annotation_item)
-        # Sticky: once a position is remembered (either the initial
-        # auto-placed one or a user drag), re-use it on every rebuild.
+        self._annotation_item.setParentItem(self._pg_widget.getViewBox())
+        self._place_annotation()
+
+    def _place_annotation(self) -> None:
+        """Move the annotation to the emptiest slot, unless the user moved it.
+
+        Once dragged, the annotation stays put — auto-placement is what happens
+        *until* the user takes over. The dragged position is in ViewBox pixels,
+        so it survives range and unit changes; it is cleared when new data
+        arrives.
+        """
+        if self._annotation_item is None:
+            return
         if self._annotation_pos is not None:
             self._annotation_item.setPos(self._annotation_pos)
-        else:
-            vr = self._pg_widget.getViewBox().viewRect()
-            pos_map = {
-                'top-right': (vr.right(), vr.top() + vr.height()),
-                'top-left': (vr.left(), vr.top() + vr.height()),
-                'bottom-right': (vr.right(), vr.top()),
-                'bottom-left': (vr.left(), vr.top()),
-            }
-            px, py = pos_map[corner]
-            self._annotation_item.setPos(px, py)
+            return
+
+        rect = self._annotation_item.boundingRect()
+        slot = self._best_overlay_slot(
+            (rect.width(), rect.height()),
+            blocked=tuple(r for r in (self._legend_rect_px(),) if r is not None),
+        )
+        if slot is None:
+            # The ViewBox has no geometry yet (pre-paint). sigRangeChanged /
+            # sigResized will call back once it does.
+            return
+        self._annotation_item.setPos(slot[1].topLeft())
+
+    def _on_annotation_moved(self, pos: QPointF) -> None:
+        """Remember a user drag so later rebuilds stop re-placing the box."""
+        self._annotation_pos = pos
+
+    def _on_view_geometry_changed(self, *_args) -> None:
+        """Re-place the annotation once the view range or size is real."""
+        self._place_annotation()
