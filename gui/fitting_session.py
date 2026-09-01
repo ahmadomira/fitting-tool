@@ -346,6 +346,21 @@ class FittingSession(QWidget):
         export_results_txt(self._state.fit_results, path)
         self.status_message.emit(f'Results exported to {path}')
 
+    def export_results_csv(self) -> None:
+        """Export current fit results as a machine-readable CSV table."""
+        if not self._state.fit_results:
+            QMessageBox.information(self, 'No Results', 'Run a fit first.')
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, 'Export Results (CSV)', self._default_save_name('.csv', 'results'), 'CSV files (*.csv)'
+        )
+        if not path:
+            return
+        from gui.session import export_results_csv
+
+        export_results_csv(self._state.fit_results, path)
+        self.status_message.emit(f'Results exported to {path}')
+
     def export_raw_data(self) -> None:
         """Export the currently loaded raw measurements to TXT or CSV.
 

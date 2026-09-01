@@ -211,6 +211,10 @@ class FittingMainWindow(QMainWindow):
         self._act_export_txt.setToolTip('Export fit results as a human-readable text report')
         self._act_export_txt.triggered.connect(self._on_export_txt)
 
+        self._act_export_csv = QAction('Export Results (CSV)', self)
+        self._act_export_csv.setToolTip('Export fit results as a CSV table, one row per parameter')
+        self._act_export_csv.triggered.connect(self._on_export_csv)
+
         self._act_export_raw = QAction('Export Raw Data\u2026', self)
         self._act_export_raw.setToolTip('Export the currently loaded replicas and concentrations to TXT or CSV')
         self._act_export_raw.triggered.connect(self._on_export_raw)
@@ -237,6 +241,7 @@ class FittingMainWindow(QMainWindow):
         export_menu.addSeparator()
         export_menu.addAction(self._act_export)
         export_menu.addAction(self._act_export_txt)
+        export_menu.addAction(self._act_export_csv)
         export_menu.addAction(self._act_export_raw)
         export_menu.addSeparator()
         export_menu.addAction(self._act_save_plot)
@@ -285,6 +290,7 @@ class FittingMainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self._act_export)
         file_menu.addAction(self._act_export_txt)
+        file_menu.addAction(self._act_export_csv)
         file_menu.addAction(self._act_export_raw)
         file_menu.addAction(self._act_import)
         file_menu.addAction(self._act_save_plot)
@@ -386,6 +392,11 @@ class FittingMainWindow(QMainWindow):
         session = self.active_session()
         if session:
             session.export_results_txt()
+
+    def _on_export_csv(self) -> None:
+        session = self.active_session()
+        if session:
+            session.export_results_csv()
 
     def _on_export_raw(self) -> None:
         session = self.active_session()
