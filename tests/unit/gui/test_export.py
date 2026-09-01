@@ -52,7 +52,6 @@ def fitted_dist_widget(qapp):
     x = np.linspace(0, 1e-4, 20)
     result = FitResult(
         parameters={k: float(np.median(v)) for k, v in samples.items()},
-        uncertainties={k: 0.0 for k in samples},
         rmse=0.005,
         r_squared=0.998,
         n_passing=200,
@@ -255,7 +254,6 @@ def annotated_plot_widget(qapp):
     )
     result = FitResult(
         parameters={'Ka_guest': 1e6, 'I0': 100.0, 'I_dye_free': 5e4, 'I_dye_bound': 8e4},
-        uncertainties={'Ka_guest': 1e5, 'I0': 5.0, 'I_dye_free': 2e3, 'I_dye_bound': 3e3},
         rmse=0.005,
         r_squared=0.998,
         n_passing=87,
@@ -305,7 +303,6 @@ def test_live_per_cell_size_uses_live_widget_when_shown(qapp):
     x = np.linspace(0, 1e-4, 10)
     result = FitResult(
         parameters={k: float(np.median(v)) for k, v in samples.items()},
-        uncertainties={k: 0.0 for k in samples},
         rmse=0.005,
         r_squared=0.998,
         n_passing=50,

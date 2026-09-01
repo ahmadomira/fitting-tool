@@ -15,10 +15,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from core.assays.registry import ASSAY_REGISTRY, AssayType
-from core.optimizer.ensemble import ENSEMBLE_STATISTICS, describe, describe_log10
-from core.pipeline.fit_pipeline import FitResult
-from core.units import Q_, Quantity
+from core.pipeline.fit_pipeline import FitResult, summarize_parameters
+from core.units import Q_
 from gui.plotting.labels import fmt_param, fmt_unit_html
 from gui.widgets.info_button import InfoGroupBox
 
@@ -36,15 +34,15 @@ ignores outlier fits (reported unscaled). <b>SD</b> is the sample standard
 deviation (N&minus;1) &mdash; the ordinary spread, pulled by outliers and
 assuming a roughly symmetric distribution. (The <i>median</i> absolute deviation
 is not the <i>mean</i> absolute deviation mean(|x<sub>i</sub> &minus; mean|); we
-use the median form because it pairs with the robust median.) The
-<b>Statistics</b> selector bolds whichever pair is the reported &plusmn; in the
-plot annotation and export &mdash; it does not change the Estimate or the curve.</p>
+use the median form because it pairs with the robust median.) None of these
+change the Estimate or the curve.</p>
 
 <p><b>68% Range</b> &mdash; the interval [P16, P84] holding the central 68% of
 the fits. For a bell-shaped distribution this equals mean&nbsp;&plusmn;&nbsp;1
 SD, but it is read straight from the fits, so it stays correct &mdash; and
 reveals any skew &mdash; even when they are not bell-shaped. <b>Min-Max Range</b>
-is the full extent of the fitted values.</p>
+is the full extent of the fitted values &mdash; this is the range quoted beside
+the Estimate in the plot annotation and the exported reports.</p>
 
 <p><b>log<sub>10</sub>(K<sub>a</sub>) row</b> &mdash; for each association
 constant, a second row reports log<sub>10</sub>(K<sub>a</sub>). Its statistics
@@ -96,8 +94,6 @@ _STAT_COL0 = 2
 _P68_COL = _STAT_COL0 + len(_STAT_COLUMNS)
 _RANGE_COL = _P68_COL + 1
 _UNITS_COL = _RANGE_COL + 1
-# Column bolded for each mode's merged (central ± spread) cell.
-_ACTIVE_COLUMNS = {'median': (_STAT_COL0,), 'mean': (_STAT_COL0 + 1,)}
 
 
 class FitSummaryWidget(QWidget):
@@ -105,23 +101,16 @@ class FitSummaryWidget(QWidget):
 
     Layout
     ------
-    - ``QGroupBox("Fitted Parameters")`` with Statistics and Representative
-      selectors and columns: Parameter | Estimate | Median \u00b1 MAD | Mean \u00b1 SD |
-      Range [min, max] | Units, plus a log\u2081\u2080 row for each association constant.
-      ``Estimate`` is the representative fit; the stat columns summarise the
-      spread across all valid fits. The Statistics selector bolds the reported
-      pair (annotation + export).
+    - ``QGroupBox("Fitted Parameters")`` with a Representative selector and
+      columns: Parameter | Estimate | Median \u00b1 MAD | Mean \u00b1 SD | 68% Range |
+      Min-Max Range | Units, plus a log\u2081\u2080 row for each association constant.
+      ``Estimate`` is the representative fit; the remaining columns summarise
+      the spread across all valid fits. Rows come from
+      :func:`~core.pipeline.fit_pipeline.summarize_parameters`, shared with the
+      plot annotation and the exports.
     - ``QGroupBox("Fit Quality")`` with RMSE, R-squared, Fits passing.
-
-    Signals
-    -------
-    statistics_mode_changed(str)
-        Emitted when the user picks a different aggregation (``"median"`` /
-        ``"mean"``). The owner recomputes the reported \u00b1 and refreshes the
-        annotation; the value, curve, and RMSE/R\u00b2 never change.
     """
 
-    statistics_mode_changed = pyqtSignal(str)
     representative_selected = pyqtSignal(int)
 
     def __init__(self, parent=None):
@@ -139,16 +128,6 @@ class FitSummaryWidget(QWidget):
             _PARAMS_HELP_HTML,
         )
 
-        # Statistics selector: which (central \u00b1 spread) is the reported \u00b1.
-        self._stats_combo = QComboBox()
-        for key, stat in ENSEMBLE_STATISTICS.items():
-            self._stats_combo.addItem(stat.label, key)
-        self._stats_combo.setToolTip(
-            '<qt>Reported \u00b1 across the valid fits: \u00b1 MAD (robust) or \u00b1 STDEV.<br>'
-            'Changes the annotation and export only \u2014 not the value or curve.</qt>'
-        )
-        self._stats_combo.currentIndexChanged.connect(self._on_stats_combo_changed)
-
         # Representative selector: which actual fit is reported (drives the curve).
         self._rep_combo = QComboBox()
         # Size to the widest item so no label is ever truncated.
@@ -162,9 +141,6 @@ class FitSummaryWidget(QWidget):
         self._rep_combo.currentIndexChanged.connect(self._on_rep_combo_changed)
 
         stats_row = QHBoxLayout()
-        stats_row.addWidget(QLabel('Statistics:'))
-        stats_row.addWidget(self._stats_combo)
-        stats_row.addSpacing(16)
         stats_row.addWidget(QLabel('Representative:'))
         stats_row.addWidget(self._rep_combo)
         stats_row.addStretch(1)
@@ -196,62 +172,44 @@ class FitSummaryWidget(QWidget):
         """Populate the widget from a ``FitResult``.
 
         ``Estimate`` is the representative fit; the Median ± MAD, Mean ± SD, and
-        Range columns summarise the valid-fit pool via
-        :func:`core.optimizer.ensemble.describe`. Each association constant gets
-        a second log₁₀ row whose statistics come from the per-fit log₁₀ values
-        (:func:`~core.optimizer.ensemble.describe_log10`), never from the log of
-        a Ka spread. Each unit comes from the parameter's own ``Quantity``.
+        Range columns summarise the valid-fit pool. Rows (including the log₁₀
+        twin of each association constant) come from
+        :func:`~core.pipeline.fit_pipeline.summarize_parameters`, so the table,
+        the plot annotation and the exports cannot disagree.
         """
-        assay_type = _lookup_assay_type(result.assay_type)
-        # Which parameters are log-scale (Ka) is registry metadata; each unit,
-        # though, comes from the parameter's own Quantity below — authoritative
-        # and correct even when the assay type isn't in the registry.
-        log_keys: set[str] = set()
-        if assay_type is not None:
-            log_keys = set(ASSAY_REGISTRY[assay_type].log_scale_keys)
-
         # A new fit clears the sticky plot-selection; refreshes of the same
-        # result (mode toggle, re-selection) keep it.
+        # result (e.g. a re-selection) keep it.
         if result.id != self._last_result_id:
             self._plot_selected_index = None
             self._last_result_id = result.id
 
-        self._set_combo_mode(result.statistics_mode)
         self._populate_rep_combo(result)
 
-        samples = result.parameter_samples
-        pool_missing = not samples
+        rows = summarize_parameters(result)
+        pool_missing = not result.parameter_samples
 
-        # Row specs: (label_html, estimate_html, describe_dict|None, unit_str).
-        # A log₁₀ twin row follows each association constant (log-scale key).
-        specs: list[tuple[str, str, dict | None, str]] = []
-        for key, value in result.parameters.items():
-            unit_str = str(value.units) if isinstance(value, Quantity) else ''
-            val_mag = float(value.magnitude) if isinstance(value, Quantity) else float(value)
-            pool = np.asarray(samples[key], dtype=float) if samples else None
-            specs.append(
-                (fmt_param(key), self._fmt(val_mag, unit_str), describe(pool) if pool is not None else None, unit_str)
-            )
-            if key in log_keys and pool is not None:
-                unit_html = fmt_unit_html(unit_str)
-                log_label = f'log₁₀({fmt_param(key)} / {unit_html})' if unit_html else f'log₁₀({fmt_param(key)})'
-                specs.append((log_label, self._fmt(float(np.log10(val_mag)), ''), describe_log10(pool), ''))
+        self._table.setRowCount(len(rows))
+        for row, spec in enumerate(rows):
+            # Log rows are dimensionless; their source unit only labels them.
+            unit_html = fmt_unit_html(spec.unit) if spec.unit else ''
+            if spec.is_log:
+                label = f'log₁₀({fmt_param(spec.key)} / {unit_html})' if unit_html else f'log₁₀({fmt_param(spec.key)})'
+            else:
+                label = fmt_param(spec.key)
+            value_unit = '' if spec.is_log else spec.unit
 
-        self._table.setRowCount(len(specs))
-        for row, (label, est, d, unit_str) in enumerate(specs):
             self._set_cell(row, 0, label)
-            self._set_cell(row, 1, est)
+            self._set_cell(row, 1, self._fmt(spec.estimate, value_unit))
+            d = spec.stats
             if d is None:
                 for col in range(_STAT_COL0, _RANGE_COL + 1):
                     self._set_cell(row, col, '—', tooltip='No fit pool stored for this result (e.g. a legacy import).')
             else:
                 for offset, (_, (ck, sk)) in enumerate(_STAT_COLUMNS):
-                    self._set_cell(row, _STAT_COL0 + offset, self._fmt_pair(d[ck], d[sk], unit_str))
-                self._set_cell(row, _P68_COL, self._fmt_range(d['p16'], d['p84'], unit_str))
-                self._set_cell(row, _RANGE_COL, self._fmt_range(d['min'], d['max'], unit_str))
-            self._set_cell(row, _UNITS_COL, fmt_unit_html(unit_str) if unit_str else '—')
-
-        self._emphasize_active_pair(result.statistics_mode)
+                    self._set_cell(row, _STAT_COL0 + offset, self._fmt_pair(d[ck], d[sk], value_unit))
+                self._set_cell(row, _P68_COL, self._fmt_range(d['p16'], d['p84'], value_unit))
+                self._set_cell(row, _RANGE_COL, self._fmt_range(d['min'], d['max'], value_unit))
+            self._set_cell(row, _UNITS_COL, unit_html if value_unit else '—')
 
         rmse_html = f'{Q_(result.rmse, "au"):.3g~H}'
         self._rmse_label.setTextFormat(Qt.TextFormat.RichText)
@@ -288,20 +246,6 @@ class FitSummaryWidget(QWidget):
         if tooltip:
             lbl.setToolTip(tooltip)
         self._table.setCellWidget(row, col, lbl)
-
-    def _set_combo_mode(self, mode: str) -> None:
-        """Reflect *mode* in the selector without re-emitting the change."""
-        idx = self._stats_combo.findData(mode)
-        if idx < 0:
-            return
-        self._stats_combo.blockSignals(True)
-        self._stats_combo.setCurrentIndex(idx)
-        self._stats_combo.blockSignals(False)
-
-    def _on_stats_combo_changed(self, _index: int) -> None:
-        mode = self._stats_combo.currentData()
-        if mode is not None:
-            self.statistics_mode_changed.emit(mode)
 
     def _populate_rep_combo(self, result: FitResult) -> None:
         """Offer Best, Median, Worst, and the sticky Selected representative.
@@ -350,17 +294,6 @@ class FitSummaryWidget(QWidget):
         if idx is not None and idx >= 0:
             self.representative_selected.emit(int(idx))
 
-    def _emphasize_active_pair(self, mode: str) -> None:
-        """Bold the header of the active (central, spread) pair."""
-        active = _ACTIVE_COLUMNS.get(mode, ())
-        for col in range(self._table.columnCount()):
-            item = self._table.horizontalHeaderItem(col)
-            if item is None:
-                continue
-            font = item.font()
-            font.setBold(col in active)
-            item.setFont(font)
-
     def _autosize_columns(self) -> None:
         # resizeColumnsToContents() ignores widgets set via setCellWidget(),
         # so we measure each QLabel's sizeHint() directly, then spread any
@@ -390,22 +323,3 @@ class FitSummaryWidget(QWidget):
         self._rmse_label.setText('\u2014')
         self._r2_label.setText('\u2014')
         self._passing_label.setText('\u2014')
-
-
-def _lookup_assay_type(assay_type_str: str) -> AssayType | None:
-    """Reverse-lookup AssayType by its ``.name`` string.
-
-    Parameters
-    ----------
-    assay_type_str : str
-        E.g. ``"GDA"``, ``"IDA"``, ``"DBA_HtoD"``.
-
-    Returns
-    -------
-    AssayType | None
-        ``None`` if not found.
-    """
-    try:
-        return AssayType[assay_type_str]
-    except KeyError:
-        return None
