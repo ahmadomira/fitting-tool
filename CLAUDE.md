@@ -84,7 +84,7 @@ All assay types are registered in `core/assays/registry.py` via `ASSAY_REGISTRY:
 |-------|------|----------------|
 | **Assays** | `core/assays/` | `BaseAssay` ABC + subclasses; each wraps a forward model reference |
 | **Models** | `core/models/` | Pure, unit-free math: `equilibrium.py`, `linear.py` |
-| **Optimizer** | `core/optimizer/` | Stateless multi-start L-BFGS-B: `multistart`, result filtering, robust aggregation (median + MAD), scaling, linear fit |
+| **Optimizer** | `core/optimizer/` | Stateless multi-start L-BFGS-B: `multistart`, result filtering, ensemble collapse + `describe()` summary stats, scaling, linear fit |
 | **Pipeline** | `core/pipeline/` | Orchestration: `fit_assay()`, `FitConfig`, `FitResult` (`fit_pipeline.py`) |
 | **Data Processing** | `core/data_processing/` | `MeasurementSet` (immutable 2D container), Z-score replica filter, concentration helpers, `prepare_plot_data()` (`plotting.py`) |
 | **I/O** | `core/io/` | Strategy pattern with explicit dict registries (no decorators); readers per format under `io/formats/` (BMG/csv/ensight/jasco/txt/xlsx) + measurement writer |
@@ -100,7 +100,15 @@ All assay types are registered in `core/assays/registry.py` via `ASSAY_REGISTRY:
 
 ### Fitting Pipeline Flow
 
-`load_measurements()` → `MeasurementSet` → `.to_assay()` → `BaseAssay` → `fit_assay(assay, FitConfig)` → multi-start L-BFGS-B → filter by RMSE/R² → aggregate via median + MAD → `FitResult`
+`load_measurements()` → `MeasurementSet` → `.to_assay()` → `BaseAssay` → `fit_assay(assay, FitConfig)` → multi-start L-BFGS-B → filter by RMSE/R² → `collapse()` to a representative fit + retained pool → `FitResult`
+
+**Reporting is derived, never stored.** `FitResult` keeps the representative fit's
+`parameters` and the full `parameter_samples` pool; every reported interval comes from
+`summarize_parameters(result)` (`core/pipeline/fit_pipeline.py`), which the plot
+annotation, the summary table and the TXT/CSV exports all render from. The headline form
+is **`Estimate (min, max)`** — a real best fit plus the range its accepted pool spans.
+Report a real fit's value together with an interval derived from that same pool; a
+centre from one estimator paired with a spread from another describes no distribution.
 
 ### GUI Plotting Flow
 
@@ -148,6 +156,39 @@ Tests verify **scientific correctness first** — reproduce a bug as a failing t
 - Numpy-style docstrings; type hints on all public methods.
 - Prefer dataclasses, pure functions, and explicit dict registries over complex abstractions.
 - Prefer built-ins and framework primitives over custom helpers — replace, don't wrap.
+
+## Documentation and Docstrings
+
+Describe the **present state as it is**. A docstring, comment, or doc file says what
+the code does now — not what it used to do, what it stopped doing, or what was
+considered and rejected on the way here.
+
+- **No "not X" framing where X is a past or rejected approach.** "the estimate is a
+  real fit, *not a synthetic average*"; "this *no longer* stores the spread"; "*unlike
+  the old* registry lookup". State the positive fact and stop.
+- **No migration narrative or deprecation history** — "superseded by", "we moved away
+  from", "kept for backward compatibility with the old…". Git holds that. A reader who
+  wasn't part of the decision only sees noise, and the note rots as soon as the thing
+  it contrasts against is forgotten.
+- **Rationale is welcome; history is not.** "Sampled on a log scale because Ka spans
+  ten orders of magnitude" is rationale. "Sampled on a log scale after linear sampling
+  failed" is history.
+- **Exception — keep the contrast when the comparison *is* the information.** Two
+  cases qualify: a genuine methodological trade-off between approaches a reader might
+  actually choose between (the Scatchard/Hill discussion in `Readme.md`), and a
+  non-obvious constraint they would otherwise violate. Write the second as a rule
+  about the present — "statistics of log₁₀(Ka) must come from the per-fit log values,
+  because log₁₀ of a Ka spread is meaningless" — never as a story about a past bug.
+- A constraint imposed by data already on disk is present-tense, not history. Say the
+  `replicate` token is the on-disk value in exported JSON and therefore part of that
+  file format — not that it is *kept for backward compatibility*.
+
+Applies to docstrings, inline comments, `Readme.md`, `docs/`, and these instruction
+files alike. One genre is exempt because its subject *is* the past: a dated audit or
+postmortem under `docs/` records what was found and what was done. Leave those as
+written — and do not annotate them with later changes either. When the code has moved
+on, the current behaviour belongs in the live reference, not as a footnote on the
+record.
 
 ## Commit Messages
 
