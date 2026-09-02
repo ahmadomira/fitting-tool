@@ -50,3 +50,6 @@ select = ["E4", "E7", "E9", "F", "I"]
 
 [tool.ruff.format]
 quote-style = "single"
+# Converge on LF rather than preserving each file's existing ending, so the
+# formatter repairs a stray CRLF file instead of perpetuating it.
+line-ending = "lf"
