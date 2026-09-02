@@ -62,6 +62,18 @@ class TestGDAFailFast:
         with pytest.raises(ValueError, match='g0.*must be positive'):
             GDAAssay(**kw)
 
+    def test_zero_g0_is_accepted(self):
+        """g0 = 0 is legal, unlike h0 and Ka_dye.
+
+        It is the no-competitor limit in which GDA reduces to DBA — the case
+        ``test_gda_g0_zero_matches_dba`` relies on. Tightening the check to
+        ``<= 0`` would make that limit unreachable through the assay.
+        """
+        kw = self._valid_kwargs()
+        kw['g0'] = Q_(0.0, 'M')
+        assay = GDAAssay(**kw)
+        assert assay.g0.magnitude == 0.0
+
     def test_mismatched_data_shapes_raises(self):
         kw = self._valid_kwargs()
         kw['y_data'] = Q_(np.ones(3), 'au')  # Different length than x_data

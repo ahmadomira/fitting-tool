@@ -135,6 +135,22 @@ def test_csv_leaves_pool_columns_blank_without_a_pool(tmp_path: Path) -> None:
         assert row['min'] == row['max'] == row['median'] == ''
 
 
+def test_exports_handle_an_empty_result_list(tmp_path: Path) -> None:
+    """Both writers must produce a valid, readable file with nothing to report.
+
+    The batch exporter builds artefacts from session state, so an empty list is
+    reachable; a crash there would abort the whole batch.
+    """
+    txt, csv_path = tmp_path / 'empty.txt', tmp_path / 'empty.csv'
+    export_results_txt([], txt)
+    export_results_csv([], csv_path)
+
+    assert 'FIT RESULTS REPORT' in txt.read_text(encoding='utf-8')
+    rows = _csv_rows(csv_path)
+    assert rows == []  # header written, no data rows
+    assert csv_path.read_text(encoding='utf-8').startswith('result_index,')
+
+
 def test_csv_indexes_multiple_results(tmp_path: Path) -> None:
     path = tmp_path / 'r.csv'
     export_results_csv([_result(), _result()], path)

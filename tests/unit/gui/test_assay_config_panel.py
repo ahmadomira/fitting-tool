@@ -82,7 +82,7 @@ class TestUnitWidgetInputConversion:
     # for *every* offered unit, including a coarse one like 'M'. Regression for a
     # fixed 3-decimal spinbox that silently rounded a small value to 0 on switch
     # (e.g. 50 µM shown as M → 0.000), zeroing the condition and corrupting fits.
-    @pytest.mark.parametrize('base_value', [50e-6, 1e-9, 4.3e-6, 250e-6])
+    @pytest.mark.parametrize('base_value', [1e-9, 50e-6])  # smallest (where the bug bit) + typical
     def test_switching_display_unit_preserves_quantity(self, qapp, base_value):
         w = _UnitWidget(ConditionField('h0', '[Host]', '', base_value, 'M', 'concentration'))
         for idx, (label, _) in enumerate(w._units):  # includes 'M', where the bug bit

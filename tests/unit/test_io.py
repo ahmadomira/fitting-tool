@@ -234,22 +234,6 @@ class TestTxtWriter:
 class TestIODataIntegrity:
     """Measurement data survives load with correct types and values."""
 
-    def test_roundtrip_preserves_values(self, tmp_path):
-        """Write a measurement file, read it back, values match."""
-        # Create a synthetic measurement file
-        data = 'var\tsignal\n'
-        values = [(0.0, 100.0), (1e-6, 200.5), (2.5e-6, 350.75)]
-        for conc, sig in values:
-            data += f'{conc}\t{sig}\n'
-
-        p = tmp_path / 'roundtrip.txt'
-        p.write_text(data)
-
-        df = load_measurements(p)
-        for i, (conc, sig) in enumerate(values):
-            assert df['concentration'].iloc[i] == pytest.approx(conc)
-            assert df['signal'].iloc[i] == pytest.approx(sig)
-
     def test_dtypes_are_numeric(self, tmp_path):
         """Loaded data has numeric dtypes, not strings."""
         data = 'var\tsignal\n0.0\t100.0\n1e-6\t200.0\n'

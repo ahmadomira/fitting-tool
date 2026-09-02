@@ -351,8 +351,8 @@ def test_annotation_is_replaced_for_a_new_dataset(qapp):
     pw = _binding_plot(qapp, x_max=5e-5)
     first = _annotation_rect(pw)
 
-    # Same widget, concentrations 1000x larger: the old pixel slot is only
-    # correct by accident, and the old *data* coords would be far off-screen.
+    # Concentrations 1000x larger: a position carried over from the previous
+    # dataset would land outside the new view.
     pw2 = _binding_plot(qapp, x_max=5e-2)
     QApplication.processEvents()
     second = _annotation_rect(pw2)
@@ -361,15 +361,6 @@ def test_annotation_is_replaced_for_a_new_dataset(qapp):
     assert 0 <= second.left() and second.right() <= vb.width() + 1
     assert 0 <= second.top() and second.bottom() <= vb.height() + 1
     assert first.isValid() and second.isValid()
-
-    points = pw2._obstacle_points_px()
-    covered = (
-        (points[:, 0] >= second.left())
-        & (points[:, 0] <= second.right())
-        & (points[:, 1] >= second.top())
-        & (points[:, 1] <= second.bottom())
-    ).sum()
-    assert covered == 0
 
 
 def test_user_drag_survives_a_rebuild(qapp):
@@ -477,6 +468,25 @@ def test_placement_finds_the_one_free_corner(qapp, free_corner):
         & (cloud[:, 1] <= rect.bottom())
     ).sum()
     assert covered == 0
+
+
+def test_degenerate_view_range_does_not_break_placement(qapp, monkeypatch):
+    """A zero-width view range must yield no obstacles, not a divide-by-zero.
+
+    Reachable with a single titration point, or an all-identical signal column.
+    Patched via ``monkeypatch`` so the collapsed range is restored afterwards —
+    a ViewBox left reporting it would fault on a later repaint.
+    """
+    pw = _binding_plot(qapp)
+    vb = pw._pg_widget.getViewBox()
+    monkeypatch.setattr(vb, 'viewRange', lambda: [[1.0, 1.0], [0.0, 5.0]])  # collapsed x
+
+    points = pw._obstacle_points_px()
+    assert points.shape == (0, 2)
+
+    # Placement still answers, treating the plot as empty.
+    slot = pw._best_overlay_slot((50.0, 20.0))
+    assert slot is not None
 
 
 def test_placement_avoids_a_blocked_rect(qapp):

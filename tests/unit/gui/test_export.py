@@ -219,10 +219,9 @@ def test_build_composite_layout_rejects_empty_selection(fitted_dist_widget):
 
 
 # ----------------------------------------------------------------------
-# Annotation reparenting — regression tests for the export-time
-# TextItem fix. Without reparenting, the annotation gets multiplied by
-# the ViewBox's data-coords-to-scene-pixels scaling (~1e7 for typical
-# molar X axes) and drifts off-canvas.
+# Fit-summary annotation in exported images. The overlay is a scene item
+# the exporter has to render like any other; these pin that it survives an
+# export unmoved and actually appears in the output.
 # ----------------------------------------------------------------------
 
 
@@ -230,10 +229,8 @@ def test_build_composite_layout_rejects_empty_selection(fitted_dist_widget):
 def annotated_plot_widget(qapp):
     """A PlotWidget with a fit result + annotation visible.
 
-    The widget is shown off-screen and events are processed so the
-    ViewBox's view rect resolves to real data bounds — without this,
-    the annotation positions at the default (0, 0…1, 1) rect and lands
-    on top of the plot's data instead of a corner.
+    Shown off-screen with events processed so the ViewBox resolves to real
+    geometry before the annotation is placed.
     """
     from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QApplication
@@ -268,8 +265,6 @@ def annotated_plot_widget(qapp):
     pw.resize(800, 600)
     pw.show()
     QApplication.processEvents()
-    # Rebuild the annotation now that the view rect is real.
-    pw.set_fit_results([result])
     return pw
 
 
@@ -340,40 +335,32 @@ def test_live_per_cell_size_falls_back_when_widget_not_shown(qapp):
     assert (w, h) == (_FALLBACK_CELL_W, _FALLBACK_CELL_H)
 
 
-def test_annotated_export_has_non_trivial_pixels_in_corner(annotated_plot_widget, tmp_path):
-    """The annotation occupies a corner; that corner must not be all background.
+def test_annotation_actually_renders_into_the_export(annotated_plot_widget, tmp_path):
+    """The annotation must appear in the exported image, not drift off-canvas.
 
-    Catches the regression where the TextItem ends up at ~1e9 px and
-    leaves the canvas — a blank corner is the visible symptom.
+    Measured by exporting the same plot with the overlay on and off and
+    counting changed pixels, rather than sampling fixed corners: the overlay
+    is auto-placed into whichever candidate slot is emptiest, so a corner scan
+    would encode one particular dataset's outcome.
     """
+    import copy
+
     from PyQt6.QtGui import QImage
 
-    path = tmp_path / 'annot.png'
-    annotated_plot_widget.export_image(str(path), width_px=1200)
-    img = QImage(str(path))
+    pw = annotated_plot_widget
+    with_ann, without_ann = tmp_path / 'with.png', tmp_path / 'without.png'
 
-    w, h = img.width(), img.height()
-    patch_w, patch_h = 240, 120
+    pw.export_image(str(with_ann), width_px=1200)
 
-    def _dark_count(x0, y0):
-        n = 0
-        for yi in range(y0, y0 + patch_h, 4):
-            for xi in range(x0, x0 + patch_w, 4):
-                c = img.pixelColor(xi, yi)
-                if c.red() < 200 and c.green() < 200 and c.blue() < 200:
-                    n += 1
-        return n
+    style = copy.deepcopy(pw._style)
+    style['visibility']['show_fit_results'] = False
+    pw.apply_style(style)
+    assert pw._annotation_item is None, 'overlay should be gone with the flag off'
+    pw.export_image(str(without_ann), width_px=1200)
 
-    corner_counts = {
-        'top-left': _dark_count(5, 5),
-        'top-right': _dark_count(w - patch_w - 5, 5),
-        'bottom-left': _dark_count(5, h - patch_h - 5),
-        'bottom-right': _dark_count(w - patch_w - 5, h - patch_h - 5),
-    }
-    # The annotation lives in one of the four corners. If it rendered,
-    # at least one corner has many dark pixels (text + border). If it
-    # drifted off-canvas (regression), every corner is near-blank.
-    best = max(corner_counts.values())
-    assert best > 80, (
-        f'no corner contains the annotation (corner_counts={corner_counts}) — annotation likely off-canvas'
-    )
+    a, b = QImage(str(with_ann)), QImage(str(without_ann))
+    assert (a.width(), a.height()) == (b.width(), b.height())
+    changed = sum(a.pixel(x, y) != b.pixel(x, y) for y in range(0, a.height(), 4) for x in range(0, a.width(), 4))
+    # The overlay is a multi-line boxed label; anything under a few hundred
+    # sampled pixels means it did not render where the canvas can see it.
+    assert changed > 300, f'annotation contributed only {changed} sampled pixels to the export'

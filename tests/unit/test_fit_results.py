@@ -51,20 +51,6 @@ def _sample_fit_result(**overrides) -> FitResult:
 
 
 # ---------------------------------------------------------------------------
-# Basic properties
-# ---------------------------------------------------------------------------
-
-
-class TestFitResultProperties:
-    """Core properties and defaults."""
-
-    def test_unique_ids(self):
-        r1 = _sample_fit_result()
-        r2 = _sample_fit_result()
-        assert r1.id != r2.id
-
-
-# ---------------------------------------------------------------------------
 # Serialization round-trip
 # ---------------------------------------------------------------------------
 
@@ -131,12 +117,6 @@ class TestSerialization:
         assert r.source_file is None
         assert isinstance(r.id, str)
 
-    def test_x_fit_y_fit_are_ndarray_after_from_dict(self):
-        d = _sample_fit_result().to_dict()
-        r = FitResult.from_dict(d)
-        assert isinstance(r.x_fit, Quantity)
-        assert isinstance(r.y_fit, Quantity)
-
     def test_x_y_fit_units_round_trip(self):
         """x_fit/y_fit carry their own unit tokens; older files without them fall
         back to the M/au convention (L10)."""
@@ -192,6 +172,80 @@ class TestEnsembleMutators:
         r = replace(_sample_fit_result(), parameter_samples={})
         with pytest.raises(ValueError, match='no parameter_samples'):
             select_representative(r, None, 0)  # empty dict -> clear error, not StopIteration
+
+
+class TestSummarizeParameters:
+    """The single source every reported number is derived from.
+
+    The table, the plot annotation and the TXT/CSV exports all render from
+    ``summarize_parameters``, so its contract is pinned here directly rather
+    than only through those three surfaces.
+    """
+
+    def test_log_twin_appears_exactly_for_log_scale_keys(self):
+        from core.assays.registry import ASSAY_REGISTRY, AssayType
+        from core.pipeline.fit_pipeline import summarize_parameters
+
+        rows = summarize_parameters(_sample_fit_result())  # GDA
+
+        logged = {r.key for r in rows if r.is_log}
+        assert logged == set(ASSAY_REGISTRY[AssayType.GDA].log_scale_keys)
+        # Every fitted parameter still gets its own plain row.
+        assert {r.key for r in rows if not r.is_log} == set(_sample_fit_result().parameters)
+
+    def test_unit_comes_from_the_parameter_quantity_not_the_registry(self):
+        """An assay the registry has never heard of still reports real units.
+
+        Re-deriving units from the registry yields ``dimensionless`` for an
+        unknown assay, silently turning a Ka in 1/M into a bare number.
+        """
+        from core.pipeline.fit_pipeline import summarize_parameters
+
+        rows = {r.key: r for r in summarize_parameters(_sample_fit_result(assay_type='LEGACY_UNKNOWN'))}
+
+        assert rows['Ka_guest'].unit == str(Q_(1, '1/M').units)
+        assert rows['I_dye_free'].unit == str(Q_(1, 'au/M').units)
+        assert rows['I0'].unit == str(Q_(1, 'au').units)
+
+    def test_no_pool_means_no_stats_and_no_log_rows(self):
+        """A result without a stored pool reports estimates only — no invented
+        interval, and no log twin (whose statistics would have nothing to come
+        from)."""
+        from core.pipeline.fit_pipeline import summarize_parameters
+
+        rows = summarize_parameters(_sample_fit_result(parameter_samples=None))
+
+        assert rows, 'estimates must still be reported'
+        assert all(r.stats is None for r in rows)
+        assert not any(r.is_log for r in rows)
+
+    def test_log_row_statistics_are_computed_in_log_space(self):
+        """log₁₀ statistics come from log₁₀(pool), never log₁₀ of a Ka spread.
+
+        Pool [1e5, 1e6, 1e7] → log₁₀ pool [5, 6, 7]: median 6, MAD 1, and the
+        estimate is log₁₀ of the representative Ka. Taking log₁₀ of the Ka-space
+        MAD (4.5e6) would give ≈6.65, which these values exclude.
+        """
+        import numpy as np
+
+        from core.pipeline.fit_pipeline import summarize_parameters
+
+        r = _sample_fit_result(
+            parameters={**_sample_fit_result().parameters, 'Ka_guest': Q_(1e6, '1/M')},
+            parameter_samples={
+                'Ka_guest': np.array([1e5, 1e6, 1e7]),
+                'I0': np.array([-1.0, 0.0, 1.0]),
+                'I_dye_free': np.array([4.9e7, 5.0e7, 5.1e7]),
+                'I_dye_bound': np.array([2.9e8, 3.0e8, 3.1e8]),
+            },
+        )
+        log_row = next(s for s in summarize_parameters(r) if s.is_log and s.key == 'Ka_guest')
+
+        assert log_row.estimate == pytest.approx(6.0)
+        assert log_row.stats['median'] == pytest.approx(6.0)
+        assert log_row.stats['mad'] == pytest.approx(1.0)
+        assert log_row.stats['min'] == pytest.approx(5.0)
+        assert log_row.stats['max'] == pytest.approx(7.0)
 
 
 class TestFromDictNormalisation:

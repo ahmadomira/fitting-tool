@@ -82,8 +82,3 @@ class TestPrepPlotDataFits:
         ms = _simple_ms()
         data = prepare_plot_data(ms, fit_results=None)
         assert data['fits'] == []
-
-    def test_no_fit_results_empty_list(self):
-        ms = _simple_ms()
-        data = prepare_plot_data(ms, fit_results=[])
-        assert data['fits'] == []

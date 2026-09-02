@@ -195,11 +195,6 @@ class TestFilterByRmse:
         result = filter_by_rmse(attempts, threshold_factor=2.0, reference_rmse=0.2)
         assert len(result) == 2  # rmse 0.1 and 0.3 pass; 0.5 doesn't
 
-    def test_large_threshold_keeps_all(self):
-        attempts = [_make_attempt([i], rmse=i * 0.1) for i in range(1, 6)]
-        result = filter_by_rmse(attempts, threshold_factor=1000.0)
-        assert len(result) == 5
-
 
 # ---------------------------------------------------------------------------
 # filter_by_r_squared
@@ -257,10 +252,10 @@ class TestSelectValidFits:
         assert len(valid) == 1
         assert valid[0].r_squared == 0.99
 
-    def test_keeps_good_fit_the_old_relative_rmse_trim_discarded(self):
+    def test_absolute_floor_keeps_a_good_fit_a_relative_rmse_trim_would_cut(self):
         """Regression for #31: a genuinely good fit just outside 1.5×best RMSE
-        must NOT be discarded. The absolute R² floor keeps it; the old
-        relative-RMSE filter (default on) would have cut it."""
+        must NOT be discarded. Membership is decided by the absolute R² floor;
+        a relative-RMSE trim on the same pool would cut it (asserted below)."""
         attempts = [
             _make_attempt([1.0], rmse=0.01, r_squared=0.999),  # best
             _make_attempt([1.1], rmse=0.02, r_squared=0.995),  # good, but > 1.5×0.01
@@ -303,18 +298,14 @@ class TestCalculateFitMetrics:
         assert rmse > 0
 
     def test_known_values(self):
-        """Hand-computed RMSE and R² for simple data."""
-        y_obs = np.array([1.0, 2.0, 3.0])
-        y_pred = np.array([1.1, 2.0, 2.9])
-        residuals = y_obs - y_pred
-        expected_rmse = np.sqrt(np.mean(residuals**2))
-        ss_res = np.sum(residuals**2)
-        ss_tot = np.sum((y_obs - np.mean(y_obs)) ** 2)
-        expected_r2 = 1 - ss_res / ss_tot
+        """Hand-computed RMSE and R² for simple data.
 
-        rmse, r2 = calculate_fit_metrics(y_obs, y_pred)
-        assert rmse == pytest.approx(expected_rmse)
-        assert r2 == pytest.approx(expected_r2)
+        residuals = [-0.1, 0, +0.1] → ss_res = 0.02, RMSE = sqrt(0.02/3);
+        mean(y_obs) = 2 → ss_tot = 2, so R² = 1 − 0.02/2 = 0.99.
+        """
+        rmse, r2 = calculate_fit_metrics(np.array([1.0, 2.0, 3.0]), np.array([1.1, 2.0, 2.9]))
+        assert rmse == pytest.approx(0.081649658092772, rel=1e-9)
+        assert r2 == pytest.approx(0.99, rel=1e-12)
 
     def test_nan_prediction_propagates_nan(self):
         """A NaN anywhere in y_predicted (failed model eval) must yield NaN

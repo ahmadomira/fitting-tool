@@ -17,13 +17,13 @@ class TestLinearModel:
     """Tests for the linear (dye-alone) forward model."""
 
     def test_linearity(self):
-        """Signal is strictly linear with concentration."""
-        x = np.array([0, 1e-6, 2e-6, 3e-6])
-        slope, intercept = 5e10, 100.0
-        result = linear_signal(slope, intercept, x)
+        """Signal is strictly linear with concentration.
 
-        expected = slope * x + intercept
-        np.testing.assert_array_almost_equal(result, expected)
+        Expected values are arithmetic, not a restatement of the formula:
+        slope 5e10 over 0/1/2 µM adds 0 / 50 000 / 100 000 to the 100 baseline.
+        """
+        result = linear_signal(5e10, 100.0, np.array([0.0, 1e-6, 2e-6]))
+        np.testing.assert_allclose(result, [100.0, 50_100.0, 100_100.0], rtol=1e-12)
 
     def test_empty_array(self):
         """Empty input returns empty output."""
