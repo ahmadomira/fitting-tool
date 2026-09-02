@@ -38,7 +38,9 @@ from tests.conftest import (
     DBA_TRUE,
     DYE_ALONE_TRUE,
     GDA_IDA_RECOVERY_BOUNDS,
+    IDA_TRUE,
     _make_dba_data,
+    _make_ida_data,
     assert_within_tolerance,
 )
 
@@ -194,15 +196,38 @@ class TestGDAEndToEnd:
 # ---------------------------------------------------------------------------
 
 
-class TestIDAEndToEnd:
-    def test_clean_round_trip(self, ida_clean):
-        assay, true = _ida_assay(ida_clean)
-        x, y, _ = ida_clean
+@pytest.fixture(scope='module')
+def ida_clean_result():
+    """One shared clean IDA fit, reused by the round-trip and representative tests.
+
+    Module fixtures run before the autouse function-scoped seeder, so seed
+    explicitly — and restore the global RNG state so other module fixtures are
+    unaffected (same contract as ``dba_clean_result``).
+    """
+    x, y = _make_ida_data(IDA_TRUE)
+    assay = IDAAssay(
+        x_data=Q_(x, 'M'),
+        y_data=Q_(y, 'au'),
+        Ka_dye=Q_(IDA_TRUE['Ka_dye'], '1/M'),
+        h0=Q_(IDA_TRUE['h0'], 'M'),
+        d0=Q_(IDA_TRUE['d0'], 'M'),
+    )
+    state = np.random.get_state()
+    np.random.seed(42)
+    try:
         result = fit_assay(assay, FitConfig(n_trials=N_TRIALS_CLEAN, custom_bounds=GDA_IDA_RECOVERY_BOUNDS))
+    finally:
+        np.random.set_state(state)
+    return result, Q_(y, 'au'), assay
+
+
+class TestIDAEndToEnd:
+    def test_clean_round_trip(self, ida_clean_result):
+        result, y, assay = ida_clean_result
 
         assert result.success
         assert result.r_squared > 0.999
-        assert_within_tolerance(result.parameters['Ka_guest'], true['Ka_guest'], CLEAN_TOL, 'Ka_guest')
+        assert_within_tolerance(result.parameters['Ka_guest'], IDA_TRUE['Ka_guest'], CLEAN_TOL, 'Ka_guest')
         max_rel_err = _max_rel_err(assay, result, y)
         assert max_rel_err < 0.01, f'Max point-wise relative error {max_rel_err:.2%} > 1%'
 
@@ -453,12 +478,12 @@ class TestFitMeasurementSet:
             'h0': Q_(true['h0'], 'M'),
             'g0': Q_(true['g0'], 'M'),
         }
-        # Dispatch test only — 30 trials with tight bounds is plenty for success.
+        # Dispatch test only — a handful of trials with tight bounds suffices.
         result = fit_measurement_set(
             ms,
             GDAAssay,
             conditions,
-            config=FitConfig(n_trials=30, custom_bounds=GDA_IDA_RECOVERY_BOUNDS),
+            config=FitConfig(n_trials=5, custom_bounds=GDA_IDA_RECOVERY_BOUNDS),
         )
 
         assert result.success
@@ -525,9 +550,8 @@ class TestRepresentativeFitTrustworthy:
     worse than every real fit. The reported result must instead be an actual
     fit (the best by R²), so its RMSE/R² are real and self-consistent."""
 
-    def test_reported_rmse_is_the_pool_minimum(self, ida_clean):
-        assay, _true = _ida_assay(ida_clean)
-        result = fit_assay(assay, FitConfig(n_trials=N_TRIALS_CLEAN, custom_bounds=GDA_IDA_RECOVERY_BOUNDS))
+    def test_reported_rmse_is_the_pool_minimum(self, ida_clean_result):
+        result, _y, _assay = ida_clean_result
 
         assert result.success
         rmse_pool = result.quality_samples['rmse']
@@ -537,12 +561,10 @@ class TestRepresentativeFitTrustworthy:
         assert result.rmse == pytest.approx(float(rmse_pool.min()))
         assert result.r_squared == pytest.approx(float(result.quality_samples['r_squared'].max()))
 
-    def test_representative_is_no_worse_than_the_old_per_parameter_median(self, ida_clean):
-        """The old aggregator reported the per-parameter median; on this
-        degenerate model that median reconstructs worse than the representative
-        real fit. The reported RMSE must be ≤ that median's RMSE."""
-        assay, _true = _ida_assay(ida_clean)
-        result = fit_assay(assay, FitConfig(n_trials=N_TRIALS_CLEAN, custom_bounds=GDA_IDA_RECOVERY_BOUNDS))
+    def test_representative_reconstructs_at_least_as_well_as_a_per_parameter_median(self, ida_clean_result):
+        """A per-parameter median lands off the degenerate manifold, so it
+        reconstructs worse than any real fit. The reported RMSE must be ≤ it."""
+        result, _y, assay = ida_clean_result
 
         pool = np.column_stack([result.parameter_samples[k] for k in assay.parameter_keys])
         median_vec = np.median(pool, axis=0)

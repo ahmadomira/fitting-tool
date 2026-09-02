@@ -13,7 +13,8 @@ Verifies:
 Per-replica fits are expensive (5 replicas × 60 trials), so the clean and
 noisy reference fits are module-scoped fixtures shared by every test that
 only *reads* the result.  Tests that need a different MeasurementSet
-(outliers, degenerate replicas, rescale comparison) run their own fits.
+(outliers, degenerate replicas, rescale comparison) run their own fits, each
+with the smallest budget that still answers its question.
 """
 
 from __future__ import annotations
@@ -161,8 +162,8 @@ class TestPerReplicateRecovery:
     def test_dispatch_via_fit_measurement_set(self):
         """fit_measurement_set honors config.per_replica and dispatches."""
         ms = _ida_ms(noise_frac=0.0, seed=3)
-        # Dispatch-only check: 20 trials is plenty to produce a result.
-        config = FitConfig(n_trials=20, custom_bounds=GDA_IDA_RECOVERY_BOUNDS, per_replica=True)
+        # Dispatch-only check: a few trials is plenty to produce a result.
+        config = FitConfig(n_trials=3, custom_bounds=GDA_IDA_RECOVERY_BOUNDS, per_replica=True)
         result = fit_measurement_set(ms, IDAAssay, _ida_conditions(), config)
 
         assert result.uncertainty_source == 'replicate'
@@ -215,19 +216,25 @@ class TestRescalingInvariance:
     """Parameter rescaling is an exact affine bijection
     [core/optimizer/scaling.py:20-23]. Per-replica fits must produce the
     same physical-unit parameters whether rescaling is on or off, up to a
-    loose tolerance to absorb basin-selection jitter on noisy data."""
+    loose tolerance to absorb basin-selection jitter on noisy data.
+
+    The bijection itself is pinned exactly by ``test_scaling.py``
+    (``test_round_trip`` at rtol=1e-12, ``test_bounds_preserve_ordering_and_width``),
+    so what is left to check here is that the pipeline threads the flag
+    through per-replica at all — a wiring question. Two replicas and a small
+    trial budget answer it; clean data keeps both runs in the same basin."""
 
     def test_per_replica_result_matches_with_and_without_rescale(self):
-        ms = _ida_ms(noise_frac=0.0, seed=17)
+        ms = _ida_ms(n_replicas=2, noise_frac=0.0, seed=17)
 
         cfg_on = FitConfig(
-            n_trials=N_TRIALS,
+            n_trials=25,
             custom_bounds=GDA_IDA_RECOVERY_BOUNDS,
             per_replica=True,
             rescale_parameters=True,
         )
         cfg_off = FitConfig(
-            n_trials=N_TRIALS,
+            n_trials=25,
             custom_bounds=GDA_IDA_RECOVERY_BOUNDS,
             per_replica=True,
             rescale_parameters=False,
@@ -268,7 +275,9 @@ class TestFailureHandling:
             metadata=dict(ms_good.metadata),
         )
 
-        result = fit_measurement_set_per_replica(ms, IDAAssay, _ida_conditions(), _per_replica_config())
+        # Asserts skip-and-continue, not fit quality — a small budget suffices.
+        config = FitConfig(n_trials=10, custom_bounds=GDA_IDA_RECOVERY_BOUNDS, per_replica=True)
+        result = fit_measurement_set_per_replica(ms, IDAAssay, _ida_conditions(), config)
 
         assert result.success
         assert 'replica_failures' in result.metadata
