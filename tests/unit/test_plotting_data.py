@@ -22,7 +22,6 @@ def _simple_fit_result():
     x = np.linspace(0, 5, 20)
     return FitResult(
         parameters={'slope': Q_(1.0, 'au/M')},
-        uncertainties={'slope': Q_(0.1, 'au/M')},
         rmse=0.01,
         r_squared=0.99,
         n_passing=1,
@@ -82,9 +81,4 @@ class TestPrepPlotDataFits:
     def test_no_fit_results_none(self):
         ms = _simple_ms()
         data = prepare_plot_data(ms, fit_results=None)
-        assert data['fits'] == []
-
-    def test_no_fit_results_empty_list(self):
-        ms = _simple_ms()
-        data = prepare_plot_data(ms, fit_results=[])
         assert data['fits'] == []

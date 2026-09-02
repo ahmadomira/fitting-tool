@@ -1,44 +1,13 @@
 """Unit tests for the ensemble-collapse module.
 
-Pins the single-source collapse behaviour: representative selection, the
-statistics registry (central tendency + spread), and the per-parameter
-summary the GUI table reads.
+Pins the single-source collapse behaviour: representative selection and the
+per-parameter summary every reported number is derived from.
 """
 
 import numpy as np
 import pytest
 
 from core.optimizer import ensemble
-
-# ---------------------------------------------------------------------------
-# Statistics registry
-# ---------------------------------------------------------------------------
-
-
-class TestStatisticsRegistry:
-    def test_registry_offers_median_and_mean(self):
-        assert set(ensemble.ENSEMBLE_STATISTICS) == {'median', 'mean'}
-        assert ensemble.DEFAULT_STATISTICS_MODE == 'median'
-
-    def test_central_spread_median_is_median_and_mad(self):
-        # [1, 2, 3]: median=2; |dev|=[1,0,1] → MAD=1 (computed independently).
-        central, spread = ensemble.central_spread(np.array([1.0, 2.0, 3.0]), 'median')
-        assert central == pytest.approx(2.0)
-        assert spread == pytest.approx(1.0)
-
-    def test_central_spread_mean_is_mean_and_sample_std(self):
-        # [1, 2, 3]: mean=2; sample std (ddof=1) = 1.0 (hand-computed).
-        central, spread = ensemble.central_spread(np.array([1.0, 2.0, 3.0]), 'mean')
-        assert central == pytest.approx(2.0)
-        assert spread == pytest.approx(1.0)
-
-    def test_single_sample_has_zero_spread(self):
-        """One sample → no dispersion defined; both modes report 0 (no NaN)."""
-        for mode in ensemble.ENSEMBLE_STATISTICS:
-            central, spread = ensemble.central_spread(np.array([7.0]), mode)
-            assert central == pytest.approx(7.0)
-            assert spread == 0.0
-
 
 # ---------------------------------------------------------------------------
 # Representative selection
@@ -96,19 +65,31 @@ class TestCollapse:
 
 
 class TestDescribe:
-    def test_range_matches_numpy(self):
-        s = np.array([3.0, 1.0, 2.0, 5.0])
-        d = ensemble.describe(s)
-        assert d['min'] == np.min(s)
-        assert d['max'] == np.max(s)
+    def test_every_statistic_is_hand_computable(self):
+        """All eight keys, against arithmetic done by hand rather than by numpy.
 
-    def test_p16_p84_are_the_16th_84th_percentiles(self):
-        s = np.array([3.0, 1.0, 2.0, 5.0, 8.0, 4.0])
-        d = ensemble.describe(s)
-        p16, p84 = np.percentile(s, [16, 84])
-        assert d['p16'] == pytest.approx(p16)
-        assert d['p84'] == pytest.approx(p84)
-        assert d['p16'] <= d['median'] <= d['p84']
+        [1, 2, 3]: median 2; |dev| = [1, 0, 1] → MAD 1; mean 2; sample SD
+        (ddof=1) 1; min 1; max 3. The percentiles interpolate linearly over
+        index = q/100 × (n−1): p16 at index 0.32 → 1.32, p84 at 1.68 → 2.68.
+        """
+        d = ensemble.describe(np.array([1.0, 2.0, 3.0]))
+        assert d['median'] == pytest.approx(2.0)
+        assert d['mad'] == pytest.approx(1.0)
+        assert d['mean'] == pytest.approx(2.0)
+        assert d['std'] == pytest.approx(1.0)
+        assert d['min'] == pytest.approx(1.0)
+        assert d['max'] == pytest.approx(3.0)
+        assert d['p16'] == pytest.approx(1.32)
+        assert d['p84'] == pytest.approx(2.68)
+
+    def test_single_sample_has_zero_spread(self):
+        """One sample → no dispersion defined; report 0, never NaN."""
+        d = ensemble.describe(np.array([7.0]))
+        assert d['median'] == pytest.approx(7.0)
+        assert d['mean'] == pytest.approx(7.0)
+        assert d['mad'] == 0.0
+        assert d['std'] == 0.0
+        assert d['min'] == d['max'] == pytest.approx(7.0)
 
     def test_describe_log10_transforms_first_not_log_of_spread(self):
         """log₁₀ stats must come from log₁₀(pool). The centre commutes (median),

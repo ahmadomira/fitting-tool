@@ -1,6 +1,21 @@
+# Text in this repository is stored with LF. Without a rule, git keeps whatever
+# bytes a file was first committed with, so a scripted whole-file rewrite
+# (Path.write_text, sed -i, a helper script) silently converts a CRLF file to LF
+# and git then reports every line as changed — burying a small edit in a
+# whole-file diff. Normalising here makes that impossible to reintroduce.
+* text=auto eol=lf
+
+# Measurement fixtures are byte-exact records of what real instruments export,
+# CRLF included — that is the input shape the readers have to handle. Keeping
+# them unnormalised preserves that fidelity.
+data/*.txt      -text
+tests/data/**   -text
+
 # graphify-out/ holds a generated knowledge graph, committed on `main` only and
 # refreshed by the post-merge hook (feature branches never touch it). Mark the
 # artifacts as generated so GitHub collapses them in diffs/PRs; -diff also keeps
-# the large graph.json out of local `git diff` noise.
+# the large graph.json out of local `git diff` noise. -text leaves the generated
+# bytes alone: the hook rewrites these wholesale, they are never hand-edited.
+graphify-out/**               -text
 graphify-out/graph.json       -diff linguist-generated
 graphify-out/GRAPH_REPORT.md  linguist-generated

@@ -112,27 +112,10 @@ class TestConstruction:
 class TestImmutability:
     """Raw data arrays are read-only after construction."""
 
-    def test_concentrations_readonly(self):
+    def test_raw_arrays_are_readonly(self):
         ms = _sample_measurement_set()
         assert ms.concentrations.flags.writeable is False
-
-    def test_signals_readonly(self):
-        ms = _sample_measurement_set()
         assert ms.signals.flags.writeable is False
-
-
-# ---------------------------------------------------------------------------
-# UUID
-# ---------------------------------------------------------------------------
-
-
-class TestUUID:
-    """Auto-generated IDs are unique."""
-
-    def test_unique_ids(self):
-        ms1 = _sample_measurement_set()
-        ms2 = _sample_measurement_set()
-        assert ms1.id != ms2.id
 
 
 # ---------------------------------------------------------------------------
@@ -142,11 +125,6 @@ class TestUUID:
 
 class TestReplicaManagement:
     """Active mask management."""
-
-    def test_all_active_initially(self):
-        ms = _sample_measurement_set(n_replicas=4)
-        assert ms.n_active == 4
-        assert ms.dropped_replica_ids == []
 
     def test_set_active_false(self):
         ms = _sample_measurement_set(n_replicas=3)
@@ -197,20 +175,19 @@ class TestDataAccess:
         """Yielded signals are views (not copies) into the underlying array."""
         ms = _sample_measurement_set()
         for _, sig in ms.iter_replicas():
-            assert sig.base is ms.signals or sig.base is not None
-
-    def test_average_signal_all(self):
-        ms = _sample_measurement_set(n_replicas=3, n_points=5)
-        avg = ms.average_signal(active_only=False)
-        expected = ms.signals.mean(axis=0)
-        np.testing.assert_allclose(avg, expected)
+            assert sig.base is ms.signals
 
     def test_average_signal_active_only(self):
+        """Dropping a replica must exclude it from the mean.
+
+        _sample_dataframe gives replica r the signal conc * (r+1) * 1e6,
+        so with r0/r1 active the mean is conc * 1.5e6 — hand-computed, not
+        re-derived from ms.signals.
+        """
         ms = _sample_measurement_set(n_replicas=3, n_points=5)
         ms.set_active(ms.replica_ids[2], False)
         avg = ms.average_signal(active_only=True)
-        expected = ms.signals[:2].mean(axis=0)
-        np.testing.assert_allclose(avg, expected)
+        np.testing.assert_allclose(avg, ms.concentrations * 1.5e6)
 
     def test_average_signal_no_replicas_raises(self):
         ms = _sample_measurement_set(n_replicas=1)

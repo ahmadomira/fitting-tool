@@ -22,7 +22,7 @@ from core.assays.registry import ASSAY_REGISTRY, AssayType
 from core.data_processing.measurement_set import MeasurementSet
 from core.data_processing.plotting import prepare_plot_data
 from core.io.formats.bmg_reader import BMG_PLACEHOLDER_KEY
-from core.pipeline.fit_pipeline import FitConfig, FitResult, apply_statistics_mode, select_representative
+from core.pipeline.fit_pipeline import FitConfig, FitResult, select_representative
 from core.pipeline.sensitivity import estimated_fit_count
 from gui.app_state import SessionState
 from gui.plotting.distribution_widget import DistributionWidget
@@ -350,6 +350,21 @@ class FittingSession(QWidget):
         export_results_txt(self._state.fit_results, path)
         self.status_message.emit(f'Results exported to {path}')
 
+    def export_results_csv(self) -> None:
+        """Export current fit results as a machine-readable CSV table."""
+        if not self._state.fit_results:
+            QMessageBox.information(self, 'No Results', 'Run a fit first.')
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, 'Export Results (CSV)', self._default_save_name('.csv', 'results'), 'CSV files (*.csv)'
+        )
+        if not path:
+            return
+        from gui.session import export_results_csv
+
+        export_results_csv(self._state.fit_results, path)
+        self.status_message.emit(f'Results exported to {path}')
+
     def export_raw_data(self) -> None:
         """Export the currently loaded raw measurements to TXT or CSV.
 
@@ -445,6 +460,17 @@ class FittingSession(QWidget):
             if results:
                 self._summary_widget.update_result(results[-1])
             self.status_message.emit(f'Imported {len(results)} result(s) from {path}')
+            # Ranges and spread come from the stored pool of accepted fits.
+            # Files saved before pools were stored have none, so say so rather
+            # than leaving the user to wonder why those columns are dashes.
+            if any(not r.parameter_samples for r in results):
+                QMessageBox.information(
+                    self,
+                    'Fit Spread Unavailable',
+                    f'{Path(path).name} does not store the individual fits behind its results, '
+                    'so the plot and the table can only show each best-fit value — no range or '
+                    'spread statistics.\n\nRe-run the fit to get them.',
+                )
         except Exception:
             QMessageBox.warning(
                 self,
@@ -697,8 +723,7 @@ class FittingSession(QWidget):
         self._style_widget.widget.style_changed.connect(self._distribution_widget.apply_style)
         self._style_widget.widget.style_changed.connect(self._sensitivity_widget.apply_style)
 
-        # Ensemble interaction: switch reported ± / pick a different representative.
-        self._summary_widget.statistics_mode_changed.connect(self._on_statistics_mode_changed)
+        # Ensemble interaction: pick a different representative fit.
         self._summary_widget.representative_selected.connect(self._on_representative_selected)
         self._distribution_widget.representative_selected.connect(self._on_plot_fit_selected)
 
@@ -881,19 +906,6 @@ class FittingSession(QWidget):
         if self._sensitivity_worker is not None:
             self._sensitivity_worker.cancel()
             self.status_message.emit('Cancelling…')
-
-    def _on_statistics_mode_changed(self, mode: str) -> None:
-        """Switch the reported ± between median±MAD and mean±STDEV (no re-fit)."""
-        results = self._state.fit_results
-        if not results:
-            return
-        result = results[-1]
-        if result.parameter_samples is None:
-            return
-        apply_statistics_mode(result, mode)
-        self._summary_widget.update_result(result)
-        # Refresh the plot annotation so its ± reflects the new mode.
-        self._plot_widget.set_fit_results(self._state.fit_results)
 
     def _on_plot_fit_selected(self, index: int) -> None:
         """A fit picked by clicking a distribution point: remember it as the

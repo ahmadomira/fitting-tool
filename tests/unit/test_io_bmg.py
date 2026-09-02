@@ -58,6 +58,70 @@ class TestBMGDetection:
             wb.close()
 
 
+def _write_synthetic_bmg_xlsx(path: Path, n_rows: int = 3, n_cols: int = 4) -> None:
+    """A minimal BMG-shaped workbook: metadata rows, a column-number header
+    row (col A empty, cols B.. = 1..N), then one row per plate-row letter.
+
+    Signals are ``row*100 + col`` so every cell is identifiable in an assertion.
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Microplate End point'
+    ws.append(['Test ID', 1234])
+    ws.append(['Test Name', 'synthetic plate'])
+    ws.append([])
+    ws.append([None] + list(range(1, n_cols + 1)))
+    for r in range(n_rows):
+        ws.append([chr(ord('A') + r)] + [float(r * 100 + c + 1) for c in range(n_cols)])
+    wb.save(path)
+
+
+class TestBMGParseSynthetic:
+    """Parser coverage that does not depend on the (untracked) real export.
+
+    Without this the whole BMG path is unverified in a clean checkout: both
+    real-file tests skip when ``data/01_ZBeta_MDAP_Dopamine_pH2.xlsx`` is absent.
+    """
+
+    def test_detects_and_parses_a_plate_grid(self, tmp_path):
+        path = tmp_path / 'synthetic_bmg.xlsx'
+        _write_synthetic_bmg_xlsx(path, n_rows=3, n_cols=4)
+
+        wb = load_workbook(path, data_only=True, read_only=True)
+        try:
+            assert is_bmg_workbook(wb) is True
+            df, meta = parse_bmg_workbook(wb)
+        finally:
+            wb.close()
+
+        # One replica per plate row, one titration point per plate column.
+        assert set(df['replica'].unique()) == {0, 1, 2}
+        assert sorted(df['concentration'].unique().tolist()) == [1.0, 2.0, 3.0, 4.0]
+        # Concentrations are positional placeholders, flagged for the GUI prompt.
+        assert df.attrs.get('bmg_placeholder_concentrations') is True
+        # Cell values land in the right (replica, column) slot.
+        rep1 = df[df['replica'] == 1].sort_values('concentration')
+        assert rep1['signal'].tolist() == pytest.approx([101.0, 102.0, 103.0, 104.0])
+        assert isinstance(meta, dict)
+
+    def test_sheet_without_a_column_header_row_raises(self, tmp_path):
+        """A Microplate sheet whose header row is missing must fail loudly."""
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Microplate End point'
+        ws.append(['Test ID', 1234])
+        ws.append(['A', 1.0, 2.0])
+        path = tmp_path / 'no_header.xlsx'
+        wb.save(path)
+
+        wb2 = load_workbook(path, data_only=True, read_only=True)
+        try:
+            with pytest.raises(ValueError, match='header row'):
+                parse_bmg_workbook(wb2)
+        finally:
+            wb2.close()
+
+
 class TestBMGParse:
     def test_shape_and_placeholders(self):
         if not _BUNDLED_BMG.exists():

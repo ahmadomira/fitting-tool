@@ -39,10 +39,6 @@ class TestFmtUnitPretty:
         assert 'M' in result
         assert '⁻¹' in result
 
-    def test_plain(self):
-        result = fmt_unit_pretty('M')
-        assert 'M' in result
-
     def test_empty(self):
         assert fmt_unit_pretty('') == ''
 

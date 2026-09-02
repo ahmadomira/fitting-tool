@@ -32,11 +32,11 @@ class TestRegistration:
 
 
 class TestLabelsAndHelp:
-    @pytest.mark.parametrize('key', ['Ka_HG', 'Ka_HG2', 'Ka_H2G', 'I_G', 'I_H', 'I_HG', 'I_HG2', 'I_H2G'])
-    def test_param_has_label_and_description(self, key):
-        # Display label is a real HTML label, not the raw-key fallback.
-        assert fmt_param(key) != key
-        assert key in PARAMETER_DESCRIPTIONS
+    def test_every_stepwise_param_has_label_and_description(self):
+        """Each stepwise parameter renders a real HTML label, not the raw-key fallback."""
+        for key in ('Ka_HG', 'Ka_HG2', 'Ka_H2G', 'I_G', 'I_H', 'I_HG', 'I_HG2', 'I_H2G'):
+            assert fmt_param(key) != key, key
+            assert key in PARAMETER_DESCRIPTIONS, key
 
     @pytest.mark.parametrize('assay_type', STEPWISE)
     def test_assay_has_description(self, assay_type):

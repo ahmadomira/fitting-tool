@@ -244,9 +244,9 @@ fmt_unit_pretty('1/M')  # 'M⁻¹'
   conditions come back as Quantities (a re-imported result still prints its
   condition units in the TXT report).
 - A missing unit is **not** silently defaulted to dimensionless — `from_dict`
-  **raises** (the GUI import path surfaces it), and the median/mean toggle
-  (`apply_statistics_mode`) takes each ± unit from the fitted parameter rather
-  than a registry re-lookup.
+  **raises** (the GUI import path surfaces it). Reported spread takes each unit
+  from the fitted parameter's own `Quantity` (`summarize_parameters`), never
+  from a registry re-lookup.
 - `x_fit`/`y_fit` and `custom_bounds` also store their unit tokens (older files
   fall back to the M/au convention), so the whole payload is self-describing.
 - `Infinity`/`NaN` are still emitted for failed/linear fits — the app's own
