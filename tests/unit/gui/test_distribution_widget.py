@@ -26,7 +26,6 @@ def pooled_result():
     rep = 2
     return FitResult(
         parameters={k: Q_(float(v[rep]), 'dimensionless') for k, v in ps.items()},
-        uncertainties={},
         rmse=0.02,
         r_squared=0.996,
         n_passing=n,
@@ -38,7 +37,6 @@ def pooled_result():
         parameter_samples=ps,
         quality_samples=qs,
         representative_index=rep,
-        statistics_mode='median',
     )
 
 

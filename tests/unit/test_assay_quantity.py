@@ -75,6 +75,10 @@ class TestIDAQuantityConditions:
         assert assay.h0.magnitude == pytest.approx(10e-6)
         assert assay.d0.magnitude == pytest.approx(5e-6)
 
+    def test_bare_float_conditions_rejected(self):
+        with pytest.raises(TypeError, match='Ka_dye must be a pint Quantity'):
+            IDAAssay(x_data=_x, y_data=_y, Ka_dye=5e5, h0=10e-6, d0=1e-6)
+
     def test_wrong_dimensionality_d0_raises(self):
         with pytest.raises(pint.DimensionalityError):
             IDAAssay(
@@ -97,6 +101,10 @@ class TestDBAQuantityConditions:
             mode='DtoH',
         )
         assert assay.fixed_conc.magnitude == pytest.approx(10e-6)
+
+    def test_bare_float_fixed_conc_rejected(self):
+        with pytest.raises(TypeError, match='fixed_conc must be a pint Quantity'):
+            DBAAssay(x_data=_x, y_data=_y, fixed_conc=10e-6, mode='DtoH')
 
     def test_wrong_dimensionality_fixed_conc_raises(self):
         with pytest.raises(pint.DimensionalityError):

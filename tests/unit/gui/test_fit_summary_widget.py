@@ -13,7 +13,6 @@ def minimal_fit_result():
     x = np.linspace(0, 1e-4, 20)
     return FitResult(
         parameters={'Ka_guest': 1e6, 'I0': 100.0, 'I_dye_free': 5e4, 'I_dye_bound': 8e4},
-        uncertainties={'Ka_guest': 1e5, 'I0': 5.0, 'I_dye_free': 2e3, 'I_dye_bound': 3e3},
         rmse=0.005,
         r_squared=0.998,
         n_passing=87,
@@ -56,7 +55,6 @@ def test_unknown_assay_type_does_not_crash(qapp):
     x = np.linspace(0, 1e-4, 5)
     result = FitResult(
         parameters={'slope': 1.5},
-        uncertainties={'slope': 0.1},
         rmse=0.01,
         r_squared=0.99,
         n_passing=1,
@@ -91,7 +89,6 @@ def full_fit_result():
     return FitResult(
         # Representative = index 1 (best RMSE / R²).
         parameters={'Ka_guest': 1.1e6, 'I0': 90.0, 'I_dye_free': 5.1e4, 'I_dye_bound': 8.1e4},
-        uncertainties={'Ka_guest': 1e5, 'I0': 10.0, 'I_dye_free': 1e3, 'I_dye_bound': 1e3},
         rmse=0.005,
         r_squared=0.998,
         n_passing=3,
@@ -103,7 +100,6 @@ def full_fit_result():
         parameter_samples=samples,
         quality_samples=quality,
         representative_index=1,
-        statistics_mode='median',
     )
 
 
@@ -140,18 +136,6 @@ def test_log10_ka_row_computed_in_log_space(qapp, full_fit_result):
     assert len(log_rows) == 1
     est = widget._table.cellWidget(log_rows[0], 1).text()
     assert abs(float(est) - np.log10(1.1e6)) < 0.05  # representative Ka = 1.1e6
-
-
-def test_statistics_mode_toggle_emits(qapp, full_fit_result):
-    from gui.plotting.fit_summary_widget import FitSummaryWidget
-
-    widget = FitSummaryWidget()
-    widget.update_result(full_fit_result)
-    captured = []
-    widget.statistics_mode_changed.connect(captured.append)
-
-    widget._stats_combo.setCurrentIndex(widget._stats_combo.findData('mean'))
-    assert captured == ['mean']
 
 
 def test_rep_combo_offers_named_choices_before_plot_selection(qapp, full_fit_result):

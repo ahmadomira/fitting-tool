@@ -223,8 +223,8 @@ _KA_HG_HTML = _with_sci_note("""
 (H<sub>2</sub>G) models as the first host&ndash;guest contact.</p>
 <p><b>Identifiability</b></p>
 <p>Sampled on a log scale over a wide range. It trades off with the
-second-step constant &mdash; judge confidence from the reported &plusmn;
-spread, not the median alone.</p>
+second-step constant &mdash; judge confidence from the reported range across
+the accepted fits, not the estimate alone.</p>
 """)
 
 _KA_HG2_HTML = _with_sci_note("""
@@ -240,7 +240,7 @@ _KA_H2G_HTML = _with_sci_note("""
 <h3>K<sub>a(H&#x2082;G)</sub> &mdash; Second Stepwise Constant (2:1)</h3>
 <p>Association constant for <i>HG + H &#x21CC; H<sub>2</sub>G</i>
 (M<sup>&minus;1</sup>), the binding of a second host to the same guest.
-Strongly correlated with K<sub>a(HG)</sub> &mdash; read the reported spread
+Strongly correlated with K<sub>a(HG)</sub> &mdash; read the reported range
 rather than the point value.</p>
 """)
 

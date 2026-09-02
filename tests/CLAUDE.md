@@ -69,6 +69,12 @@ If a proposed test doesn't serve one of these, question whether it's worth addin
 - **Signal coefficients are degenerate.** In DBA/IDA only `Ka` is identifiable
   (`I0`, `I_dye_free`, `I_dye_bound` trade off). Test `Ka` recovery and signal
   reconstruction — never the individual signal coefficients.
+- **GUI tests never pop a window.** A widget test that needs real geometry
+  (`tabRect()`, child positions, `isVisible()`) has to be laid out, and Qt only
+  computes that on `show()`. Set `WA_DontShowOnScreen` before showing: the
+  layout resolves, nothing appears on screen, and the test still runs under the
+  platform's native style. A visible window interrupts whoever is running the
+  suite, and needs a display server that CI will not have.
 - Layout: `tests/unit/` is the fast layer, `tests/unit/gui/` holds PyQt6 widget
   tests, `tests/integration/` runs real fits (the slow part).
 

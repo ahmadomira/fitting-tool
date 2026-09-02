@@ -3,9 +3,9 @@
 This module owns every export-time concern in one place:
 
 * Dispatching PNG vs. SVG via file extension.
-* Screen-space items (LegendItem, TextItem) participate in the painter
-  transform during export so they scale up with the rest of the figure
-  instead of staying tiny at high resolutions.
+* Screen-space items (the legend) participate in the painter transform
+  during export so they scale up with the rest of the figure instead of
+  staying tiny at high resolutions.
 * Pixel-exact sizing for composite scenes: resize the source widget,
   then export.
 
@@ -16,16 +16,13 @@ is what allows multi-subplot composite export of a
 ``QImage``/``QPainter`` stitching.
 
 The only piece of "manual plumbing" that remains is
-:func:`_screen_space_items_to_scene_space` (+ its supporting one-time
-:func:`_install_textitem_export_patch`). This addresses a real
-limitation: items with ``ItemIgnoresTransformations`` and
-``pg.TextItem`` deliberately bypass the painter transform so they keep
-a fixed on-screen size during interactive zoom. That UX choice fights
-the painter transform that ``scene.render()`` sets up during export.
-There is no native PyQtGraph mechanism to suspend it. The context
-manager flips both off for the duration of the render and restores
-them on exit; the monkey-patch is gated by a per-instance sentinel so
-it is a no-op for every TextItem that isn't currently being exported.
+:func:`_screen_space_items_to_scene_space`. This addresses a real
+limitation: items with ``ItemIgnoresTransformations`` deliberately
+bypass the painter transform so they keep a fixed on-screen size during
+interactive zoom. That UX choice fights the painter transform that
+``scene.render()`` sets up during export, and there is no native
+PyQtGraph mechanism to suspend it. The context manager flips the flag
+off for the duration of the render and restores it on exit.
 """
 
 from __future__ import annotations
@@ -36,66 +33,28 @@ from typing import TYPE_CHECKING
 
 import pyqtgraph as pg
 import pyqtgraph.exporters  # noqa: F401 — registers exporters
-from PyQt6.QtCore import QPointF
-from PyQt6.QtGui import QImage, QTransform
+from PyQt6.QtGui import QImage
 from PyQt6.QtWidgets import QGraphicsItem
 
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QGraphicsScene, QWidget
 
 
-_TEXTITEM_PATCHED = False
-
-
-def _install_textitem_export_patch() -> None:
-    """Idempotently patch ``pg.TextItem.updateTransform`` for export bypass.
-
-    When a TextItem carries the sentinel ``_suspend_export_transform =
-    True``, its ``updateTransform`` becomes a no-op so the
-    inverted-parent-transform reset cannot fight whatever transform we
-    set on the item during export. Without this, TextItem repaints
-    during ``scene.render`` re-apply its inverse parent transform and
-    cancel the export painter scaling.
-    """
-    global _TEXTITEM_PATCHED
-    if _TEXTITEM_PATCHED:
-        return
-    _orig_update_transform = pg.TextItem.updateTransform
-
-    def _patched_update_transform(self, force: bool = False) -> None:  # type: ignore[override]
-        if getattr(self, '_suspend_export_transform', False):
-            return
-        _orig_update_transform(self, force)
-
-    pg.TextItem.updateTransform = _patched_update_transform  # type: ignore[assignment]
-    _TEXTITEM_PATCHED = True
-
-
 @contextmanager
 def _screen_space_items_to_scene_space(scene: 'QGraphicsScene'):
     """Temporarily flip every screen-space scene item into scene-space.
 
-    On entry:
-      * Items with ``ItemIgnoresTransformations`` have the flag cleared
-        so the painter transform reaches them during ``scene.render``.
-      * ``pg.TextItem`` instances are reparented to the scene root
-        (their current scene position is preserved). This sidesteps
-        the data-coords scaling that would otherwise apply when an
-        annotation is parented under a ViewBox's ``childGroup`` —
-        without reparenting, an X-axis range of ``1e-4`` M would
-        multiply the glyphs by ``~1e7`` and push them off-canvas.
-      * Their auto-inverting transform is frozen via the per-instance
-        sentinel installed by :func:`_install_textitem_export_patch`,
-        and the transform reset to identity so the painter scale
-        applies cleanly.
-
-    On exit: every change is undone exactly so interactive behaviour
+    On entry, items carrying ``ItemIgnoresTransformations`` (the legend)
+    have the flag cleared so the painter transform reaches them during
+    ``scene.render``; on exit it is restored, so interactive behaviour
     survives the export.
-    """
-    _install_textitem_export_patch()
 
+    ``pg.TextItem`` needs no handling here: the fit-summary annotation is
+    parented to the ViewBox itself rather than to its ``childGroup``, so
+    it already lives in pixel space and its auto-inverting transform is
+    the identity.
+    """
     flagged: list[QGraphicsItem] = []
-    text_items: list[pg.TextItem] = []
     for item in scene.items():
         if item.flags() & QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations:
             item.setFlag(
@@ -103,18 +62,6 @@ def _screen_space_items_to_scene_space(scene: 'QGraphicsScene'):
                 False,
             )
             flagged.append(item)
-        if isinstance(item, pg.TextItem):
-            item._export_saved_transform = item.transform()
-            item._export_saved_last = getattr(item, '_lastTransform', None)
-            item._export_saved_parent = item.parentItem()
-            item._export_saved_pos = item.pos()
-            scene_pos = item.mapToScene(QPointF(0, 0))
-            item.setParentItem(None)
-            item.setPos(scene_pos)
-            item.setTransform(QTransform())
-            item.updateTextPos()
-            item._suspend_export_transform = True
-            text_items.append(item)
     try:
         yield
     finally:
@@ -123,17 +70,6 @@ def _screen_space_items_to_scene_space(scene: 'QGraphicsScene'):
                 QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations,
                 True,
             )
-        for item in text_items:
-            item._suspend_export_transform = False
-            item.setParentItem(item._export_saved_parent)
-            item.setPos(item._export_saved_pos)
-            item.setTransform(item._export_saved_transform)
-            item._lastTransform = item._export_saved_last
-            del item._export_saved_parent
-            del item._export_saved_pos
-            del item._export_saved_transform
-            del item._export_saved_last
-            item.updateTransform(force=True)
 
 
 def _ext(path: str | Path) -> str:

@@ -261,9 +261,9 @@ signal is a per-species sum:</p>
 <p><b>Identifiability</b></p>
 <p>The two stepwise constants are commonly <b>not independently
 determinable</b> from a single titration &mdash; many starting points
-converge to near-equivalent fits. Treat the reported &plusmn; spread (and the
-distribution view) as the real measure of confidence, not the single median
-pair.</p>
+converge to near-equivalent fits. Treat the reported range across the accepted
+fits (and the distribution view) as the real measure of confidence, not the
+single best-fit pair.</p>
 
 <p><b>Known Conditions</b></p>
 <p>Only the fixed total host <i>[H]<sub>0</sub></i> is required.</p>
@@ -307,8 +307,8 @@ Free host is solved at each point and the signal is a per-species sum:</p>
 <p><b>Identifiability</b></p>
 <p>As with the 1:2 case, the two stepwise constants are commonly <b>not
 independently determinable</b> from a single titration. Treat the reported
-&plusmn; spread as the real measure of confidence, not the single median
-pair.</p>
+range across the accepted fits as the real measure of confidence, not the
+single best-fit pair.</p>
 
 <p><b>Known Conditions</b></p>
 <p>Only the fixed total host <i>[H]<sub>0</sub></i> is required.</p>

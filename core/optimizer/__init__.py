@@ -1,11 +1,7 @@
 """Optimization utilities for fitting binding assay models."""
 
 from core.optimizer.ensemble import (
-    DEFAULT_STATISTICS_MODE,
-    ENSEMBLE_STATISTICS,
     EnsembleResult,
-    EnsembleStatistic,
-    central_spread,
     collapse,
     describe,
     describe_log10,
@@ -31,13 +27,9 @@ __all__ = [
     'select_valid_fits',
     'calculate_fit_metrics',
     # ensemble.py
-    'ENSEMBLE_STATISTICS',
-    'DEFAULT_STATISTICS_MODE',
-    'EnsembleStatistic',
     'EnsembleResult',
     'collapse',
     'select_representative_index',
-    'central_spread',
     'describe',
     'describe_log10',
     # linear_fit.py

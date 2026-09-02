@@ -11,20 +11,19 @@ reports. It does three things, each in one place:
 2. **Collapse the pool** — :func:`collapse` bundles the per-parameter
    sample pool, the per-trial quality pool, and the representative index
    into an :class:`EnsembleResult`.
-3. **Summarise the spread** — the :data:`ENSEMBLE_STATISTICS` registry
-   defines each aggregation mode (central tendency + dispersion) once;
-   :func:`central_spread` and :func:`describe` read from it.
+3. **Summarise the pool** — :func:`describe` returns every statistic the
+   app reports (centre, spread, and the two intervals) in one pass, so no
+   caller has to pick an aggregation mode.
 
 The module is pure ``numpy`` — it operates on arrays, not assays, so both
-pipeline paths and the GUI reuse it. To experiment with a new aggregation
-add one entry to :data:`ENSEMBLE_STATISTICS`; to change which fit is
-reported edit :func:`select_representative_index`.
+pipeline paths and the GUI reuse it. To change which fit is reported edit
+:func:`select_representative_index`; to report a new statistic add a key
+to :func:`describe`.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 
@@ -50,37 +49,6 @@ def _mean(samples: np.ndarray) -> float:
 def _std(samples: np.ndarray) -> float:
     """Sample standard deviation; 0 for a single sample (no spread defined)."""
     return float(np.std(samples, ddof=1)) if samples.size > 1 else 0.0
-
-
-@dataclass(frozen=True)
-class EnsembleStatistic:
-    """One named way to summarise a 1-D pool of per-parameter samples.
-
-    Attributes
-    ----------
-    label : str
-        Human-readable label (e.g. ``'Median ± MAD'``) — drives the GUI
-        toggle option text.
-    central : Callable[[np.ndarray], float]
-        Central-tendency estimator (e.g. median or mean).
-    spread : Callable[[np.ndarray], float]
-        Dispersion estimator (e.g. MAD or standard deviation).
-    """
-
-    label: str
-    central: Callable[[np.ndarray], float]
-    spread: Callable[[np.ndarray], float]
-
-
-#: The extension point — add a key here to offer a new aggregation mode
-#: across the pipeline, the table, the annotation, and the export.
-ENSEMBLE_STATISTICS: dict[str, EnsembleStatistic] = {
-    'median': EnsembleStatistic('Median ± MAD', _median, _mad),
-    'mean': EnsembleStatistic('Mean ± SD', _mean, _std),
-}
-
-#: Default reported aggregation (robust).
-DEFAULT_STATISTICS_MODE = 'median'
 
 
 @dataclass
@@ -172,21 +140,6 @@ def collapse(
         parameter_samples=parameter_samples,
         quality_samples=quality,
     )
-
-
-def central_spread(samples: np.ndarray, mode: str) -> tuple[float, float]:
-    """Return ``(central, spread)`` for *samples* under aggregation *mode*.
-
-    Parameters
-    ----------
-    samples : np.ndarray
-        One parameter's pool of valid-trial values.
-    mode : str
-        A key of :data:`ENSEMBLE_STATISTICS` (e.g. ``'median'`` or ``'mean'``).
-    """
-    stat = ENSEMBLE_STATISTICS[mode]
-    samples = np.asarray(samples, dtype=float)
-    return stat.central(samples), stat.spread(samples)
 
 
 def describe(samples: np.ndarray) -> dict[str, float]:

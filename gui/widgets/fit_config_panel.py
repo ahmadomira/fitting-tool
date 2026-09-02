@@ -127,8 +127,8 @@ box-and-whisker plots from.</p>
   <li><b>Fit curve looks the same</b>: when your replicas agree well,
       the representative fit in per-replica mode is very close to the
       average-mode one, so the plotted curve may look unchanged. The real
-      difference shows up in the reported &plusmn;&nbsp;uncertainty, not in
-      the curve shape.</li>
+      difference shows up in the reported range and spread, not in the
+      curve shape.</li>
 </ul>
 """
 

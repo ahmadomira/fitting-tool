@@ -17,6 +17,21 @@ from PyQt6.QtWidgets import QTabBar, QWidget
 from gui.widgets.flat_tabs import FlatTabBar, FlatTabWidget
 
 
+def _lay_out(tabs, size=None):
+    """Show *tabs* off-screen so Qt resolves real geometry.
+
+    These contracts are geometric — the inline "+" sits after the last tab,
+    overflow scrolls — and Qt only computes ``tabRect()`` and child-widget
+    positions once a widget is shown. ``WA_DontShowOnScreen`` gets that layout
+    without putting a window on the screen of whoever is running the suite,
+    and without needing a display server.
+    """
+    if size is not None:
+        tabs.resize(*size)
+    tabs.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
+    tabs.show()
+
+
 def test_flat_config(qapp):
     tabs = FlatTabWidget()
     assert tabs.objectName() == 'flatTabs'
@@ -34,8 +49,7 @@ def test_inline_add_button_after_last_tab_and_calls_back(qapp):
     tabs = FlatTabWidget(add_callback=lambda: calls.append(1))
     tabs.addTab(QWidget(), 'A')
     tabs.addTab(QWidget(), 'B')
-    tabs.resize(400, 80)
-    tabs.show()
+    _lay_out(tabs, (400, 80))
     qapp.processEvents()
     try:
         # Inline, not a corner widget (spec §5.1): the "+" is a child of the bar.
@@ -62,7 +76,7 @@ def _close_button(bar, i):
 def test_never_zero_tabs_hides_the_sole_close_button(qapp):
     tabs = FlatTabWidget(closable=True)
     tabs.addTab(QWidget(), 'only')
-    tabs.show()
+    _lay_out(tabs)
     qapp.processEvents()
     try:
         bar = tabs.tabBar()
@@ -93,7 +107,7 @@ def test_editable_double_click_commits_rename(qapp):
     tabs = FlatTabWidget(editable=True)
     tabs.tab_renamed.connect(lambda i, name: renamed.append((i, name)))
     tabs.addTab(QWidget(), 'Untitled')
-    tabs.show()
+    _lay_out(tabs)
     qapp.processEvents()
     try:
         tabs.tabBarDoubleClicked.emit(0)  # double-click tab 0 → inline editor
@@ -112,7 +126,7 @@ def test_editable_rename_escape_cancels(qapp):
     tabs = FlatTabWidget(editable=True)
     tabs.tab_renamed.connect(lambda i, name: renamed.append((i, name)))
     tabs.addTab(QWidget(), 'Untitled')
-    tabs.show()
+    _lay_out(tabs)
     qapp.processEvents()
     try:
         tabs.tabBarDoubleClicked.emit(0)
@@ -128,8 +142,7 @@ def test_wheel_scrolls_overflowing_tabs(qapp):
     tabs = FlatTabWidget()
     for i in range(20):
         tabs.addTab(QWidget(), f'tryptamine_{i}')
-    tabs.resize(360, 60)
-    tabs.show()
+    _lay_out(tabs, (360, 60))
     qapp.processEvents()
     bar = tabs.tabBar()
 

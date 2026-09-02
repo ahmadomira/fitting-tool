@@ -13,7 +13,8 @@ Verifies:
 Per-replica fits are expensive (5 replicas × 60 trials), so the clean and
 noisy reference fits are module-scoped fixtures shared by every test that
 only *reads* the result.  Tests that need a different MeasurementSet
-(outliers, degenerate replicas, rescale comparison) run their own fits.
+(outliers, degenerate replicas, rescale comparison) run their own fits, each
+with the smallest budget that still answers its question.
 """
 
 from __future__ import annotations
@@ -138,16 +139,19 @@ class TestPerReplicateRecovery:
         assert len(result.replica_fits) == N_REPLICAS
         assert_within_tolerance(result.parameters['Ka_guest'], IDA_TRUE['Ka_guest'], NOISY_TOL, 'Ka_guest')
 
-    def test_replica_mad_is_nonzero_on_noisy_data(self, noisy_pr_result):
-        """Cross-replica MAD should capture real noise — not collapse to ~0."""
-        result = noisy_pr_result
+    def test_replica_spread_is_nonzero_on_noisy_data(self, noisy_pr_result):
+        """Cross-replica spread should capture real noise — not collapse to ~0."""
+        from core.pipeline.fit_pipeline import summarize_parameters
 
+        result = noisy_pr_result
         ka_mag = float(result.parameters['Ka_guest'].magnitude)
-        ka_mad = float(result.uncertainties['Ka_guest'].magnitude)
-        assert ka_mad > 0.0
-        # Replicate MAD should be at most comparable to Ka itself; anything
-        # vastly larger indicates aggregation broke.
-        assert ka_mad / ka_mag < 2.0
+        stats = next(s.stats for s in summarize_parameters(result) if s.key == 'Ka_guest' and not s.is_log)
+
+        assert stats['mad'] > 0.0
+        assert stats['max'] > stats['min']
+        # The spread should be at most comparable to Ka itself; anything vastly
+        # larger indicates aggregation broke.
+        assert stats['mad'] / ka_mag < 2.0
 
     def test_per_replica_fits_are_in_physical_units(self, clean_pr_result):
         """Each replica fit must already be in physical units (M^-1 etc)."""
@@ -158,8 +162,8 @@ class TestPerReplicateRecovery:
     def test_dispatch_via_fit_measurement_set(self):
         """fit_measurement_set honors config.per_replica and dispatches."""
         ms = _ida_ms(noise_frac=0.0, seed=3)
-        # Dispatch-only check: 20 trials is plenty to produce a result.
-        config = FitConfig(n_trials=20, custom_bounds=GDA_IDA_RECOVERY_BOUNDS, per_replica=True)
+        # Dispatch-only check: a few trials is plenty to produce a result.
+        config = FitConfig(n_trials=3, custom_bounds=GDA_IDA_RECOVERY_BOUNDS, per_replica=True)
         result = fit_measurement_set(ms, IDAAssay, _ida_conditions(), config)
 
         assert result.uncertainty_source == 'replicate'
@@ -212,19 +216,25 @@ class TestRescalingInvariance:
     """Parameter rescaling is an exact affine bijection
     [core/optimizer/scaling.py:20-23]. Per-replica fits must produce the
     same physical-unit parameters whether rescaling is on or off, up to a
-    loose tolerance to absorb basin-selection jitter on noisy data."""
+    loose tolerance to absorb basin-selection jitter on noisy data.
+
+    The bijection itself is pinned exactly by ``test_scaling.py``
+    (``test_round_trip`` at rtol=1e-12, ``test_bounds_preserve_ordering_and_width``),
+    so what is left to check here is that the pipeline threads the flag
+    through per-replica at all — a wiring question. Two replicas and a small
+    trial budget answer it; clean data keeps both runs in the same basin."""
 
     def test_per_replica_result_matches_with_and_without_rescale(self):
-        ms = _ida_ms(noise_frac=0.0, seed=17)
+        ms = _ida_ms(n_replicas=2, noise_frac=0.0, seed=17)
 
         cfg_on = FitConfig(
-            n_trials=N_TRIALS,
+            n_trials=25,
             custom_bounds=GDA_IDA_RECOVERY_BOUNDS,
             per_replica=True,
             rescale_parameters=True,
         )
         cfg_off = FitConfig(
-            n_trials=N_TRIALS,
+            n_trials=25,
             custom_bounds=GDA_IDA_RECOVERY_BOUNDS,
             per_replica=True,
             rescale_parameters=False,
@@ -265,7 +275,9 @@ class TestFailureHandling:
             metadata=dict(ms_good.metadata),
         )
 
-        result = fit_measurement_set_per_replica(ms, IDAAssay, _ida_conditions(), _per_replica_config())
+        # Asserts skip-and-continue, not fit quality — a small budget suffices.
+        config = FitConfig(n_trials=10, custom_bounds=GDA_IDA_RECOVERY_BOUNDS, per_replica=True)
+        result = fit_measurement_set_per_replica(ms, IDAAssay, _ida_conditions(), config)
 
         assert result.success
         assert 'replica_failures' in result.metadata
@@ -325,19 +337,23 @@ class TestPoolAggregation:
             for k in rf.parameters.keys():
                 assert len(rf.parameter_samples[k]) == rf.n_passing
 
-    def test_reported_value_is_representative_uncertainty_is_pool_mad(self, noisy_pr_result):
+    def test_reported_value_is_representative_and_range_is_pool_extent(self, noisy_pr_result):
+        from core.pipeline.fit_pipeline import summarize_parameters
+
         result = noisy_pr_result
-        assert result.statistics_mode == 'median'
         ridx = result.representative_index
+        summaries = {s.key: s for s in summarize_parameters(result) if not s.is_log}
         for k, q in result.parameters.items():
             pool = result.parameter_samples[k]
             # Reported value = the representative real trial (a row of the pool),
             # NOT a per-parameter median that could land off the manifold.
             assert float(q.magnitude) == pytest.approx(float(pool[ridx]), rel=1e-12)
-            # Default (median) mode → reported ± is the pool MAD.
-            expected_median = float(np.median(pool))
-            expected_mad = float(np.median(np.abs(pool - expected_median)))
-            assert float(result.uncertainties[k].magnitude) == pytest.approx(expected_mad, rel=1e-12)
+            # The quoted range is the full extent of the accepted pool, so the
+            # representative must lie inside it.
+            stats = summaries[k].stats
+            assert stats['min'] == pytest.approx(float(np.min(pool)), rel=1e-12)
+            assert stats['max'] == pytest.approx(float(np.max(pool)), rel=1e-12)
+            assert stats['min'] <= float(q.magnitude) <= stats['max']
 
     def test_serialization_round_trip_of_parameter_samples(self, noisy_pr_result):
         result = noisy_pr_result

@@ -1,14 +1,15 @@
-"""Session-level helpers: JSON export/import of fit results, plot image export."""
+"""Session-level helpers: JSON/TXT/CSV export and import of fit results, plot image export."""
 
 from __future__ import annotations
 
+import csv
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-from core.pipeline.fit_pipeline import FitResult
+from core.pipeline.fit_pipeline import FitResult, ParameterSummary, summarize_parameters
 from core.units import Quantity
 from gui.plotting.labels import fmt_unit_pretty
 
@@ -51,6 +52,109 @@ def import_results(path: str | Path) -> list[FitResult]:
     return [FitResult.from_dict(d) for d in raw]
 
 
+def _row_label(spec: ParameterSummary) -> str:
+    """Plain-text row label; log twins are named ``log10(<key>)``."""
+    return f'log10({spec.key})' if spec.is_log else spec.key
+
+
+def _row_unit(spec: ParameterSummary) -> str:
+    """Unit shown for a row.
+
+    A log₁₀ value is dimensionless, but the number is only meaningful against
+    the unit its parameter was measured in — so the row names that reference
+    rather than dropping it.
+    """
+    if not spec.unit:
+        return '—'
+    pretty = fmt_unit_pretty(spec.unit)
+    return f'log10({pretty})' if spec.is_log else pretty
+
+
+def _fixed_width_table(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> list[str]:
+    """Render *rows* as space-padded columns sized to their widest entry.
+
+    The first column is left-aligned (names), the numeric middle columns are
+    right-aligned, and the trailing Units column reads better left-aligned.
+    """
+    if not rows:
+        return []
+    widths = [max(len(headers[i]), max(len(row[i]) for row in rows)) for i in range(len(headers))]
+
+    def render(cells: tuple[str, ...]) -> str:
+        out = [f'  {cells[0]:<{widths[0]}}']
+        out += [f'{cells[i]:>{widths[i]}}' for i in range(1, len(cells) - 1)]
+        out.append(f'{cells[-1]:<{widths[-1]}}')
+        return '   '.join(out).rstrip()
+
+    header = render(headers)
+    body = [render(row) for row in rows]
+    rule = '  ' + '-' * (max(len(line) for line in (header, *body)) - 2)
+    return [header, rule, *body]
+
+
+def export_results_csv(results: list[FitResult], path: str | Path) -> None:
+    """Export fit results as a tidy CSV — one row per reported parameter.
+
+    Complements the TXT report: same numbers, but machine-readable so the
+    values can go straight into a spreadsheet or a plotting script. Magnitudes
+    are in the stored base units, named per row in the ``unit`` column. Pool
+    statistics are left blank when the result carries no fit pool.
+
+    Parameters
+    ----------
+    results : list[FitResult]
+        Fit results to export.
+    path : str or Path
+        Output file path (should have ``.csv`` extension).
+    """
+    path = Path(path)
+    columns = (
+        'result_index',
+        'assay_type',
+        'source_file',
+        'parameter',
+        'unit',
+        'estimate',
+        'min',
+        'max',
+        'median',
+        'mad',
+        'mean',
+        'std',
+        'p16',
+        'p84',
+        'n_passing',
+        'n_total',
+        'rmse',
+        'r_squared',
+    )
+    stat_keys = ('min', 'max', 'median', 'mad', 'mean', 'std', 'p16', 'p84')
+
+    with path.open('w', encoding='utf-8', newline='') as handle:
+        writer = csv.writer(handle)
+        writer.writerow(columns)
+        for index, result in enumerate(results):
+            for spec in summarize_parameters(result):
+                stats = spec.stats or {}
+                writer.writerow(
+                    [
+                        index,
+                        result.assay_type,
+                        result.source_file or '',
+                        _row_label(spec),
+                        # Log rows are dimensionless; the row they log is in
+                        # the same file, so its unit is one lookup away.
+                        '' if spec.is_log else spec.unit,
+                        f'{spec.estimate:.6e}',
+                        *(f'{stats[k]:.6e}' if k in stats else '' for k in stat_keys),
+                        result.n_passing,
+                        result.n_total,
+                        f'{result.rmse:.6e}',
+                        f'{result.r_squared:.6f}',
+                    ]
+                )
+
+
 def export_results_txt(results: list[FitResult], path: str | Path) -> None:
     """Export fit results as a human-readable text report.
 
@@ -83,30 +187,54 @@ def export_results_txt(results: list[FitResult], path: str | Path) -> None:
         lines.append(f'Timestamp:   {result.timestamp}')
         lines.append('')
 
-        # Parameters table
+        # Parameters — the headline block, then the pool it came from.
+        specs = summarize_parameters(result)
+        pooled = any(spec.stats is not None for spec in specs)
+
         lines.append('FITTED PARAMETERS')
         lines.append('-' * 60)
-
-        # Compute column widths
-        rows: list[tuple[str, str, str, str]] = []
-        for key, val in result.parameters.items():
-            unc = result.uncertainties.get(key, float('nan'))
-            unit_str = str(val.units) if isinstance(val, Quantity) else ''
-            val_mag = float(val.magnitude) if isinstance(val, Quantity) else float(val)
-            unc_mag = float(unc.magnitude) if isinstance(unc, Quantity) else float(unc)
-            unit_display = fmt_unit_pretty(unit_str)
-            rows.append((key, f'{val_mag:.4g}', f'{unc_mag:.4g}', unit_display))
-
-        if rows:
-            w_name = max(len(r[0]) for r in rows)
-            w_val = max(len(r[1]) for r in rows)
-            w_unc = max(len(r[2]) for r in rows)
-            header = f'  {"Parameter":<{w_name}}   {"Value":>{w_val}}   {"± Uncert.":>{w_unc + 2}}   Units'
-            lines.append(header)
-            lines.append('  ' + '-' * (len(header) - 2))
-            for name, val_s, unc_s, unit_s in rows:
-                lines.append(f'  {name:<{w_name}}   {val_s:>{w_val}}   ± {unc_s:>{w_unc}}   {unit_s}')
+        lines.append(f'Estimate = the single best fit (highest R²) of {result.n_passing} accepted fits.')
+        if pooled:
+            lines.append(f'Range    = (min, max) across those {result.n_passing} fits.')
+        else:
+            lines.append('Range    = unavailable: no fit pool is stored for this result.')
         lines.append('')
+        lines.extend(
+            _fixed_width_table(
+                ('Parameter', 'Estimate', 'Range (min, max)', 'Units'),
+                [
+                    (
+                        _row_label(spec),
+                        f'{spec.estimate:.4g}',
+                        f'({spec.stats["min"]:.4g}, {spec.stats["max"]:.4g})' if spec.stats else '—',
+                        _row_unit(spec),
+                    )
+                    for spec in specs
+                ],
+            )
+        )
+        lines.append('')
+
+        if pooled:
+            lines.append(f'SPREAD ACROSS THE ACCEPTED-FIT POOL (n = {result.n_passing})')
+            lines.append('-' * 60)
+            lines.extend(
+                _fixed_width_table(
+                    ('Parameter', 'Median ± MAD', 'Mean ± SD', '68% Range [p16, p84]', 'Units'),
+                    [
+                        (
+                            _row_label(spec),
+                            f'{spec.stats["median"]:.4g} ± {spec.stats["mad"]:.4g}',
+                            f'{spec.stats["mean"]:.4g} ± {spec.stats["std"]:.4g}',
+                            f'[{spec.stats["p16"]:.4g}, {spec.stats["p84"]:.4g}]',
+                            _row_unit(spec),
+                        )
+                        for spec in specs
+                        if spec.stats is not None
+                    ],
+                )
+            )
+            lines.append('')
 
         # Fit quality
         lines.append('FIT QUALITY')
@@ -175,7 +303,7 @@ def build_artefacts(session: 'FittingSession') -> list[ExportableArtefact]:
     Preconditions:
     - Raw data / fit curve plot: a measurement set is loaded.
     - Distribution plot: a fit has been run (uses fit_results).
-    - Fit results (JSON/TXT): a fit has been run.
+    - Fit results (JSON/TXT/CSV): a fit has been run.
     - Style template: always available (style widget is always present).
     """
     state = session._state
@@ -202,6 +330,9 @@ def build_artefacts(session: 'FittingSession') -> list[ExportableArtefact]:
 
     def _write_results_txt(path: Path) -> None:
         export_results_txt(state.fit_results, path)
+
+    def _write_results_csv(path: Path) -> None:
+        export_results_csv(state.fit_results, path)
 
     def _write_fit_png(path: Path) -> None:
         session._plot_widget.export_image(str(path))
@@ -256,6 +387,14 @@ def build_artefacts(session: 'FittingSession') -> list[ExportableArtefact]:
             available=has_results,
             unavailable_reason=no_fit_msg,
             writer=_write_results_txt,
+        ),
+        ExportableArtefact(
+            key='results_csv',
+            label='Fit results (CSV table)',
+            suffix='_results.csv',
+            available=has_results,
+            unavailable_reason=no_fit_msg,
+            writer=_write_results_csv,
         ),
         ExportableArtefact(
             key='fit_png',
