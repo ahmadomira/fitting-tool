@@ -99,7 +99,7 @@ From the **File** menu:
 
 ### Binding models
 
-All assays are described with **association constants** (Ka) and rigorous mass-action equilibria.
+The six binding assays use concentration **association constants** (Ka, M⁻¹) and specified mass-action equilibria. Dye Alone is a linear calibration. The [scientific reference](docs/scientific-summary.md) defines all seven models, assumptions, units, and identifiability limits, with literature citations and mathematical derivations.
 
 #### Direct Binding Assay (DBA)
 
@@ -121,48 +121,44 @@ where `I0` absorbs baseline offsets and `I_dye_free`, `I_dye_bound` are the per-
 
 #### Indicator Displacement Assay (IDA)
 
-Determines binding constants by competitive displacement of indicator dyes — enabling detection in complex biological matrices through ultra-high-affinity reporter pairs. IDA involves two coupled equilibria, where the reporter dye and the analyte guest compete for the same host binding site:
+IDA estimates guest affinity from two coupled equilibria, where dye and guest compete for the same host binding site:
 
 ```
 H + D ⇌ HD        Ka_dye    (assumed known, measured via DBA first)
 H + G ⇌ HG        Ka_guest  (the quantity being fitted)
 ```
 
-The guest `G` is titrated into a preformed `HD` complex. As `G` displaces `D`, the observed signal tracks the free-dye / bound-dye ratio, letting the fit recover `Ka_guest` from the same 4-parameter signal model as DBA applied to the coupled mass-balance at each titration point.
+The guest `G` is titrated into a host–dye mixture with fixed host and dye totals. The signal is the additive free- and bound-dye response above, not their ratio. Affinity estimation is conditional on the known dye affinity, totals, optical contrast, and sufficient information in the titration.
 
 #### Guest Displacement Assay (GDA)
 
-Quantifies guest binding affinity by monitoring displacement of a preformed host–indicator complex — particularly valuable for spectroscopically silent hosts and guests, and superior for insoluble or weakly binding guests that are difficult to measure by IDA.
+GDA shares the same coupled equilibria as IDA, but *dye* is titrated into a host + guest mixture at fixed host and guest totals. Dye displaces guest, and the fitted affinity is again `Ka_guest`. Suitability relative to IDA depends on affinities, concentrations, solubility, and optical contrast. Both assays assume mutually exclusive 1:1 binding and dark host/guest species.
 
-Mechanistically, GDA shares the same coupled equilibria as IDA, but the *dye* is titrated into a pre-equilibrated host + guest mixture instead of the guest being titrated into `HD`. The fitted quantity is again `Ka_guest`.
+#### Stepwise binding: HG2 and H2G
+
+`DBA_HG2` models `H + G ⇌ HG` followed by `HG + G ⇌ HG2`. `DBA_H2G` instead uses `H + HG ⇌ H2G` as its second step. Both titrate guest into a fixed host total. Each step constant has units M⁻¹; their product is a cumulative constant in M⁻². Signal adds free host, free guest, and the two complexes with a separate response per species. Free-host response is fixed to zero by default. Excess guest favors HG2 in the first model but HG in the second. Macroscopic step constants alone do not establish microscopic cooperativity.
 
 #### Dye Alone
 
-Linear calibration fitting for indicator dyes — establishes baseline fluorescence properties and helps correct for inner-filter effects in competitive binding assays. Concretely, a linear fit of dye-only fluorescence against dye concentration yields the free-dye response (`I_dye_free`) and baseline (`I0`), which can then be used as priors or fixed values for subsequent DBA/IDA/GDA fits.
+Linear dye-only fluorescence versus concentration determines free-dye response and baseline. It does not determine bound-dye response or correct inner-filter effects. Transfer to binding assays requires matching conditions; calibration-derived bounds or fixed values impose external information. The application does not implement Bayesian priors.
 
 ### Why forward modelling
 
-Historical fitting methods (Scatchard, Hill, double-reciprocal) rearrange the binding isotherm so it can be fit with linear regression. Those transforms:
-
-- distort the measurement noise structure (non-uniform error weighting in the transformed space),
-- lose validity in ligand-depletion regimes, and
-- cannot handle coupled competitive equilibria without strong approximations.
-
-This toolkit instead fits the raw signal directly with the full nonlinear model — so the residual is evaluated in the measurement space where the experimental error is best understood.
+The toolkit evaluates total-concentration mass balances and fits signal in measurement units. This avoids assuming that total titrant equals free titrant and avoids changing the residual through a linearizing transformation. Its unweighted least-squares objective assumes equal signal-error variance for a Gaussian likelihood interpretation; fitting raw data does not establish that this assumption holds. The models use scalar fixed totals and do not automatically correct changing-volume dilution.
 
 ### Fitting strategy
 
-The nonlinear binding likelihood is typically multi-modal, so single-start gradient methods get trapped in local minima. The toolkit uses:
+The search can encounter local optima, flat directions, and poor scaling. The toolkit uses:
 
-- **Multi-start L-BFGS-B** — the constrained quasi-Newton optimiser is launched from many random initial parameter vectors (the `n_trials` knob), with Ka parameters sampled in log space (they span several orders of magnitude).
-- **Physical bounds** — every parameter has lower/upper bounds so the search stays inside a thermodynamically reasonable region (Ka defaults: 10⁻⁸ to 10¹² M⁻¹). Tighten these in the Bounds panel when you have prior knowledge.
-- **Quality filter** — after all starts complete, failed fits are rejected by `min_r_squared` and by an RMSE tolerance factor (`rmse_threshold_factor × best_RMSE`). Only survivors are aggregated.
-- **Real fits, honestly summarised** — the reported estimate is the **representative fit**: an actual member of the surviving ensemble, the one with the highest R². Being a real fit, it lies on the model's degenerate manifold and reproduces the plotted curve exactly. Alongside it the app quotes the **range (min, max) across every accepted fit**, with the median ± MAD, mean ± SD and central-68% interval in the summary table. Each of these is read straight from the ensemble, so it describes a skewed or nonlinear parameter distribution as faithfully as a symmetric one.
-- **Replica outlier removal** — the optional Z-score preprocessing step uses a *modified* Z-score based on the median and MAD, so it is not biased by the very outliers it is trying to flag.
+- **Multi-start L-BFGS-B** — many initial vectors (`n_trials`), with logarithmically sampled Ka starts. Optimization itself uses linearly scaled constants.
+- **Bounds** — configured intervals constrain the search (Ka defaults: 10⁻⁸ to 10¹² M⁻¹). Bounds supply assumptions; they do not prove physical applicability or identifiability.
+- **Quality filter** — candidates pass configured R² and optional relative RMSE thresholds. Optimizer success status alone does not determine acceptance.
+- **Representative and spread** — the default representative is an actual accepted fit with highest R² and its predicted curve. Min/max, median/MAD, mean/SD, and central percentiles describe accepted optimized solutions. They are not bootstrap estimates or calibrated confidence intervals. Per-replica pools mix search and replica variability and weight replicas by the number of accepted solutions.
+- **Replica filtering** — optional modified Z-scores use median/MAD. Zero MAD currently assigns zero scores, including majority ties with a differing value.
 
 ### Identifiability note
 
-In the 4-parameter signal model, the coefficients `I0`, `I_dye_free`, and `I_dye_bound` are **structurally degenerate** for DBA and IDA — only `Ka` is uniquely identifiable from a single titration. The app fits the full 4-parameter model because it reconstructs the observed signal faithfully, but only `Ka` should be reported as a physical constant across datasets. Fixing the signal coefficients with a dye-alone calibration (see [data/Readme.md](data/Readme.md)) breaks the degeneracy when stronger constraints are needed.
+At fixed dye total (`DBA_HtoD` and `IDA`), three raw signal coefficients reduce to an effective offset and free/bound contrast. Individual coefficients cannot all be recovered from that curve. This exact ambiguity does not apply to varying-dye `DBA_DtoH` or `GDA`. Stepwise models have a corresponding fixed-host signal ambiguity if `I_H` is freed. Dye calibration measures only free-dye slope and baseline. Even when affinity is structurally identifiable, weak contrast, a limited concentration range, or noise can prevent precise recovery. See the [scientific reference](docs/scientific-summary.md#6-structural-and-practical-identifiability) for conditions, exceptions, and experimental remedies.
 
 ## Development
 

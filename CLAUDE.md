@@ -17,7 +17,7 @@ Rules:
 
 ## Project Overview
 
-SupraSimFit — a desktop toolkit that fits equilibrium binding models to fluorescence titration data using multi-start L-BFGS-B optimization, extracting association constants (Ka) via rigorous forward-modelling rather than linearised transforms. Assay types: `GDA`, `IDA`, `DBA_HtoD`, `DBA_DtoH`, `DYE_ALONE`.
+SupraSimFit — a desktop toolkit that fits equilibrium binding models to fluorescence titration data using multi-start L-BFGS-B optimization. Assay types: `GDA`, `IDA`, `DBA_HtoD`, `DBA_DtoH`, `DBA_HG2`, `DBA_H2G`, `DYE_ALONE` (closed-form linear calibration).
 
 PyQt6 GUI + PyQtGraph plots, packaged as a standalone PyInstaller binary (no Python required by end users). Single-developer research codebase — backwards compatibility and GUI stability are **not** constraints. Python **3.13+**, package manager is **uv** (not pip/poetry).
 
@@ -123,11 +123,12 @@ Parameters use **string keys**, not positional indices. `FitConfig.custom_bounds
 
 ## Scientific Conventions
 
-- **Association constants only** (Ka, never Kd): `Ka_dye` for host–dye, `Ka_guest` for host–guest binding.
-- **4-parameter signal model:** `Signal = I0 + I_dye_free·[D_free] + I_dye_bound·[HD]`.
-- Signal coefficients (`I0`, `I_dye_free`, `I_dye_bound`) are **structurally degenerate** in DBA/IDA — only Ka is identifiable. Tests verify Ka recovery + signal reconstruction, never the individual coefficients.
+- **Fitted association constants** in M⁻¹: `Ka_dye`, `Ka_guest`, and stepwise `Ka_HG`, `Ka_HG2`/`Ka_H2G`. A second step constant is not the cumulative product (M⁻²). Reciprocal Kd in M may be used in derivations.
+- **Direct/competitive response:** `Signal = I0 + I_dye_free·[D_free] + I_dye_bound·[HD]`. Stepwise response also includes free host/guest and both complexes; each brightness is au/M per molecular species.
+- **Assay-specific identifiability:** fixed-dye `DBA_HtoD`/`IDA` identify effective offset and contrast, with one exact raw-signal ambiguity. Varying-dye `DBA_DtoH`/`GDA` do not have that ambiguity. Stepwise models have a fixed-host signal ambiguity when `I_H` is free (default zero). Affinity identifiability requires the conditions in `docs/scientific-summary.md`; precise recovery is not guaranteed by a good fit.
+- **Independent scientific evidence:** use authoritative literature, explicit derivations, and independently calculated reference values or invariants. `docs/scientific-summary.md` documents model definitions and literature citations. Production-generated synthetic data test integration/recovery but do not establish equation correctness. Accepted-fit ranges are descriptive, not confidence intervals.
 - Concentrations are stored internally in **Molar**; GUI inputs (nM/µM/mM/M, M⁻¹/kM⁻¹/MM⁻¹) convert to base units at the boundary.
-- Example datasets with reference parameters live in `data/` (see `data/Readme.md`).
+- Example datasets and claimed parameters live in `data/` (see `data/Readme.md`); publication-linked reference provenance has not been verified.
 
 ## Testing
 
