@@ -1,6 +1,10 @@
 # Meta Data
 
-**The concentrations in all data files are in Molar**
+Text-data concentrations use M (mol/L) by default. Instrument formats can
+declare their own units; inspect the reader and file metadata.
+The values below are retained project metadata, not independently verified
+published reference parameters. Their source, preparation/dilution protocol,
+and uncertainty are not documented in the supplied files.
 
 ## DBA System Information (host-to-dye)
 - $[D_0]$ = $151 \times 10^{-6}$ $M$
@@ -12,11 +16,16 @@
 - $K_{a(Dye)}$ = $33 \times 10^3$ $M^{-1}$
 
 **Dye-Alone Measurement (for this GDA System):**
-- $I_0$ = 29
-- $I_{dye, free}$ = $3.52 \times 10^6$ $M^{-1}$
+- $I_0$ = 29 au
+- $I_{dye, free}$ = $3.52 \times 10^6$ au/M
 - Dye type: TNS
 
-Note: The values of $I_0$ and $I_{dye, free}$ can be passed to the optimizer as bounds (value ± tolerance) to constrain the fit. This is useful because of the inherent degeneracy in the parameters, which can lead to multiple sets of parameters that fit the data equally well. By constraining the fit with known values, we can reduce the parameter space and improve the reliability of the fitted parameters.
+Calibration values can constrain a fit when medium and optical settings match.
+Dye-only measurements determine free-dye response and baseline, not bound-dye
+response. Chosen tolerance bounds supply external information and are not
+propagated confidence intervals. GDA does not have the fixed-dye signal
+ambiguity of IDA/HtoD, although finite data can still constrain its parameters
+poorly. See the [scientific reference](../docs/scientific-summary.md).
 
 ## IDA System Information
 - $K_{a(Dye)}$ = $1.68 \times 10^7$ $M^{-1}$

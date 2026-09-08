@@ -12,306 +12,131 @@ from __future__ import annotations
 
 _GDA_HTML = """
 <h3>Guest Displacement Assay (GDA)</h3>
-
-<p><b>What the Experiment Does</b></p>
-<p>A pre-formed host&ndash;dye complex is titrated with a competing guest.
-As guest concentration increases, it displaces the dye from the host,
-changing the observed fluorescence (or absorbance) signal. By fitting the
-displacement curve you can extract the host&ndash;guest association
-constant <i>K<sub>a,guest</sub></i>, provided the host&ndash;dye
-association constant <i>K<sub>a,dye</sub></i> is known from a separate
-direct binding experiment.</p>
-
-<p><b>The Model</b></p>
-<p>At each point the free concentrations of host <i>[H]</i>, dye <i>[D]</i>,
-and guest <i>[G]</i> are obtained by solving the coupled mass-balance /
-equilibrium equations:</p>
-<p align="center">
-  H + D &#x21CC; HD &nbsp;&nbsp;(K<sub>a,dye</sub> known)<br>
-  H + G &#x21CC; HG &nbsp;&nbsp;(K<sub>a,guest</sub> fitted)
-</p>
-<p>with total conservation
-<i>[H]<sub>0</sub> = [H] + [HD] + [HG]</i>,
-<i>[D]<sub>0</sub> = [D] + [HD]</i>,
-<i>[G]<sub>0</sub> = [G] + [HG]</i>.
-The signal is the 4-parameter linear combination:</p>
-<p align="center">
-  <i>S = I<sub>0</sub> + I<sub>dye,free</sub> &middot; [D] +
-     I<sub>dye,bound</sub> &middot; [HD]</i>
-</p>
-
-<p><b>Fitted Parameters</b></p>
-<ul>
-  <li><b>K<sub>a,guest</sub></b> &mdash; the quantity of interest; controls
-      how quickly guest displaces dye as [G]<sub>0</sub> rises.</li>
-  <li><b>I<sub>0</sub></b> &mdash; baseline offset (solvent/background).</li>
-  <li><b>I<sub>dye,free</sub></b> &mdash; brightness coefficient of free dye.</li>
-  <li><b>I<sub>dye,bound</sub></b> &mdash; brightness coefficient of the
-      host&ndash;dye complex.</li>
-</ul>
-
-<p><b>Known Conditions</b></p>
-<p>[H]<sub>0</sub>, [D]<sub>0</sub>, and K<sub>a,dye</sub> must be supplied.
-GDA will only give a meaningful K<sub>a,guest</sub> if these inputs are
-accurate &mdash; errors in K<sub>a,dye</sub> propagate directly into the
-fitted K<sub>a,guest</sub>.</p>
-
-<p><b>When to Use It</b></p>
-<p>Use GDA when the guest is non-chromogenic (so a direct titration is
-not feasible) but a known indicator dye is available. If you can titrate
-the guest directly, prefer DBA or IDA.</p>
+<p>Add dye to a host&ndash;guest mixture. The dye competes for host and
+releases guest. Supply the fixed host and guest totals and an independently
+measured host&ndash;dye association constant.</p>
+<p>The model includes H + D &#x21CC; HD and H + G &#x21CC; HG, both 1:1.
+It fits K<sub>a,guest</sub> (M<sup>&minus;1</sup>), background I<sub>0</sub>
+(a.u.), and free/bound dye responses (a.u./M):</p>
+<p><i>S = I<sub>0</sub> + I<sub>dye,free</sub>[D] +
+I<sub>dye,bound</sub>[HD]</i>.</p>
+<p>With known concentrations, nonzero guest and a signal change on binding,
+an ideal complete curve can distinguish all four parameters. Real data
+need the competition transition and a dye-excess tail; a good fit alone
+does not establish precision. Errors in the supplied dye affinity affect
+the guest estimate.</p>
+<p>Use concentrations after mixing. Host and guest totals must remain
+fixed; this assay does not model their dilution during additions.</p>
 """
 
 _IDA_HTML = """
 <h3>Indicator Displacement Assay (IDA)</h3>
-
-<p><b>What the Experiment Does</b></p>
-<p>A pre-formed host&ndash;dye (indicator) complex is titrated with a
-competing guest. Binding of the guest to the host releases the dye, which
-changes the optical signal. IDA is the most common assay for quantifying
-host&ndash;guest binding with an indicator whose photophysics is already
-known.</p>
-
-<p><b>The Model</b></p>
-<p>The equilibria and mass balances are identical to GDA; the distinction
-is conventional &mdash; IDA emphasises the &ldquo;indicator&rdquo; role of
-the dye. The signal model is:</p>
-<p align="center">
-  <i>S = I<sub>0</sub> + I<sub>dye,free</sub> &middot; [D] +
-     I<sub>dye,bound</sub> &middot; [HD]</i>
-</p>
-<p>Free concentrations are obtained by solving the coupled host&ndash;dye
-and host&ndash;guest equilibria at each guest concentration
-[G]<sub>0</sub>.</p>
-
-<p><b>Fitted Parameters</b></p>
-<ul>
-  <li><b>K<sub>a,guest</sub></b> &mdash; the target. Determines the midpoint
-      and steepness of the displacement curve.</li>
-  <li><b>I<sub>0</sub></b>, <b>I<sub>dye,free</sub></b>,
-      <b>I<sub>dye,bound</sub></b> &mdash; signal coefficients. Any
-      structural degeneracy with I<sub>0</sub> is fine: only
-      K<sub>a,guest</sub> is the scientifically identifiable quantity.</li>
-</ul>
-
-<p><b>Known Conditions</b></p>
-<p>You must know [H]<sub>0</sub>, [D]<sub>0</sub>, and K<sub>a,dye</sub>.
-K<sub>a,dye</sub> is typically obtained from a prior DBA fit of the same
-host&ndash;dye pair.</p>
-
-<p><b>When to Use It</b></p>
-<p>IDA is the standard &ldquo;workhorse&rdquo; assay for measuring
-binding constants of non-absorbing guests using a known indicator. If
-your fit for K<sub>a,guest</sub> is poor, first check that the IDA
-operating window is appropriate: K<sub>a,dye</sub> &middot; [H]<sub>0</sub>
-should be of order 1&ndash;10 so the dye is neither fully free nor fully
-bound at the start of the titration.</p>
+<p>Add guest to a host&ndash;dye mixture. Guest competes for host and
+releases dye. Supply fixed host and dye totals and the independently
+measured host&ndash;dye association constant.</p>
+<p>The model includes competing 1:1 HD and HG complexes and fits
+K<sub>a,guest</sub> (M<sup>&minus;1</sup>), background I<sub>0</sub> (a.u.),
+and free/bound dye responses (a.u./M):</p>
+<p><i>S = I<sub>0</sub> + I<sub>dye,free</sub>[D] +
+I<sub>dye,bound</sub>[HD]</i>.</p>
+<p>Because total dye is fixed, individual background and dye responses
+cannot all be separated by this curve alone. The curve can identify the
+affinity, the combined background I<sub>0</sub> +
+I<sub>dye,free</sub>[D]<sub>0</sub>, and the bound-minus-free response
+when binding changes the signal. A matched dye calibration adds information
+about the individual responses.</p>
+<p>Include partial displacement and the displaced endpoint. Keep host and
+dye totals fixed after mixing; this assay does not model their dilution.</p>
 """
 
 _DBA_HtoD_HTML = """
-<h3>Direct Binding Assay &mdash; Host Titrated Into Dye (DBA H&rarr;D)</h3>
-
-<p><b>What the Experiment Does</b></p>
-<p>A fixed concentration of dye is held in the cuvette while host is
-progressively added. The signal changes as more dye converts to the
-host&ndash;dye complex. Fitting the titration curve yields the
-host&ndash;dye association constant <i>K<sub>a,dye</sub></i>.</p>
-
-<p><b>The Model (1:1 Host&ndash;Dye Binding)</b></p>
-<p>At each point the free dye <i>[D]</i> and the complex <i>[HD]</i> are
-obtained analytically from the quadratic arising from:</p>
-<p align="center">
-  H + D &#x21CC; HD, &nbsp;&nbsp;
-  K<sub>a,dye</sub> = [HD] / ([H] [D])
-</p>
-<p>with conservation
-<i>[H]<sub>0</sub> = [H] + [HD]</i> and
-<i>[D]<sub>0</sub> = [D] + [HD]</i>. The signal model is the same
-4-parameter linear combination used for IDA/GDA:</p>
-<p align="center">
-  <i>S = I<sub>0</sub> + I<sub>dye,free</sub> &middot; [D] +
-     I<sub>dye,bound</sub> &middot; [HD]</i>
-</p>
-
-<p><b>Structural Degeneracy &mdash; Important</b></p>
-<p>In DBA H&rarr;D, the three signal coefficients
-(I<sub>0</sub>, I<sub>dye,free</sub>, I<sub>dye,bound</sub>) are not all
-independently identifiable because [D]<sub>0</sub> is constant along the
-titration. Only <i>K<sub>a,dye</sub></i> and the overall signal change
-(saturation minus baseline) are reliably recovered. This is a property
-of the experiment, not of the fitter.</p>
-
-<p><b>Fitted Parameters</b></p>
-<ul>
-  <li><b>K<sub>a,dye</sub></b> &mdash; the quantity of interest. Determines
-      the curvature of the titration.</li>
-  <li><b>I<sub>0</sub>, I<sub>dye,free</sub>, I<sub>dye,bound</sub></b>
-      &mdash; signal coefficients. Useful for reconstructing the fit curve
-      but individually under-determined; do not over-interpret their
-      absolute values.</li>
-</ul>
-
-<p><b>When to Use It</b></p>
-<p>Use this mode when it is experimentally easier to titrate the host
-(e.g. a large cage molecule) into a fixed dye solution. If the dye is
-the limiting reagent, DBA H&rarr;D is usually the most information-rich
-geometry.</p>
+<h3>Direct Binding &mdash; Host Into Dye</h3>
+<p>Vary total host while keeping total dye fixed. The 1:1 model is
+H + D &#x21CC; HD, with K<sub>a,dye</sub> = [HD]/([H][D]) in
+M<sup>&minus;1</sup>.</p>
+<p><i>S = I<sub>0</sub> + I<sub>dye,free</sub>[D] +
+I<sub>dye,bound</sub>[HD]</i>, where background is in a.u. and
+species responses are in a.u./M.</p>
+<p>The curve can distinguish affinity, combined background
+I<sub>0</sub> + I<sub>dye,free</sub>[D]<sub>0</sub>, and the
+bound-minus-free response. It cannot separate all three raw signal
+parameters without additional information. A matched dye-only calibration
+can supply background and free-dye response.</p>
+<p>Measure the unbound region, binding transition and approach to saturation.
+Equal free/bound dye responses hide binding. Keep dye concentration fixed
+after mixing; adding host stock can otherwise dilute it.</p>
 """
 
 _DBA_DtoH_HTML = """
-<h3>Direct Binding Assay &mdash; Dye Titrated Into Host (DBA D&rarr;H)</h3>
-
-<p><b>What the Experiment Does</b></p>
-<p>A fixed concentration of host is kept in the cuvette and dye is
-titrated in. The signal changes as the added dye finds binding sites on
-the host. Fitting yields the host&ndash;dye association constant
-<i>K<sub>a,dye</sub></i>.</p>
-
-<p><b>The Model</b></p>
-<p>Same 1:1 equilibrium as the H&rarr;D mode, but with
-[H]<sub>0</sub> fixed and [D]<sub>0</sub> varying. Free concentrations
-are solved from the quadratic; the signal model is the same 4-parameter
-linear combination.</p>
-<p align="center">
-  <i>S = I<sub>0</sub> + I<sub>dye,free</sub> &middot; [D] +
-     I<sub>dye,bound</sub> &middot; [HD]</i>
-</p>
-
-<p><b>Structural Degeneracy</b></p>
-<p>As with DBA H&rarr;D, only <i>K<sub>a,dye</sub></i> is strictly
-identifiable; the signal coefficients enter the fit in a
-degenerate linear combination.</p>
-
-<p><b>When to Use It</b></p>
-<p>Use this mode when the host is the limiting / expensive reagent.
-DBA D&rarr;H can also be more robust when dye solubility or background
-fluorescence complicates the reversed geometry.</p>
+<h3>Direct Binding &mdash; Dye Into Host</h3>
+<p>Vary total dye while keeping total host fixed. The model contains one
+1:1 host&ndash;dye complex and fits K<sub>a,dye</sub> (M<sup>&minus;1</sup>),
+background I<sub>0</sub> (a.u.), and free/bound dye responses (a.u./M).</p>
+<p><i>S = I<sub>0</sub> + I<sub>dye,free</sub>[D] +
+I<sub>dye,bound</sub>[HD]</i>.</p>
+<p>With known host concentration and different free/bound dye responses,
+an ideal complete curve can distinguish all four parameters. Real data
+need binding curvature, a blank and the dye-excess linear tail. Weak
+curvature or noise can still leave affinity poorly determined.</p>
+<p>Excess free dye can keep increasing the signal after host occupancy
+saturates. Keep host concentration fixed after mixing; this assay does
+not model dilution during dye additions.</p>
 """
 
 _DYE_ALONE_HTML = """
 <h3>Dye Alone &mdash; Linear Calibration</h3>
-
-<p><b>What the Experiment Does</b></p>
-<p>A dilution series of dye (no host, no guest) is measured. The result
-is a calibration line relating dye concentration to measured signal. The
-fit parameters characterise the instrument response of the free dye.</p>
-
-<p><b>The Model</b></p>
-<p align="center">
-  <i>S = slope &middot; [D] + intercept</i>
-</p>
-
-<p><b>Fitted Parameters</b></p>
-<ul>
-  <li><b>slope</b> &mdash; molar response of the instrument to free dye.
-      Provides <i>I<sub>dye,free</sub></i> for subsequent DBA/IDA fits.</li>
-  <li><b>intercept</b> &mdash; background at zero dye (solvent,
-      autofluorescence, offset).</li>
-</ul>
-
-<p><b>When to Use It</b></p>
-<p>Run this as a control before each IDA / DBA session to fix the
-instrument baseline and confirm the dye is still behaving linearly in
-the concentration range used. A non-linear calibration usually signals
-aggregation, inner-filter effects, or detector saturation.</p>
-
-<p><b>See Also &mdash; Dye-Alone Priors</b></p>
-<p>The fit produced by this assay is reused downstream by the
-<i>Parameter Bounds</i> panel: tick <b>Use dye-alone priors for signal
-bounds</b> and load your calibration file to clamp I<sub>0</sub> and
-I<sub>dye,free</sub> during subsequent IDA/DBA/GDA fits. This breaks the
-structural degeneracy in the signal coefficients and usually improves
-K<sub>a</sub> recovery.</p>
+<p>Measure dye without host over the concentration range of interest.
+The fit is <i>S = slope &middot; [D] + intercept</i>: slope is free-dye
+response (a.u./M), and intercept is the zero-dye background (a.u.).
+At least two distinct concentrations are required.</p>
+<p>Use matched solvent, temperature and optical settings before transferring
+these values to a binding experiment. The calibration supplies no affinity
+or bound-dye response. Curvature can indicate that a linear response model
+is unsuitable over the chosen range.</p>
+<p><b>Load Dye-Alone</b> in Parameter Bounds uses the fitted slope and
+intercept to restrict I<sub>dye,free</sub> and I<sub>0</sub> in
+DBA/IDA/GDA fits. Those bounds are a chosen tolerance around calibration
+values; they do not propagate calibration uncertainty. Verify that the
+calibration is transferable before applying tight bounds.</p>
 """
 
 _DBA_HG2_HTML = """
 <h3>Stepwise 1:2 Host&ndash;Guest Binding (HG2)</h3>
-
-<p><b>What the Experiment Does</b></p>
-<p>Guest is titrated into a fixed concentration of host that can bind
-<i>two</i> guests in succession. The observed signal changes as the HG and
-HG<sub>2</sub> complexes accumulate.</p>
-
-<p><b>The Model</b></p>
-<p align="center">
-  H + G &#x21CC; HG &nbsp;&nbsp;(K<sub>a(HG)</sub>)<br>
-  HG + G &#x21CC; HG<sub>2</sub> &nbsp;&nbsp;(K<sub>a(HG&#x2082;)</sub>)
-</p>
-<p>with conservation
-<i>[H]<sub>0</sub> = [H] + [HG] + [HG<sub>2</sub>]</i> and
-<i>[G]<sub>0</sub> = [G] + [HG] + 2[HG<sub>2</sub>]</i>
-(two guests per HG<sub>2</sub>). Free guest is solved at each point and the
-signal is a per-species sum:</p>
-<p align="center">
-  <i>S = I<sub>0</sub> + I<sub>G</sub>[G] + I<sub>H</sub>[H] +
-     I<sub>HG</sub>[HG] + I<sub>HG&#x2082;</sub>[HG<sub>2</sub>]</i>
-</p>
-
-<p><b>Fitted Parameters</b></p>
-<ul>
-  <li><b>K<sub>a(HG)</sub>, K<sub>a(HG&#x2082;)</sub></b> &mdash; the stepwise
-      association constants.</li>
-  <li><b>I<sub>0</sub>, I<sub>G</sub>, I<sub>HG</sub>,
-      I<sub>HG&#x2082;</sub></b> &mdash; baseline and per-species signal
-      coefficients.</li>
-  <li><b>I<sub>H</sub></b> &mdash; free-host signal, pinned to zero by
-      default.</li>
-</ul>
-
-<p><b>Identifiability</b></p>
-<p>The two stepwise constants are commonly <b>not independently
-determinable</b> from a single titration &mdash; many starting points
-converge to near-equivalent fits. Treat the reported range across the accepted
-fits (and the distribution view) as the real measure of confidence, not the
-single best-fit pair.</p>
-
-<p><b>Known Conditions</b></p>
-<p>Only the fixed total host <i>[H]<sub>0</sub></i> is required.</p>
+<p>Add guest to a fixed host total. The two steps are
+H + G &#x21CC; HG and HG + G &#x21CC; HG<sub>2</sub>.
+Both fitted association constants are stepwise values in M<sup>&minus;1</sup>.</p>
+<p><i>S = I<sub>0</sub> + I<sub>G</sub>[G] + I<sub>H</sub>[H] +
+I<sub>HG</sub>[HG] + I<sub>HG&#x2082;</sub>[HG<sub>2</sub>]</i>.
+I<sub>0</sub> is in a.u.; each species response is in a.u./M of that species.</p>
+<p>I<sub>H</sub> is fixed at zero by default. With that known response,
+positive constants and binding-dependent signal, an ideal complete curve
+can distinguish the six remaining parameters. Freeing I<sub>H</sub> makes
+individual background/host-containing species responses inseparable at one
+host total.</p>
+<p>In real data, sample both binding steps and appreciable HG population;
+otherwise the two constants may be strongly correlated. Accepted-fit ranges
+describe the search results, not confidence intervals. Keep the host total
+fixed after mixing; dilution is not modeled.</p>
 """
 
 _DBA_H2G_HTML = """
 <h3>Stepwise 2:1 Host&ndash;Guest Binding (H2G)</h3>
-
-<p><b>What the Experiment Does</b></p>
-<p>Guest is titrated into a fixed concentration of host where <i>two</i>
-hosts can bind a single guest in succession. The observed signal changes as
-the HG and H<sub>2</sub>G complexes accumulate. This is the 2:1 mirror of the
-1:2 (HG2) model and uses the same solver.</p>
-
-<p><b>The Model</b></p>
-<p align="center">
-  H + G &#x21CC; HG &nbsp;&nbsp;(K<sub>a(HG)</sub>)<br>
-  HG + H &#x21CC; H<sub>2</sub>G &nbsp;&nbsp;(K<sub>a(H&#x2082;G)</sub>)
-</p>
-<p>with conservation
-<i>[H]<sub>0</sub> = [H] + [HG] + 2[H<sub>2</sub>G]</i>
-(two hosts per H<sub>2</sub>G) and
-<i>[G]<sub>0</sub> = [G] + [HG] + [H<sub>2</sub>G]</i>.
-Free host is solved at each point and the signal is a per-species sum:</p>
-<p align="center">
-  <i>S = I<sub>0</sub> + I<sub>G</sub>[G] + I<sub>H</sub>[H] +
-     I<sub>HG</sub>[HG] + I<sub>H&#x2082;G</sub>[H<sub>2</sub>G]</i>
-</p>
-
-<p><b>Fitted Parameters</b></p>
-<ul>
-  <li><b>K<sub>a(HG)</sub>, K<sub>a(H&#x2082;G)</sub></b> &mdash; the stepwise
-      association constants.</li>
-  <li><b>I<sub>0</sub>, I<sub>G</sub>, I<sub>HG</sub>,
-      I<sub>H&#x2082;G</sub></b> &mdash; baseline and per-species signal
-      coefficients.</li>
-  <li><b>I<sub>H</sub></b> &mdash; free-host signal, pinned to zero by
-      default.</li>
-</ul>
-
-<p><b>Identifiability</b></p>
-<p>As with the 1:2 case, the two stepwise constants are commonly <b>not
-independently determinable</b> from a single titration. Treat the reported
-range across the accepted fits as the real measure of confidence, not the
-single best-fit pair.</p>
-
-<p><b>Known Conditions</b></p>
-<p>Only the fixed total host <i>[H]<sub>0</sub></i> is required.</p>
+<p>Add guest to a fixed host total. The steps are
+H + G &#x21CC; HG and HG + H &#x21CC; H<sub>2</sub>G.
+Both fitted association constants are stepwise values in M<sup>&minus;1</sup>.
+At high guest concentration, HG replaces H<sub>2</sub>G.</p>
+<p><i>S = I<sub>0</sub> + I<sub>G</sub>[G] + I<sub>H</sub>[H] +
+I<sub>HG</sub>[HG] + I<sub>H&#x2082;G</sub>[H<sub>2</sub>G]</i>.
+I<sub>0</sub> is in a.u.; each species response is in a.u./M of that species.</p>
+<p>I<sub>H</sub> is fixed at zero by default. With that known response,
+positive constants and binding-dependent signal, an ideal complete curve
+can distinguish the six remaining parameters. Freeing I<sub>H</sub> makes
+individual background/host-containing species responses inseparable at one
+host total.</p>
+<p>Include the early H<sub>2</sub>G-rich region and its conversion to HG;
+high-guest data alone can poorly constrain the second step. Accepted-fit
+ranges describe the search results, not confidence intervals. Keep host
+total fixed after mixing; dilution is not modeled.</p>
 """
 
 ASSAY_DESCRIPTIONS: dict[str, tuple[str, str]] = {

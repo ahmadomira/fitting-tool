@@ -45,13 +45,15 @@ class DyeAloneAssay(BaseAssay):
     assay_type: AssayType = field(init=False, default=AssayType.DYE_ALONE)
     model_name: ClassVar[str] = 'linear'
 
-    def forward_model(self, params: np.ndarray) -> Quantity:
+    def forward_model(self, params: np.ndarray, x: np.ndarray | None = None) -> Quantity:
         """Compute predicted signal from parameters.
 
         Parameters
         ----------
         params : np.ndarray
             [slope, intercept] as bare floats from optimizer.
+        x : np.ndarray, optional
+            Dye concentrations in M; defaults to the measured concentrations.
 
         Returns
         -------
@@ -59,7 +61,8 @@ class DyeAloneAssay(BaseAssay):
             Predicted signal values in au.
         """
         slope, intercept = params
-        result = linear_signal(slope, intercept, self.x_data.magnitude)
+        xx = self.x_data.magnitude if x is None else np.asarray(x, dtype=float)
+        result = linear_signal(slope, intercept, xx)
         return Q_(result, 'au')
 
     def species(self, params: np.ndarray) -> Dict[str, np.ndarray]:

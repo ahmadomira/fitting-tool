@@ -69,6 +69,11 @@ class GDAAssay(BaseAssay):
         object.__setattr__(self, 'h0', self.h0.to('M'))
         object.__setattr__(self, 'g0', self.g0.to('M'))
 
+        for key in ('Ka_dye', 'h0', 'g0'):
+            value = getattr(self, key).magnitude
+            if np.ndim(value) != 0 or not np.isfinite(value):
+                raise ValueError(f'{key} must be a finite scalar')
+
         if self.Ka_dye.magnitude <= 0:
             raise ValueError('Ka_dye must be positive')
         if self.h0.magnitude <= 0:

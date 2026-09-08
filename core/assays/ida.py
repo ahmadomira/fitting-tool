@@ -8,7 +8,7 @@ The guest competes with the dye for binding to the host, displacing it:
 Titrant: Guest (g0 varies)
 Fixed: Host (h0), Dye (d0)
 Target: Ka_guest (association constant for host-guest)
-Signal trend: ↓ Decreases as guest binds host and displaces dye
+Signal trend: Decreases for binding-enhanced dye; increases for binding-quenched dye
 """
 
 from dataclasses import dataclass, field
@@ -68,6 +68,11 @@ class IDAAssay(BaseAssay):
         object.__setattr__(self, 'Ka_dye', self.Ka_dye.to('1/M'))
         object.__setattr__(self, 'h0', self.h0.to('M'))
         object.__setattr__(self, 'd0', self.d0.to('M'))
+
+        for key in ('Ka_dye', 'h0', 'd0'):
+            value = getattr(self, key).magnitude
+            if np.ndim(value) != 0 or not np.isfinite(value):
+                raise ValueError(f'{key} must be a finite scalar')
 
         if self.Ka_dye.magnitude <= 0:
             raise ValueError('Ka_dye must be positive')

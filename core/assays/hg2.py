@@ -9,9 +9,9 @@ Titrant: Guest (g0 varies)
 Fixed:   Host (h0)
 Target:  Ka_HG, Ka_HG2 (stepwise association constants)
 
-The two stepwise constants are, in general, not independently identifiable.
-The fit does not hide this — it reports the spread of acceptable solutions
-rather than implying a unique pair.
+The two stepwise constants can be weakly constrained by a single titration,
+depending on the concentration range and the responses of the complexes.
+A good signal fit alone does not establish a unique pair of constants.
 """
 
 from dataclasses import dataclass, field
@@ -55,6 +55,9 @@ class HG2Assay(BaseAssay):
 
         # Normalize to base units so .magnitude is always M
         object.__setattr__(self, 'h0', self.h0.to('M'))
+
+        if np.ndim(self.h0.magnitude) != 0 or not np.isfinite(self.h0.magnitude):
+            raise ValueError('h0 must be a finite scalar')
 
         if self.h0.magnitude <= 0:
             raise ValueError('h0 must be positive')

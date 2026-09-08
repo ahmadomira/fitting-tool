@@ -364,7 +364,7 @@ class TitrantInput(QWidget):
     def set_explicit(self, values_m) -> None:
         """Switch to a custom vector from Molar values (used on data import)."""
         self._vector.blockSignals(True)
-        self._vector.setText(', '.join(f'{v / self._vector_scale:g}' for v in values_m))
+        self._vector.setText(', '.join(f'{v / self._vector_scale:.17g}' for v in values_m))
         self._vector.blockSignals(False)
         self._custom.setChecked(True)  # emits toggled → changed
 
@@ -408,7 +408,7 @@ class TitrantInput(QWidget):
             values = []
         if values:
             self._vector.blockSignals(True)
-            self._vector.setText(', '.join(f'{v * ratio:g}' for v in values))
+            self._vector.setText(', '.join(f'{v * ratio:.17g}' for v in values))
             self._vector.blockSignals(False)
         self.changed.emit()
 

@@ -60,15 +60,22 @@ If a proposed test doesn't serve one of these, question whether it's worth addin
 
 ## Repo-specific truths that make tests meaningful
 
-- **Reuse the synthetic ground truth.** `tests/conftest.py` is the single source
-  of known-truth parameters, data generators, recovery bounds, and the tolerance
-  helper. Build on it; don't re-roll constants or synthetic data per file.
+- **Separate recovery fixtures from equation authority.** Reuse
+  `tests/conftest.py` for production-generated recovery/integration fixtures.
+  Mathematical tests need independent literature cases, manufactured equilibrium
+  species, derivations, or invariants; the implementation cannot supply its own
+  expected values. Record the source or independent derivation alongside each
+  scientific regression test.
 - **Fits are deterministic by seeding** (the global RNG is seeded per test), so
   treat fit results as reproducible — but assert the recovered *physics*, never
   exact optimizer output.
-- **Signal coefficients are degenerate.** In DBA/IDA only `Ka` is identifiable
-  (`I0`, `I_dye_free`, `I_dye_bound` trade off). Test `Ka` recovery and signal
-  reconstruction — never the individual signal coefficients.
+- **Identifiability depends on the experiment.** `DBA_HtoD`/`IDA` have a
+  fixed-dye signal ambiguity: test effective offset, contrast, and the exact
+  symmetry, not unique raw coefficients. `DBA_DtoH`/`GDA` do not have that
+  symmetry. Stepwise models have a fixed-host ambiguity if `I_H` is freed.
+  Affinity recovery needs informative designs and nonzero optical contrast;
+  even an excellent signal fit does not guarantee precise constants. Use the
+  conditions and literature citations in `docs/scientific-summary.md`.
 - **GUI tests never pop a window.** A widget test that needs real geometry
   (`tabRect()`, child positions, `isVisible()`) has to be laid out, and Qt only
   computes that on `show()`. Set `WA_DontShowOnScreen` before showing: the

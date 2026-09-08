@@ -199,7 +199,8 @@ class ZScoreReplicaFilter:
         mad = np.median(abs_dev, axis=0)
 
         # Modified z-score: 0.6745 normalises MAD to σ-equivalent
-        # Where MAD == 0 all replicas are near-identical → z = 0
+        # A zero MAD can also arise from a tied majority. This policy assigns z = 0
+        # to all replicas at that point, including any deviations from that majority.
         with np.errstate(divide='ignore', invalid='ignore'):
             z_scores = np.where(mad > 0, 0.6745 * abs_dev / mad, 0.0)
 

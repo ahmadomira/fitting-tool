@@ -13,6 +13,7 @@ adds measurement noise.
 
 from __future__ import annotations
 
+from numbers import Integral, Real
 from typing import Any, Mapping, Sequence, Type
 
 import numpy as np
@@ -217,9 +218,9 @@ def simulate_dataset(
     Parameters
     ----------
     noise_frac : float
-        Noise standard deviation as a fraction of the signal range (0 = clean).
+        Finite, nonnegative noise standard deviation as a fraction of the signal range (0 = clean).
     n_replicas : int
-        Number of replicate rows (>= 1).
+        Positive integer number of replicate rows (>= 1).
     rng : np.random.Generator, optional
         Source of randomness; defaults to ``np.random.default_rng()``.
 
@@ -230,11 +231,16 @@ def simulate_dataset(
         ground-truth parameters/conditions for provenance (note: the measurement
         writers do not persist metadata — the settings JSON is the durable record).
     """
+    if not isinstance(noise_frac, Real) or not np.isfinite(noise_frac) or noise_frac < 0:
+        raise ValueError('noise_frac must be finite and nonnegative')
+    if isinstance(n_replicas, (bool, np.bool_)) or not isinstance(n_replicas, Integral) or n_replicas < 1:
+        raise ValueError('n_replicas must be a positive integer')
+    n_replicas = int(n_replicas)
+
     assay = _build_assay(assay_cls, conditions, x_vector)
     y = assay.forward_model(assay.params_from_dict(dict(parameters)))
     y_clean = np.asarray(getattr(y, 'magnitude', y), dtype=float)
 
-    n_replicas = max(1, int(n_replicas))
     x = np.asarray(x_vector, dtype=float)
     if noise_frac and noise_frac > 0:
         if rng is None:
@@ -244,7 +250,7 @@ def simulate_dataset(
     else:
         signals = np.tile(y_clean, (n_replicas, 1))
 
-    cond_plain = {k: (float(v.magnitude) if hasattr(v, 'magnitude') else v) for k, v in conditions.items()}
+    cond_plain = {k: (float(v.magnitude) if hasattr(v, 'magnitude') else v) for k, v in assay.get_conditions().items()}
     metadata = {
         'source_file': 'simulation',
         'assay_type': assay.assay_type.name,

@@ -195,9 +195,10 @@ class BoundsPanel(InfoGroupBox):
     def apply_dye_alone_bounds(self, bounds: dict[str, tuple[Quantity, Quantity]]) -> None:
         """Apply dye-alone–derived bounds to I0 and I_dye_free rows."""
         for key, (lo, hi) in bounds.items():
-            lo_f = float(lo.magnitude) if isinstance(lo, Quantity) else float(lo)
-            hi_f = float(hi.magnitude) if isinstance(hi, Quantity) else float(hi)
             if key in self._rows:
+                unit = self._units[key]
+                lo_f = float(lo.to(unit).magnitude) if isinstance(lo, Quantity) else float(lo)
+                hi_f = float(hi.to(unit).magnitude) if isinstance(hi, Quantity) else float(hi)
                 self._rows[key].set_values(lo_f, hi_f)
         self.bounds_changed.emit()
 

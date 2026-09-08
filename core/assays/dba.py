@@ -7,10 +7,9 @@ Two titration modes:
 - Host→Dye (DBA_HtoD): Host is titrated into fixed dye concentration
 - Dye→Host (DBA_DtoH): Dye is titrated into fixed host concentration
 
-Titrant: Dye (d0 varies)
-Fixed: Host (h0)
 Target: Ka_dye (association constant for host-dye)
-Signal trend: ↑ Increases as dye binds host
+Concentrations are analytical totals in the measured solution.
+Signal depends on free-dye and complex brightness; binding can enhance or quench it.
 """
 
 from dataclasses import dataclass, field
@@ -60,6 +59,9 @@ class DBAAssay(BaseAssay):
 
         # Normalize to base units so .magnitude is always M
         object.__setattr__(self, 'fixed_conc', self.fixed_conc.to('M'))
+
+        if np.ndim(self.fixed_conc.magnitude) != 0 or not np.isfinite(self.fixed_conc.magnitude):
+            raise ValueError('fixed_conc must be a finite scalar')
 
         if self.fixed_conc.magnitude <= 0:
             raise ValueError('fixed_conc must be positive')
@@ -120,21 +122,21 @@ class DBAAssay(BaseAssay):
 
 # Convenience factory functions for clearer API
 def create_dba_host_to_dye(
-    host_conc: np.ndarray,
-    signal: np.ndarray,
-    dye_conc: float,
+    host_conc: Quantity,
+    signal: Quantity,
+    dye_conc: Quantity,
     **kwargs,
 ) -> DBAAssay:
     """Create DBA assay for host-to-dye titration.
 
     Parameters
     ----------
-    host_conc : np.ndarray
-        Host concentrations (M) - the titrant.
-    signal : np.ndarray
-        Observed signal values.
-    dye_conc : float
-        Fixed dye concentration (M).
+    host_conc : Quantity
+        Total host concentrations, converted to M - the titrant.
+    signal : Quantity
+        Observed signal values in au.
+    dye_conc : Quantity
+        Fixed total dye concentration, converted to M.
     **kwargs
         Additional arguments passed to DBAAssay.
 
@@ -153,21 +155,21 @@ def create_dba_host_to_dye(
 
 
 def create_dba_dye_to_host(
-    dye_conc: np.ndarray,
-    signal: np.ndarray,
-    host_conc: float,
+    dye_conc: Quantity,
+    signal: Quantity,
+    host_conc: Quantity,
     **kwargs,
 ) -> DBAAssay:
     """Create DBA assay for dye-to-host titration.
 
     Parameters
     ----------
-    dye_conc : np.ndarray
-        Dye concentrations (M) - the titrant.
-    signal : np.ndarray
-        Observed signal values.
-    host_conc : float
-        Fixed host concentration (M).
+    dye_conc : Quantity
+        Total dye concentrations, converted to M - the titrant.
+    signal : Quantity
+        Observed signal values in au.
+    host_conc : Quantity
+        Fixed total host concentration, converted to M.
     **kwargs
         Additional arguments passed to DBAAssay.
 
