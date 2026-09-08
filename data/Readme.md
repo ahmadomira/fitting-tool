@@ -1,7 +1,7 @@
 # Meta Data
 
-The legacy text-data concentration convention is M (mol/L). Other instrument
-formats can declare their own units; inspect the reader and file metadata.
+Text-data concentrations use M (mol/L) by default. Instrument formats can
+declare their own units; inspect the reader and file metadata.
 The values below are retained project metadata, not independently verified
 published reference parameters. Their source, preparation/dilution protocol,
 and uncertainty are not documented in the supplied files.

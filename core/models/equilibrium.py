@@ -226,6 +226,9 @@ def competitive_species_point(
     if any(not np.isfinite(value) or value < 0 for value in (Ka_guest, Ka_dye, h0, d0, g0)):
         return {k: np.nan for k in _COMPETITIVE_SPECIES}
 
+    if h0 == 0:
+        return {'H': 0.0, 'D': d0, 'G': g0, 'HD': 0.0, 'HG': 0.0}
+
     try:
 
         def ligand_species(h, association, total):

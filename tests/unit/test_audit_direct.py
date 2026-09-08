@@ -84,7 +84,7 @@ def test_direct_invalid_points_do_not_poison_valid_points():
 
 @pytest.mark.parametrize('mode', ['HtoD', 'DtoH'])
 def test_direct_hand_signal_and_unit_conversion(mode):
-    # h=1 uM,d=2 uM,c=1 uM satisfies Ka=0.5/uM and totals2/3 uM.
+    # h = 1 uM, d = 2 uM, c = 1 uM satisfies Ka = 0.5/uM and totals 2/3 uM.
     titrant, fixed = (2.0, 3.0) if mode == 'HtoD' else (3.0, 2.0)
     assay = DBAAssay(x_data=Q_([titrant], 'uM'), y_data=Q_([17.0], 'au'), fixed_conc=Q_(fixed, 'uM'), mode=mode)
     assert assay.forward_model(np.array([5e5, 5.0, 2e6, 8e6])).magnitude[0] == pytest.approx(17.0)

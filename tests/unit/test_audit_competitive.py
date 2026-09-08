@@ -21,9 +21,22 @@ def test_manufactured_equilibrium_is_invariant_to_concentration_scale(scale):
         assert sp[key] / scale == pytest.approx(expected, rel=2e-12, abs=0)
 
 
-def test_zero_host_returns_unbound_ligands():
+def test_zero_host_returns_unbound_ligands_without_root_finding(monkeypatch):
+    # Nonnegative H + HD + HG = 0 forces every host species to zero;
+    # ligand conservation then fixes D=d0 and G=g0 without a root solve.
+    def unavailable_solver(*args, **kwargs):
+        raise ValueError('No nondegenerate root bracket')
+
+    monkeypatch.setattr('core.models.equilibrium.brentq', unavailable_solver)
     sp = competitive_species_point(2e6, 5e5, 0, 3e-6, 9e-6)
     assert sp == {'H': 0, 'D': 3e-6, 'G': 9e-6, 'HD': 0, 'HG': 0}
+
+
+@pytest.mark.parametrize('field,invalid', [(0, np.inf), (1, -1), (3, np.nan), (4, -1e-6)])
+def test_zero_host_still_rejects_invalid_ligand_inputs(field, invalid):
+    args = [2e6, 5e5, 0, 3e-6, 9e-6]
+    args[field] = invalid
+    assert all(np.isnan(value) for value in competitive_species_point(*args).values())
 
 
 def test_finite_extreme_affinity_does_not_overflow_bracket_evaluation():

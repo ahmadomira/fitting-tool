@@ -1,6 +1,6 @@
 # Scientific reference for SupraSimFit
 
-Revised 8 September 2026. This reference covers all seven implemented assays. Literature establishes the reaction and response models; the derivations below establish their mathematical consequences. Algorithms, defaults, and reporting policies are separately identified as application choices. A successful fit alone does not establish the chemical model.
+This reference covers all seven implemented assays. Literature establishes the reaction and response models; the derivations below establish their mathematical consequences. Algorithms, defaults, and reporting policies are separately identified as application choices. A successful fit alone does not establish the chemical model.
 
 ## 1. Scope, notation, units, and experimental conditions
 
@@ -18,7 +18,7 @@ Every fitted association constant $K_a$ is a conditional concentration constant 
 | `DBA_HG2` | $G_T$ | `h0`=$H_T$ | `Ka_HG`, `Ka_HG2`, `I0`, `I_G`, `I_H`, `I_HG`, `I_HG2` |
 | `DBA_H2G` | $G_T$ | `h0`=$H_T$ | `Ka_HG`, `Ka_H2G`, `I0`, `I_G`, `I_H`, `I_HG`, `I_H2G` |
 
-There is no additional legacy equilibrium equation: legacy paths concern result compatibility. Fitting and simulation use the same seven models.
+Fitting and simulation share the seven model implementations listed above.
 
 Every baseline $b$ (`I0` or calibration intercept) has units au. Every species response $s$ or $e$ (`I_*` or calibration slope) has units au/M **per mole of that species**. Concentrations are finite and nonnegative. The equilibrium models use finite positive association constants; zero constants define useful no-binding/reduced-model limits supported by low-level solvers. Assay wrappers require positive fixed binding-partner totals and positive known dye affinity; GDA permits zero fixed guest, making guest affinity unobservable.
 
@@ -128,7 +128,7 @@ Published competition models include different dye stoichiometries, including th
 
 These models fit macroscopic stepwise constants. $K_1=\mathrm{Ka\_HG}$ and $K_2=\mathrm{Ka\_HG2}$ or $\mathrm{Ka\_H2G}$ each have units M⁻¹. The derived cumulative constant $\beta_2=K_1K_2$ has units M⁻²; it is **not** the second fitted parameter.
 
-The literature basis is Thordarson, [DOI:10.1039/C0CS00062K](https://doi.org/10.1039/C0CS00062K), pp.1310–1312, §§3.4–3.6, Charts2–3 and Eqs.(16)–(26), with the [publisher correction](https://www.rsc.org/suppdata/cs/c0/c0cs00062k/addition.htm). The [review PDF](https://vingaarden.mono.net/upl/website/dokumenter/bestemK.pdf) was checked as extracted text; its chart equations were not visually accessible. The publisher correction addresses Eqs.(10)–(13), total-concentration notation, and Fig.6. The older PDF also has an inconsistent free-host denominator in Eq.(4) and an inverted interaction-parameter definition in Appendix A. The balances and conventions below are independently derived from the reactions, not transcribed from those expressions.
+The literature basis is Thordarson, [DOI:10.1039/C0CS00062K](https://doi.org/10.1039/C0CS00062K), pp.1310–1312, §§3.4–3.6, Charts 2–3 and Eqs.(16)–(26), with the [publisher correction](https://www.rsc.org/suppdata/cs/c0/c0cs00062k/addition.htm). The [review PDF](https://vingaarden.mono.net/upl/website/dokumenter/bestemK.pdf) was checked as extracted text; its chart equations were not visually accessible. The publisher correction addresses Eqs.(10)–(13), total-concentration notation, and Fig.6. The older PDF also has an inconsistent free-host denominator in Eq.(4) and an inverted interaction-parameter definition in Appendix A. The balances and conventions below are independently derived from the reactions, not transcribed from those expressions.
 
 ### `DBA_HG2`: one host, up to two guests
 
@@ -208,7 +208,7 @@ For two identical independent sites of microscopic affinity $k_s$, $Q(z)=(1+k_sz
 
 ## 6. Structural and practical identifiability
 
-**Structural identifiability** concerns what an ideal exact curve determines within a specified model; **practical identifiability** concerns finite noisy data. An exact symmetry persists with perfect measurements. Poor scaling, optimizer failure, and small sensitivities are separate issues. General profile-likelihood distinctions follow Raue et al., [DOI:10.1093/bioinformatics/btp358](https://doi.org/10.1093/bioinformatics/btp358), §§2.1–2.3 and4. Assay-specific conclusions below are independent derivations.
+**Structural identifiability** concerns what an ideal exact curve determines within a specified model; **practical identifiability** concerns finite noisy data. An exact symmetry persists with perfect measurements. Poor scaling, optimizer failure, and small sensitivities are separate issues. General profile-likelihood distinctions follow Raue et al., [DOI:10.1093/bioinformatics/btp358](https://doi.org/10.1093/bioinformatics/btp358), §§2.1–2.3 and 4. Assay-specific conclusions below are independent derivations.
 
 ### Exact symmetries and observable combinations
 
