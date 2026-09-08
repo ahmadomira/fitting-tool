@@ -58,17 +58,13 @@ def dba_species(
     """Equilibrium speciation for 1:1 host–dye binding (H + D ⇌ HD).
 
     Works for both Host→Dye and Dye→Host titrations with
-    ``Ka_dye = [HD] / ([H][D])``.  The free concentration of the *fixed*
-    species solves the quadratic derived from the two mass balances and
-    ``[HD] = Ka_dye·[H]·[D]``::
-
-        Ka_dye · y_free² + (Ka_dye · (x - y_fixed) + 1) · y_free - y_fixed = 0
-
-    where ``y_free`` is the free conc. of the fixed species; the
-    physically meaningful (non-negative) root is selected.  The free
-    titrant concentration is ``x_free = y_free + (x - y_fixed)`` and
-    ``[HD] = Ka_dye · y_free · x_free``.  ``mode`` only decides which of
-    the two frees is the host and which is the dye.
+    ``Ka_dye = [HD] / ([H][D])``. The physical complex root obeys
+    ``[HD] = Ka_dye * (H_total - [HD]) * (D_total - [HD])``.
+    In weak binding its rationalized root avoids subtraction of nearly
+    equal numbers. In strong binding, a rationalized quadratic for the
+    less abundant component's free concentration preserves small free
+    concentrations without subtracting the complex from its total.
+    ``mode`` only assigns the two component totals to host and dye.
 
     Returning the full speciation (not just the signal) keeps one solve
     shared by both the signal model (:func:`dba_signal`) and species-level
@@ -90,48 +86,46 @@ def dba_species(
     -------
     dict
         ``{'H', 'D', 'HD'}`` → arrays of concentrations (M), same shape as
-        ``x_titrant``.  Entries are NaN where the quadratic has no physical root.
+        ``x_titrant``. Entries are NaN for negative or nonfinite inputs.
+        Zero association or either zero total gives no complex.
     """
     if mode not in ('HtoD', 'DtoH'):
         raise ValueError(f"mode must be 'HtoD' or 'DtoH', got {mode!r}")
 
     x_titrant = np.asarray(x_titrant, dtype=float)
-    H = np.empty_like(x_titrant)
-    D = np.empty_like(x_titrant)
-    HD = np.empty_like(x_titrant)
+    H = np.full_like(x_titrant, np.nan)
+    D = np.full_like(x_titrant, np.nan)
+    HD = np.full_like(x_titrant, np.nan)
+    Ka_dye, y_fixed = float(Ka_dye), float(y_fixed)
+    if not np.isfinite(Ka_dye) or Ka_dye < 0 or not np.isfinite(y_fixed) or y_fixed < 0:
+        return {'H': H, 'D': D, 'HD': HD}
 
-    for i, x in enumerate(x_titrant):
-        delta = x - y_fixed
-
-        # Quadratic coefficients for y_free (free concentration of fixed species)
-        # Ka_dye * y_free^2 + (Ka_dye * delta + 1) * y_free - y_fixed = 0
-        a = Ka_dye
-        b = Ka_dye * delta + 1
-        c = -y_fixed
-
-        discriminant = b**2 - 4 * a * c
-
-        if discriminant < 0:
-            H[i] = D[i] = HD[i] = np.nan
+    for i in np.ndindex(x_titrant.shape):
+        x = float(x_titrant[i])
+        if not np.isfinite(x) or x < 0:
             continue
+        small, large = min(x, y_fixed), max(x, y_fixed)
+        if Ka_dye == 0 or small == 0:
+            x_free, y_free, hd_complex = x, y_fixed, 0.0
+        elif Ka_dye * large <= 1:
+            # Scale the rationalized complex root by the larger total.
+            q, ratio = Ka_dye * large, small / large
+            root = np.sqrt(1 + 2 * q * (1 + ratio) + (q * (1 - ratio)) ** 2)
+            hd_complex = small * (2 * q / (1 + q * (1 + ratio) + root))
+            x_free, y_free = x - hd_complex, y_fixed - hd_complex
+        else:
+            # u^2 + (large-small+Kd)*u - Kd*small = 0 for free
+            # minority u. Hypot and half-scaled terms avoid squared or
+            # summed overflow; compute the complex by conservation.
+            kd = 1 / Ka_dye
+            delta = large - small
+            half_b = delta * 0.5 + kd * 0.5
+            half_denominator = half_b * 0.5 + np.hypot(half_b, np.sqrt(kd) * np.sqrt(small)) * 0.5
+            small_free = (small * 0.5 / half_denominator) * kd
+            large_free = delta + small_free
+            hd_complex = small - small_free
+            x_free, y_free = (small_free, large_free) if x <= y_fixed else (large_free, small_free)
 
-        sqrt_disc = np.sqrt(discriminant)
-        y1 = (-b + sqrt_disc) / (2 * a)
-        y2 = (-b - sqrt_disc) / (2 * a)
-
-        # Choose physically meaningful (non-negative) root
-        y_free = y1 if y1 >= 0 else (y2 if y2 >= 0 else np.nan)
-
-        if np.isnan(y_free):
-            H[i] = D[i] = HD[i] = np.nan
-            continue
-
-        x_free = y_free + delta
-        hd_complex = Ka_dye * y_free * x_free
-
-        # Which free is host vs dye depends on the titrant.
-        # HtoD: host titrated -> x_free is [H], y_free (fixed dye) is [D].
-        # DtoH: dye titrated  -> x_free is [D], y_free (fixed host) is [H].
         if mode == 'HtoD':
             H[i], D[i] = x_free, y_free
         else:
@@ -229,28 +223,40 @@ def competitive_species_point(
         ``{'H', 'D', 'G', 'HD', 'HG'}`` → scalar concentrations (M); all NaN
         if the mass-balance solve fails (non-physical parameters).
     """
+    if any(not np.isfinite(value) or value < 0 for value in (Ka_guest, Ka_dye, h0, d0, g0)):
+        return {k: np.nan for k in _COMPETITIVE_SPECIES}
+
     try:
+
+        def ligand_species(h, association, total):
+            # Equivalent occupancy fractions avoid overflow in association*h.
+            if association > 1:
+                dissociation = 1 / association
+                denominator = dissociation + h
+                return total * (dissociation / denominator), total * (h / denominator)
+            product = association * h
+            denominator = 1 + product
+            return total / denominator, total * (product / denominator)
 
         def mass_balance(h):
             """Residual for host mass balance equation."""
-            denom_D = 1 + Ka_dye * h
-            denom_G = 1 + Ka_guest * h
-            hd = (Ka_dye * h * d0) / denom_D
-            hg = (Ka_guest * h * g0) / denom_G
+            _, hd = ligand_species(h, Ka_dye, d0)
+            _, hg = ligand_species(h, Ka_guest, g0)
             return h + hd + hg - h0
 
-        # Solve for free host concentration
-        h_free = brentq(mass_balance, 1e-20, h0, xtol=1e-14, maxiter=1000)
+        # The unique physical root lies in [0, h0]. A molar absolute tolerance
+        # must not swallow the root for dilute samples or strong competition.
+        h_free = brentq(mass_balance, 0, h0, xtol=np.nextafter(0.0, 1.0), maxiter=1000)
 
         # Remaining species follow directly from the free-host concentration
-        d_free = d0 / (1 + Ka_dye * h_free)
-        g_free = g0 / (1 + Ka_guest * h_free)
+        d_free, hd = ligand_species(h_free, Ka_dye, d0)
+        g_free, hg = ligand_species(h_free, Ka_guest, g0)
         return {
             'H': h_free,
             'D': d_free,
             'G': g_free,
-            'HD': Ka_dye * h_free * d_free,
-            'HG': Ka_guest * h_free * g_free,
+            'HD': hd,
+            'HG': hg,
         }
 
     except (ValueError, RuntimeError):
@@ -377,7 +383,7 @@ def gda_signal(
     np.ndarray
         Predicted signal values.
     """
-    signal_values = np.empty_like(d0_values)
+    signal_values = np.empty_like(d0_values, dtype=float)
     for i, d0 in enumerate(d0_values):
         signal_values[i] = competitive_signal_point(I0, Ka_guest, I_dye_free, I_dye_bound, Ka_dye, h0, d0, g0)
     return signal_values
@@ -426,7 +432,7 @@ def ida_signal(
     np.ndarray
         Predicted signal values.
     """
-    signal_values = np.empty_like(g0_values)
+    signal_values = np.empty_like(g0_values, dtype=float)
     for i, g0 in enumerate(g0_values):
         signal_values[i] = competitive_signal_point(I0, Ka_guest, I_dye_free, I_dye_bound, Ka_dye, h0, d0, g0)
     return signal_values
@@ -450,6 +456,32 @@ def ida_signal(
 # The combined system is a cubic in the free-ligand concentration; rather than
 # select a cubic root by hand we solve the (strictly monotonic) mass balance
 # with Brent's method, matching the GDA/IDA solver style above.
+
+
+def _stepwise_core_species(K1: float, K2: float, ligand: float, core_total: float) -> tuple[float, float, float]:
+    """Core, CL and CL2 concentrations, preserving small representable species."""
+    if ligand == 0.0 or K1 == 0.0 or core_total == 0.0:
+        return core_total, 0.0, 0.0
+    single = float(K1) * float(ligand)
+    double = single * (float(K2) * float(ligand)) if K2 else 0.0
+    denom = 1.0 + single + double
+    if np.isfinite(denom):
+        free_fraction, single_fraction, double_fraction = 1.0 / denom, single / denom, double / denom
+        smallest_normal = np.finfo(float).tiny
+        if (
+            free_fraction >= smallest_normal
+            and single_fraction >= smallest_normal
+            and (K2 == 0.0 or double_fraction >= smallest_normal)
+        ):
+            return core_total * free_fraction, core_total * single_fraction, core_total * double_fraction
+
+    # A fraction can underflow even when core_total*fraction is representable.
+    # Include the core concentration before exponentiating in this rare path.
+    log_single = np.log(K1) + np.log(ligand)
+    log_double = log_single + np.log(K2) + np.log(ligand) if K2 else -np.inf
+    log_denom = np.logaddexp(0.0, np.logaddexp(log_single, log_double))
+    log_core = np.log(core_total)
+    return tuple(np.exp(log_core + np.array([0.0, log_single, log_double]) - log_denom))
 
 
 def _solve_free_ligand_12(K1: float, K2: float, core_total: float, ligand_total: float) -> float:
@@ -484,21 +516,31 @@ def _solve_free_ligand_12(K1: float, K2: float, core_total: float, ligand_total:
     Returns
     -------
     float
-        Free-ligand concentration (M).  ``0.0`` when ``ligand_total <= 0``;
-        ``nan`` if the bracket is degenerate (non-physical parameters), so
+        Free-ligand concentration (M).  ``0.0`` when ``ligand_total == 0``;
+        ``nan`` for negative or non-finite constants/totals or solver failure, so
         callers propagate NaN rather than raising — matching the other
         equilibrium solvers in this module.
     """
-    if ligand_total <= 0.0:
+    if any(not np.isfinite(value) or value < 0 for value in (K1, K2, core_total, ligand_total)):
+        return np.nan
+    if ligand_total == 0.0:
         return 0.0
+    if core_total == 0.0 or K1 == 0.0:
+        return float(ligand_total)
 
     def balance(free_ligand: float) -> float:
-        denom = 1.0 + K1 * free_ligand + K1 * K2 * free_ligand * free_ligand
-        bound = core_total * (K1 * free_ligand + 2.0 * K1 * K2 * free_ligand * free_ligand) / denom
-        return free_ligand + bound - ligand_total
+        _, single, double = _stepwise_core_species(K1, K2, free_ligand, core_total)
+        # Scale only concentrations in the ligand balance. Scaling by an
+        # enormous mostly-free core total can erase every term in this balance.
+        scale = max(ligand_total, single, double)
+        return free_ligand / scale + single / scale + 2.0 * (double / scale) - ligand_total / scale
 
     try:
-        return brentq(balance, 0.0, ligand_total, xtol=1e-15, maxiter=1000)
+        # An absolute molar tolerance can exceed the entire physical bracket
+        # or the free ligand at high affinity. Use relative root accuracy.
+        return brentq(
+            balance, 0.0, ligand_total, xtol=np.nextafter(0.0, 1.0), rtol=8 * np.finfo(float).eps, maxiter=2000
+        )
     except (ValueError, RuntimeError):
         return np.nan
 
@@ -551,12 +593,8 @@ def hg2_species(
         if not np.isfinite(g):
             H[i] = G[i] = HG[i] = HG2[i] = np.nan
             continue
-        denom = 1.0 + Ka_HG * g + Ka_HG * Ka_HG2 * g * g
-        h = h0 / denom
-        H[i] = h
+        H[i], HG[i], HG2[i] = _stepwise_core_species(Ka_HG, Ka_HG2, g, h0)
         G[i] = g
-        HG[i] = Ka_HG * h * g
-        HG2[i] = Ka_HG * Ka_HG2 * h * g * g
 
     return {'H': H, 'G': G, 'HG': HG, 'HG2': HG2}
 
@@ -650,12 +688,8 @@ def h2g_species(
         if not np.isfinite(h):
             H[i] = G[i] = HG[i] = H2G[i] = np.nan
             continue
-        denom = 1.0 + Ka_HG * h + Ka_HG * Ka_H2G * h * h
-        g = g0_i / denom
+        G[i], HG[i], H2G[i] = _stepwise_core_species(Ka_HG, Ka_H2G, h, g0_i)
         H[i] = h
-        G[i] = g
-        HG[i] = Ka_HG * h * g
-        H2G[i] = Ka_HG * Ka_H2G * h * h * g
 
     return {'H': H, 'G': G, 'HG': HG, 'H2G': H2G}
 

@@ -78,6 +78,15 @@ class BaseAssay(ABC):
         if self.x_data.shape != self.y_data.shape:
             raise ValueError(f'x_data and y_data must have same shape, got {self.x_data.shape} and {self.y_data.shape}')
 
+        if self.x_data.ndim != 1:
+            raise ValueError('x_data and y_data must be one-dimensional')
+        if not np.all(np.isfinite(self.x_data.magnitude)):
+            raise ValueError('x_data concentrations must be finite')
+        if np.any(self.x_data.magnitude < 0):
+            raise ValueError('x_data concentrations must be nonnegative')
+        if not np.all(np.isfinite(self.y_data.magnitude)):
+            raise ValueError('y_data signals must be finite')
+
     @property
     def registry_metadata(self) -> AssayMetadata:
         """Get metadata from the assay registry."""
@@ -184,7 +193,7 @@ class BaseAssay(ABC):
         Returns
         -------
         float
-            Sum of squared residuals (dimensionless).
+            Numerical sum of squared residuals in canonical au² units.
         """
         resid = self.residuals(params)
         return float(np.sum(resid.magnitude**2))

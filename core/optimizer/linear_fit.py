@@ -23,9 +23,17 @@ def linear_regression(
     Tuple[float, float, float, float]
         (slope, intercept, r_squared, rmse)
     """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    if x.ndim != 1 or y.ndim != 1 or x.shape != y.shape:
+        raise ValueError('Linear regression requires matching 1-D concentration and signal arrays')
+    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(y)):
+        raise ValueError('Linear regression requires finite concentrations and signals')
     n = len(x)
     if n < 2:
         raise ValueError('Need at least 2 points for linear regression')
+    if np.all(x == x[0]):
+        raise ValueError('Need at least 2 distinct concentrations to estimate slope and intercept')
 
     # Use numpy's polyfit for numerical stability
     coeffs = np.polyfit(x, y, 1)

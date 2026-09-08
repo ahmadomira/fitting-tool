@@ -153,7 +153,7 @@ class MeasurementSet:
                     f"'{replica_labels[0]}' has {len(reference_conc)} — all replicas must share "
                     'the same concentration grid.'
                 )
-            if not np.allclose(conc, reference_conc, rtol=1e-12):
+            if not np.allclose(conc, reference_conc, rtol=1e-12, atol=0.0):
                 raise ValueError(
                     f"Replica '{label}' has a different concentration grid than replica '{replica_labels[0]}'"
                 )

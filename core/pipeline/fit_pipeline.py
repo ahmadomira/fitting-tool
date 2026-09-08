@@ -367,7 +367,7 @@ def _config_to_dict(config: FitConfig) -> Dict[str, Any]:
     if config.custom_bounds is not None:
         custom_bounds = {}
         for key, (lo, hi) in config.custom_bounds.items():
-            custom_bounds[key] = [float(lo.magnitude), float(hi.magnitude), str(lo.units)]
+            custom_bounds[key] = [float(lo.magnitude), float(hi.to(lo.units).magnitude), str(lo.units)]
     return {
         'n_trials': config.n_trials,
         'rmse_threshold_factor': config.rmse_threshold_factor,
@@ -986,6 +986,13 @@ def fit_measurement_set_per_replica(
         if not rr.success:
             failures[rid] = 'No trials passed the quality filter.'
             continue
+
+        if rr.parameter_samples is None and rr.model_name == 'linear':
+            # A calibration has one least-squares solution per replica.
+            # Those independent measured lines form its replica pool.
+            rr.parameter_samples = {k: np.array([float(value.magnitude)]) for k, value in rr.parameters.items()}
+            rr.quality_samples = {'rmse': np.array([rr.rmse]), 'r_squared': np.array([rr.r_squared])}
+            rr.representative_index = 0
 
         if rr.parameter_samples is None:
             failures[rid] = 'Per-replica fit returned no parameter_samples pool to aggregate.'

@@ -105,7 +105,8 @@ def multistart_minimize(
         Indices of parameters to sample in log space for random initialization.
     compute_metrics : Callable, optional
         Function that takes raw params and returns (rmse, r_squared).
-        If None, RMSE is computed from cost, R² is set to NaN.
+        If None, RMSE and R² are NaN: a scalar cost does not provide the
+        observation count needed to convert a sum of squares into RMSE.
     scaler : ParamScaler, optional
         If provided, optimizer runs in the scaler's internal (tilded) space;
         callers still pass and receive raw parameters.
@@ -139,7 +140,7 @@ def multistart_minimize(
             if compute_metrics is not None:
                 rmse, r_squared = compute_metrics(params_raw)
             else:
-                rmse = np.sqrt(cost_raw)
+                rmse = np.nan
                 r_squared = np.nan
 
             results.append(

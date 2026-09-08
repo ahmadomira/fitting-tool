@@ -19,8 +19,9 @@ each concentration component contributes ``(c_max / mag_in_M) **
 
 This is an *exact* affine reparameterization. The minimizer of the
 rescaled loss equals the minimizer of the raw loss under the
-bijection above. Its purpose is purely numerical: it puts the Hessian
-on a uniform scale so L-BFGS-B converges from more starting points.
+bijection above. Its purpose is numerical: it reduces differences due to
+parameter units. It cannot remove structural degeneracy or guarantee
+well-conditioned curvature or optimizer convergence.
 """
 
 from __future__ import annotations

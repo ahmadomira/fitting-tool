@@ -9,9 +9,10 @@ Titrant: Guest (g0 varies)
 Fixed:   Host (h0)
 Target:  Ka_HG, Ka_H2G (stepwise association constants)
 
-This is the 2:1 mirror of :class:`~core.assays.hg2.HG2Assay` and shares its
-mass-balance solver.  Like the 1:2 case, the two stepwise constants are not
-generally identifiable independently; the fit reports their spread honestly.
+This uses the same mass-balance solver as :class:`~core.assays.hg2.HG2Assay`,
+with host and guest roles exchanged inside the solver. Its guest-titration
+curve differs. The two constants can be weakly constrained by the available
+concentration range and species responses; a good fit does not prove uniqueness.
 """
 
 from dataclasses import dataclass, field
@@ -55,6 +56,9 @@ class H2GAssay(BaseAssay):
 
         # Normalize to base units so .magnitude is always M
         object.__setattr__(self, 'h0', self.h0.to('M'))
+
+        if np.ndim(self.h0.magnitude) != 0 or not np.isfinite(self.h0.magnitude):
+            raise ValueError('h0 must be a finite scalar')
 
         if self.h0.magnitude <= 0:
             raise ValueError('h0 must be positive')

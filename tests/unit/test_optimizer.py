@@ -148,18 +148,6 @@ class TestMultistartMinimize:
         )
         assert results == []
 
-    def test_without_compute_metrics_uses_cost_fallback(self):
-        """Without compute_metrics, rmse = sqrt(cost) and r_squared = NaN."""
-        results = multistart_minimize(
-            objective=lambda x: (x[0] - 3.0) ** 2,
-            bounds=[(0.0, 10.0)],
-            n_trials=3,
-            compute_metrics=None,
-        )
-        for r in results:
-            assert r.rmse == pytest.approx(np.sqrt(r.cost), rel=1e-6)
-            assert np.isnan(r.r_squared)
-
 
 # ---------------------------------------------------------------------------
 # filter_by_rmse
